@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="CarambolaSoft.Admin/CarambolaSoft.Admin.csproj" />
+  <Project Path="CarambolaSoft.Application/CarambolaSoft.Application.csproj" />
+  <Project Path="CarambolaSoft.Domain/CarambolaSoft.Domain.csproj" />
+  <Project Path="CarambolaSoft.Infrastructure/CarambolaSoft.Infrastructure.csproj" />
+  <Project Path="CarambolaSoft.Mesa/CarambolaSoft.Mesa.csproj" />
+  <Project Path="CarambolaSoft.Shared/CarambolaSoft.Shared.csproj" />
+  <Project Path="CarambolaSoft/CarambolaSoft.API.csproj" />
+</Solution>
