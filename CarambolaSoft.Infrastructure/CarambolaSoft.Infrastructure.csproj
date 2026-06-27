@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CarambolaSoft.Domain\CarambolaSoft.Domain.csproj" />
+    <ProjectReference Include="..\CarambolaSoft.Application\CarambolaSoft.Application.csproj" />
     <ProjectReference Include="..\CarambolaSoft.Shared\CarambolaSoft.Shared.csproj" />
   </ItemGroup>
 

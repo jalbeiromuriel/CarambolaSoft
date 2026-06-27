@@ -1,31 +1,31 @@
-// 1. Agrega el namespace de tu proyecto de infraestructura arriba del todo
 using Microsoft.EntityFrameworkCore;
 using CarambolaSoft.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Registrar el DbContext leyendo la conexión desde el archivo de configuración
+// ── DbContext ────────────────────────────────────────────────
 builder.Services.AddDbContext<CarambolaSoftDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add services to the container.
-
+// ── Controllers + OpenAPI ────────────────────────────────────
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// ── Infrastructure — Repositorios ───────────────────────────
+builder.Services.AddScoped<CarambolaSoft.Application.Interfaces.IMesaRepository, CarambolaSoft.Infrastructure.Repositories.MesaRepository>();
+
+// ── Application — Use Cases (Mesas) ─────────────────────────
+builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.ObtenerMesasUseCase>();
+builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.ObtenerMesaPorIdUseCase>();
+builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.CambiarEstadoMesaUseCase>();
+
+// ── Pipeline ─────────────────────────────────────────────────
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
-{
     app.MapOpenApi();
-}
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
