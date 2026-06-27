@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace CarambolaSoft.Infrastructure.Persistence.Entities;
+namespace CarambolaSoft.API.Persistence.Entities;
 
 public partial class MesasBillar
 {
@@ -18,6 +18,4 @@ public partial class MesasBillar
     public DateTime UltimaModificacion { get; set; }
 
     public decimal TarifaPorHora { get; set; }
-
-    public virtual ICollection<SesionesMesa> SesionesMesas { get; set; } = new List<SesionesMesa>();
 }

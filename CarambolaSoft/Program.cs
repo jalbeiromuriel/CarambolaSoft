@@ -1,5 +1,12 @@
-using Microsoft.EntityFrameworkCore;
+using CarambolaSoft.Application.Interfaces;
+using CarambolaSoft.Application.UseCases.Sesiones.Commands.AbrirSesion;
+using CarambolaSoft.Application.UseCases.Sesiones.Queries;
 using CarambolaSoft.Infrastructure.Persistence;
+using CarambolaSoft.Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,11 +26,19 @@ builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.ObtenerMesas
 builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.ObtenerMesaPorIdUseCase>();
 builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.CambiarEstadoMesaUseCase>();
 
+
+builder.Services.AddScoped<ISesionRepository, SesionRepository>();
+builder.Services.AddScoped<AbrirSesionHandler>();
+
+builder.Services.AddScoped<ObtenerSesionActivaHandler>();
 // ── Pipeline ─────────────────────────────────────────────────
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
+{
     app.MapOpenApi();
+    app.MapScalarApiReference();
+}
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
