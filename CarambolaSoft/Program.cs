@@ -1,6 +1,6 @@
 using CarambolaSoft.Application.Interfaces;
 using CarambolaSoft.Application.UseCases.Sesiones.Commands.AbrirSesion;
-using CarambolaSoft.Application.UseCases.Sesiones.Queries;
+//using CarambolaSoft.Application.UseCases.Sesiones.Queries;
 using CarambolaSoft.Infrastructure.Persistence;
 using CarambolaSoft.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -28,9 +28,9 @@ builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.CambiarEstad
 
 
 //builder.Services.AddScoped<ISesionRepository, SesionRepository>();
-builder.Services.AddScoped<AbrirSesionHandler>();
+//builder.Services.AddScoped<AbrirSesionHandler>();
 
-builder.Services.AddScoped<ObtenerSesionActivaHandler>();
+//builder.Services.AddScoped<ObtenerSesionActivaHandler>();
 // ── Pipeline ─────────────────────────────────────────────────
 var app = builder.Build();
 
