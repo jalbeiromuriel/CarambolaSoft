@@ -3,19 +3,17 @@ using System.Collections.Generic;
 
 namespace CarambolaSoft.Infrastructure.Persistence.Entities;
 
-public partial class Categoria
+public partial class Maquina
 {
     public Guid Id { get; set; }
 
     public string Nombre { get; set; } = null!;
 
-    public string? Icono { get; set; }
-
-    public string? ColorHex { get; set; }
+    public bool Activa { get; set; }
 
     public bool EsSincronizado { get; set; }
 
     public DateTime UltimaModificacion { get; set; }
 
-    public virtual ICollection<Producto> Productos { get; set; } = new List<Producto>();
+    public virtual ICollection<MaquinasMovimiento> MaquinasMovimientos { get; set; } = new List<MaquinasMovimiento>();
 }

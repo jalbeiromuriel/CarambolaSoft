@@ -7,6 +7,8 @@ public partial class Jugadore
 {
     public Guid Id { get; set; }
 
+    public Guid? ClienteId { get; set; }
+
     public string Username { get; set; } = null!;
 
     public string PasswordHash { get; set; } = null!;
@@ -20,6 +22,8 @@ public partial class Jugadore
     public bool EsSincronizado { get; set; }
 
     public DateTime UltimaModificacion { get; set; }
+
+    public virtual Cliente? Cliente { get; set; }
 
     public virtual ICollection<Participante> Participantes { get; set; } = new List<Participante>();
 

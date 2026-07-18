@@ -17,6 +17,10 @@ public partial class Participante
 
     public bool EsGanador { get; set; }
 
+    public bool EsSincronizado { get; set; }
+
+    public DateTime UltimaModificacion { get; set; }
+
     public virtual Jugadore Jugador { get; set; } = null!;
 
     public virtual ICollection<ParticipanteMarcasTiempo> ParticipanteMarcasTiempos { get; set; } = new List<ParticipanteMarcasTiempo>();

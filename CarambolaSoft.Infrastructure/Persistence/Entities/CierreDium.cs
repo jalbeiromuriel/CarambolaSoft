@@ -21,6 +21,12 @@ public partial class CierreDium
 
     public decimal TotalFiado { get; set; }
 
+    public decimal TotalGastos { get; set; }
+
+    public decimal TotalPremiosMaq { get; set; }
+
+    public decimal TotalCobrosFiado { get; set; }
+
     public decimal? EfectivoReportado { get; set; }
 
     public decimal? Descuadre { get; set; }

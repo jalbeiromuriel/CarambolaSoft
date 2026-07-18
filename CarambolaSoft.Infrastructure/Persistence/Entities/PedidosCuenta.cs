@@ -7,7 +7,7 @@ public partial class PedidosCuenta
 {
     public Guid Id { get; set; }
 
-    public Guid SesionMesaId { get; set; }
+    public Guid CuentaId { get; set; }
 
     public Guid ProductoId { get; set; }
 
@@ -21,7 +21,11 @@ public partial class PedidosCuenta
 
     public string EstadoPedido { get; set; } = null!;
 
-    public virtual Producto Producto { get; set; } = null!;
+    public bool EsSincronizado { get; set; }
 
-    public virtual SesionesMesa SesionMesa { get; set; } = null!;
+    public DateTime UltimaModificacion { get; set; }
+
+    public virtual Cuenta Cuenta { get; set; } = null!;
+
+    public virtual Producto Producto { get; set; } = null!;
 }

@@ -5,11 +5,15 @@ namespace CarambolaSoft.Infrastructure.Persistence.Entities;
 
 public partial class VwCierreNocturno
 {
-    public int MesaNumero { get; set; }
+    public string TipoCuenta { get; set; } = null!;
 
-    public DateTime HoraInicio { get; set; }
+    public int? MesaNumero { get; set; }
 
-    public DateTime? HoraFin { get; set; }
+    public string? Titular { get; set; }
+
+    public DateTime HoraApertura { get; set; }
+
+    public DateTime? HoraCierre { get; set; }
 
     public decimal SubtotalTiempo { get; set; }
 

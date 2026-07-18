@@ -17,7 +17,7 @@ public partial class MesasBillar
 
     public DateTime UltimaModificacion { get; set; }
 
-    public decimal TarifaPorHora { get; set; }
+    public virtual ICollection<Cuenta> Cuenta { get; set; } = new List<Cuenta>();
 
     public virtual ICollection<SesionesMesa> SesionesMesas { get; set; } = new List<SesionesMesa>();
 }

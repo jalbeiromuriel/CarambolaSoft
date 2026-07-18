@@ -19,6 +19,8 @@ public partial class Producto
 
     public int StockMinimo { get; set; }
 
+    public bool Activo { get; set; }
+
     public bool EsSincronizado { get; set; }
 
     public DateTime UltimaModificacion { get; set; }
@@ -26,4 +28,6 @@ public partial class Producto
     public virtual Categoria Categoria { get; set; } = null!;
 
     public virtual ICollection<PedidosCuenta> PedidosCuenta { get; set; } = new List<PedidosCuenta>();
+
+    public virtual ICollection<Promocione> Promociones { get; set; } = new List<Promocione>();
 }

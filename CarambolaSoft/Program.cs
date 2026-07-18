@@ -27,7 +27,7 @@ builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.ObtenerMesaP
 builder.Services.AddScoped<CarambolaSoft.Application.UseCases.Mesas.CambiarEstadoMesaUseCase>();
 
 
-builder.Services.AddScoped<ISesionRepository, SesionRepository>();
+//builder.Services.AddScoped<ISesionRepository, SesionRepository>();
 builder.Services.AddScoped<AbrirSesionHandler>();
 
 builder.Services.AddScoped<ObtenerSesionActivaHandler>();
