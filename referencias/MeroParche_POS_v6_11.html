@@ -326,6 +326,7 @@ label.lbl{display:block;font-size:9px;letter-spacing:2px;color:#aaa;text-transfo
 
   <div class="scr act" id="scr-panel" style="position:relative">
     <div id="salert"><button id="salert-btn" onclick="toggleSalert()"><span id="salert-txt"></span><span id="salert-arr">▼</span></button><div id="salert-list"><div id="salert-actions"></div></div></div>
+    <div id="save-ind" style="position:fixed;bottom:6px;left:10px;font-size:9px;color:#4a7a5a;z-index:50">💾 guardado</div>
     <div class="tipob-grid">
       <button class="tipob tb-gold" onclick="openCuentaTipo('Licores')"><b>+ LICORES</b><span>abrir cuenta</span></button>
       <button class="tipob tb-green" onclick="openCuentaTipo('Billar')"><b>+ BILLAR</b><span>mesa con taxímetro</span></button>
@@ -463,6 +464,7 @@ label.lbl{display:block;font-size:9px;letter-spacing:2px;color:#aaa;text-transfo
         <button class="btn-g" style="flex:1;padding:12px;letter-spacing:1px" onclick="cerrarCaja()">Cerrar caja del día</button>
         <button class="btn-o" style="padding:12px 16px;color:var(--gold2);border-color:var(--gold2)44" onclick="generarPDF(null)" title="Generar PDF del día">📄</button>
         <button class="btn-o" style="padding:12px 16px;color:#888;border-color:var(--bg4)" onclick="backupAutomatico();toast('💾 Copia de seguridad descargada')" title="Descargar copia de seguridad completa (inventario, ventas, fiados, gastos)">💾</button>
+        <button class="btn-o" style="padding:12px 16px;color:var(--green);border-color:var(--green)44" onclick="informeDia(null)" title="Informe del día: vendidos, ganancia por producto y sugerido de pedido">📊</button>
       </div>
       </div>
       <div>
@@ -629,7 +631,36 @@ let S={
 // ═══════════════════════════════════════════
 // PERSISTENCIA
 // ═══════════════════════════════════════════
-function save(){try{localStorage.setItem('parcheV4',JSON.stringify(S));}catch(e){}}
+let _lastSaveOk=null;
+function save(){
+  try{
+    localStorage.setItem('parcheV4',JSON.stringify(S));
+    _lastSaveOk=Date.now();
+    const el=document.getElementById('save-ind');
+    if(el){el.textContent='💾 guardado';el.style.color='#4a7a5a';}
+  }catch(e){
+    const el=document.getElementById('save-ind');
+    if(el){el.textContent='🚨 ERROR AL GUARDAR';el.style.color='#ff5555';}
+    alert('🚨 ERROR CRÍTICO: el sistema NO pudo guardar los datos.\n\nCausa: '+(e.message||e)+'\n\nNO cierres el navegador. Descarga backup en Caja → 💾 y avisa al administrador.');
+  }
+}
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+const _tabId=Math.random().toString(36).slice(2);
+function _tomarLock(){try{localStorage.setItem('parcheLock',JSON.stringify({id:_tabId,ts:Date.now()}));}catch(e){}}
+(function(){
+  try{
+    const lk=JSON.parse(localStorage.getItem('parcheLock')||'null');
+    if(lk&&lk.id!==_tabId&&(Date.now()-lk.ts)<9000){
+      document.addEventListener('DOMContentLoaded',()=>{
+        document.body.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0d0d0d;color:#e0c060;font-family:sans-serif;text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:14px">⚠️</div><h2 style="margin:0 0 10px">El POS ya está abierto en otra pestaña o ventana</h2><p style="color:#999;max-width:420px;line-height:1.6">Trabajar en dos pestañas a la vez pierde datos (una pisa a la otra). Cierra esta y usa la que ya estaba abierta.<br><br>Si la otra ya no existe, espera 10 segundos y presiona Reintentar.</p><button onclick="location.reload()" style="margin-top:16px;padding:12px 26px;border-radius:8px;border:1px solid #c9a84c;background:transparent;color:#c9a84c;font-size:14px;cursor:pointer">Reintentar</button></div>';
+      });
+      return;
+    }
+    _tomarLock();
+    setInterval(_tomarLock,4000);
+    window.addEventListener('beforeunload',()=>{try{const l=JSON.parse(localStorage.getItem('parcheLock')||'null');if(l&&l.id===_tabId)localStorage.removeItem('parcheLock');}catch(e){}});
+  }catch(e){}
+})();
 function load(){
   try{
     const raw=localStorage.getItem('parcheV4');
@@ -1123,6 +1154,49 @@ function confirmGasto(){
     hora:new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})});
   save();cm();toast(`− Gasto registrado: ${con} ${fmt(mon)} ✓`);
 }
+// 📊 v6.11 — INFORME DEL DÍA: vendidos, ganancia por producto, sugerido de pedido
+function informeDia(cierreId){
+  const h=cierreId?S.historial.find(x=>x.id===cierreId):null;
+  const ventas=(h?(h.ventas||[]):S.ventas).filter(v=>!v.esPagoFiado&&!v.anulado);
+  const titulo=h?`Cierre ${h.fecha} ${h.hora}`:'Turno actual (sin cerrar)';
+  const agg={};
+  ventas.forEach(v=>(v.items||[]).forEach(it=>{
+    const k=it.n||'?';
+    if(!agg[k])agg[k]={n:k,q:0,ing:0,cos:0,esT:!!it.min};
+    const prod=S.productos.find(p=>p.n===it.n);
+    const costo=it.min?0:((it.c!=null?it.c:(prod?prod.c:0))||0);
+    const precio=(it.pr!=null?it.pr:(it.p||0));
+    agg[k].q+=it.q;agg[k].ing+=it.q*precio;agg[k].cos+=it.q*costo;
+  }));
+  const filas=Object.values(agg).sort((a,b)=>(b.ing-b.cos)-(a.ing-a.cos));
+  const totIng=filas.reduce((t,x)=>t+x.ing,0);
+  const totGan=filas.reduce((t,x)=>t+(x.ing-x.cos),0);
+  const vendidosMap={};filas.forEach(f=>vendidosMap[f.n]=f.q);
+  const sugerido=S.productos.filter(p=>!p.oculto&&(p.s===0||p.s<=p.sm))
+    .sort((a,b)=>(vendidosMap[b.n]||b.v||0)-(vendidosMap[a.n]||a.v||0));
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Informe del día · Mero Parche</title>
+  <style>body{font-family:'Courier New',monospace;max-width:680px;margin:24px auto;color:#111}
+  h1{font-size:16px;letter-spacing:2px}h2{font-size:12px;border-bottom:1px solid #999;padding-bottom:4px;margin-top:22px}
+  table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:4px 6px;border-bottom:1px solid #ddd;text-align:left}
+  .r{text-align:right}.pos{color:#070}.neg{color:#b00}.tot{font-weight:bold;border-top:2px solid #333}
+  .warn{background:#fff3cd}</style></head><body>
+  <h1>MERO PARCHE — INFORME DEL DÍA</h1>
+  <div style="font-size:11px">Período: ${titulo} · Generado: ${new Date().toLocaleString('es-CO')}</div>
+  <h2>Productos vendidos y ganancia</h2>
+  <table><tr><th>Producto</th><th class="r">Cant.</th><th class="r">Ingresos</th><th class="r">Costo</th><th class="r">Ganancia</th></tr>
+  ${filas.map(f=>`<tr><td>${f.n}${f.esT?' ⏱':''}</td><td class="r">${f.q}${f.esT?' min':''}</td><td class="r">${fmt(f.ing)}</td><td class="r">${fmt(f.cos)}</td><td class="r ${f.ing-f.cos>=0?'pos':'neg'}">${fmt(f.ing-f.cos)}</td></tr>`).join('')}
+  <tr class="tot"><td>TOTAL</td><td class="r"></td><td class="r">${fmt(totIng)}</td><td class="r">${fmt(totIng-totGan)}</td><td class="r pos">${fmt(totGan)}</td></tr>
+  </table>
+  <h2>Sugerido de pedido (agotados o bajo mínimo, por más vendidos)</h2>
+  ${sugerido.length===0?'<p style="font-size:11px">✓ Todo el inventario está por encima del mínimo.</p>':`
+  <table><tr><th>Producto</th><th class="r">Stock</th><th class="r">Mínimo</th><th class="r">Vendidos hoy</th></tr>
+  ${sugerido.map(p=>`<tr class="${p.s===0?'warn':''}"><td>${p.n}${p.s===0?' ⚠️ AGOTADO':''}</td><td class="r">${p.s}</td><td class="r">${p.sm}</td><td class="r">${vendidosMap[p.n]||0}</td></tr>`).join('')}
+  </table>`}
+  <script>window.print()</`+`script></body></html>`);
+  win.document.close();
+}
+
 function gastosPorMetodo(){const g={};S.gastos.forEach(x=>{g[x.metodo]=(g[x.metodo]||0)+x.monto;});return g;}
 
 // ═══════════════════════════════════════════
@@ -1703,7 +1777,7 @@ function addCart(pid){
   if(disp<=0&&!isInfinito(p)){toast(p.frac?'Sin stock ✗ (ni envases para abrir)':'Sin stock ✗');return;}
   const ex=c.items.find(i=>i.pid===pid);
   if(ex){ex.q++;ex.d=(ex.d||0)+1;}else c.items.push({pid,q:1,d:1});
-  if(!isInfinito(p))descargarStock(p,1); // 📦 v6.10: la nevera y el sistema en el mismo segundo
+  if(!isInfinito(p))descargarStock(p,1); // 📦 v6.11: la nevera y el sistema en el mismo segundo
   // Registrar en comanda
   if(!c.pedidos)c.pedidos=[];
   const now=new Date();
@@ -2057,7 +2131,7 @@ function confirmCobro(){
     if(pend>0){const p=S.productos.find(x=>x.id===it.pid);descargarStock(p,pend);}
   });
   if(c.cliId){const cl=S.clientes.find(x=>x.id===c.cliId);if(cl)cl.gasto=(cl.gasto||0)+tot;}
-  const itemsSnap=c.items.map(it=>{const p=S.productos.find(x=>x.id===it.pid);return{n:p?.n||'?',pr:p?unitPrecio(p):0,q:it.q,min:p?.tiempo||false};});
+  const itemsSnap=c.items.map(it=>{const p=S.productos.find(x=>x.id===it.pid);return{n:p?.n||'?',pr:p?unitPrecio(p):0,q:it.q,min:p?.tiempo||false,c:(p&&!p.tiempo)?(p.c||0):0};});
   const horaSnap=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   const fechaSnap=new Date().toISOString().slice(0,10);
 
@@ -2182,7 +2256,7 @@ function confirmCerrarMesa(){
     });
     if(c.cliId){const cl=S.clientes.find(x=>x.id===c.cliId);if(cl)cl.gasto=(cl.gasto||0)+ctotal(c.items);}
     S.ventas.push({id:uid(),mesa:`Mesa ${m.id}`,cuenta:c.nombre,cliId:c.cliId||null,
-      items:c.items.map(it=>{const p=S.productos.find(x=>x.id===it.pid);return{n:p?.n||'?',pr:p?unitPrecio(p):0,q:it.q,min:p?.tiempo||false};}),
+      items:c.items.map(it=>{const p=S.productos.find(x=>x.id===it.pid);return{n:p?.n||'?',pr:p?unitPrecio(p):0,q:it.q,min:p?.tiempo||false,c:(p&&!p.tiempo)?(p.c||0):0};}),
       total:ctotal(c.items),metodo:met,
       hora:new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
       fecha:new Date().toISOString().slice(0,10)
@@ -2302,6 +2376,7 @@ function openReab(){
       <select id="rb-p" onchange="rbInfo()"><option value="">Seleccionar...</option>${opts}</select>
     </div>
     <div class="mfg"><label class="lbl">Unidades a agregar</label><input type="number" id="rb-q" placeholder="0" min="1"></div>
+    <div class="mfg"><label class="lbl">Costo unitario de ESTA compra (vacío = mantener el actual)</label><input type="number" id="rb-c" placeholder="Ej: 3200" min="0"></div>
     <div id="rb-info" style="background:var(--bg3);border-radius:8px;padding:10px;font-size:11px;color:#888;display:none"></div>
   `,[{l:'Cancelar',o:true,fn:'cm()'},{l:'✓ Agregar al stock',fn:'confirmReab()'}]);
 }
@@ -2319,6 +2394,12 @@ function confirmReab(){
   if(!pid){toast('Selecciona un producto');return;}
   if(q<=0){toast('Ingresa una cantidad');return;}
   const p=S.productos.find(x=>x.id===pid);
+  // v6.11: Costo Promedio Ponderado — ganancia real con costos variables
+  const nc=parseFloat(document.getElementById('rb-c')?.value);
+  if(!isNaN(nc)&&nc>0&&(p.s+q)>0){
+    p.c=Math.round(((p.s*p.c)+(q*nc))/(p.s+q));
+    toast(`📦 +${q} de "${p.n}" · nuevo costo promedio: ${fmt(p.c)}`);
+  }
   p.s+=q;cm();save();renderInv();checkAlerts();
   toast(`${p.n}: +${q} u (total: ${p.s}) ✓`);
 }
@@ -3931,7 +4012,7 @@ function cargarDatosPrueba(){
         mesa:`Mesa ${m}`,
         cuenta:cli.ap||cli.n,
         cliId:cli.id,
-        items:items.map(i=>{const p=prods.find(x=>x.id===i.pid);return{n:p?.n||'?',pr:p?.p||0,q:i.q};}),
+        items:items.map(i=>{const p=prods.find(x=>x.id===i.pid);return{n:p?.n||'?',pr:p?.p||0,q:i.q,c:p?.c||0};}),
         total,metodo,
         hora:('0'+(8+m)).slice(-2)+':'+('0'+(Math.floor(Math.random()*59))).slice(-2),
         fecha:hoy,
@@ -3952,7 +4033,7 @@ function cargarDatosPrueba(){
     const metodo = METODOS[Math.floor(Math.random()*METODOS.length)];
     ventasAyer.push({
       id:uid(),mesa:`Mesa ${m}`,cuenta:cli.ap,cliId:cli.id,
-      items:items.map(i=>{const p=prods.find(x=>x.id===i.pid);return{n:p?.n||'?',pr:p?.p||0,q:i.q};}),
+      items:items.map(i=>{const p=prods.find(x=>x.id===i.pid);return{n:p?.n||'?',pr:p?.p||0,q:i.q,c:p?.c||0};}),
       total,metodo,hora:('0'+(18+Math.floor(Math.random()*5))).slice(-2)+':'+('0'+(Math.floor(Math.random()*59))).slice(-2),
       fecha:ayer,esPagoFiado:false
     });
