@@ -1,7 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using CarambolaSoft.Infrastructure.Persistence.Entities;
+﻿//using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using CarambolaSoft.Infrastructure.Persistence.Entities;
+using CarambolaSoft.Infrastructure.Persistence; // ⚠ verificar: namespace del DbContext
 
 namespace CarambolaSoft.Infrastructure.Persistence;
 
