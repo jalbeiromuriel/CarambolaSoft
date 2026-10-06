@@ -1,0 +1,306 @@
+---
+title: El Parche de Jony — ERD v6.2 · CarambolaSoft (19 tablas reales del scaffold EF @16e93ea + delta v6.2 propuesto)
+---
+%% Fuente: CarambolaSoftDbContext.cs (scaffold) verificado 2026-10-04.
+%% Lo marcado "NUEVO v6.2" es PROPUESTA (no ejecutada). Vistas reales: VW_CIERRE_NOCTURNO,
+%% VW_COLA_SINCRONIZACION, VW_FIADOS_PENDIENTES, VW_MAQUINAS_PENDIENTES, VW_RIVALIDADES_JUGADOR.
+%% Triggers conocidos: TR_PEDIDOS_GestionarStock, TR_CIERRE_DIA_NoEditarConfirmado,
+%% TR_ABONOS_ActualizarFactura, TR_PARTICIPANTES_ActualizarRivalidades.
+erDiagram
+  TURNOS_CAJA ||--o{ CUENTAS : abre
+  TURNOS_CAJA ||--o{ FACTURAS : cobra
+  TURNOS_CAJA ||--o{ ABONOS_FIADO : recauda
+  TURNOS_CAJA ||--o| CIERRE_DIA : cierra
+  TURNOS_CAJA ||--o{ GASTOS_CAJA : registra
+  TURNOS_CAJA ||--o{ MAQUINAS_MOVIMIENTOS : registra
+  TURNOS_CAJA ||--o{ COMPRAS_INVENTARIO : registra
+  CLIENTES ||--o{ CUENTAS : tiene
+  CLIENTES ||--o{ JUGADORES : es
+  MESAS_BILLAR ||--o{ CUENTAS : ocupa
+  MESAS_BILLAR ||--o{ SESIONES_MESAS : aloja
+  CUENTAS ||--o{ SESIONES_MESAS : juega
+  CUENTAS ||--o{ PEDIDOS_CUENTAS : consume
+  CUENTAS ||--o| FACTURAS : genera
+  GARITAS_RELOJ ||--o{ CUENTAS : cada_cobro_crea
+  SESIONES_MESAS ||--|{ PARTICIPANTES : compone
+  JUGADORES ||--o{ PARTICIPANTES : juega_como
+  JUGADORES ||--o{ RIVALIDADES : jugador_A
+  JUGADORES ||--o{ RIVALIDADES : jugador_B
+  PARTICIPANTES ||--o{ PARTICIPANTE_MARCAS_TIEMPO : registra
+  CATEGORIAS ||--o{ PRODUCTOS : agrupa
+  PRODUCTOS ||--o{ PEDIDOS_CUENTAS : referencia
+  PRODUCTOS ||--o{ PROMOCIONES : tiene
+  PRODUCTOS ||--o{ COMPRAS_INVENTARIO : se_repone
+  PRODUCTOS ||--o{ GRUPOS_COMPARTIDOS : se_comparte_en
+  GRUPOS_COMPARTIDOS ||--o{ PEDIDOS_CUENTAS : reparte_en
+  FACTURAS ||--o{ ABONOS_FIADO : recibe
+  MAQUINAS ||--o{ MAQUINAS_MOVIMIENTOS : mueve
+
+  TURNOS_CAJA {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER UsuarioId "sin tabla USUARIOS ni FK"
+    DATETIME FechaApertura
+    DATETIME FechaCierre "NULL = turno abierto"
+    DECIMAL BaseEfectivo
+    DECIMAL EfectivoRealEntregado
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  CIERRE_DIA {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER TurnoCajaId FK "UNIQUE: un cierre por turno"
+    DATE Fecha
+    DECIMAL TotalTiempo
+    DECIMAL TotalLicor
+    DECIMAL TotalOtros "no hay TotalSnacks"
+    DECIMAL TotalGeneral
+    DECIMAL TotalFiado
+    DECIMAL TotalGastos
+    DECIMAL TotalPremiosMaq
+    DECIMAL TotalCobrosFiado
+    DECIMAL EfectivoReportado
+    DECIMAL Descuadre
+    BIT Confirmado "inmutable tras 1 (decision 6)"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  CLIENTES {
+    UNIQUEIDENTIFIER Id PK
+    NVARCHAR Nombre
+    NVARCHAR Apodo
+    BIT Activo
+    INT Visitas
+    DECIMAL GastoAcumulado
+    DATETIME FechaRegistro
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  MESAS_BILLAR {
+    UNIQUEIDENTIFIER Id PK
+    INT Numero UK
+    NVARCHAR Tipo "POOL CARAMBOLA SNOOKER"
+    NVARCHAR Estado "DISPONIBLE OCUPADA MANTENIMIENTO"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  CUENTAS {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER TurnoCajaId FK
+    NVARCHAR TipoCuenta "LICORES BILLAR CARTAS DOMINO VENTA_RAPIDA + GARITA (NUEVO)"
+    UNIQUEIDENTIFIER MesaId FK "NULL"
+    UNIQUEIDENTIFIER ClienteId FK "NULL"
+    NVARCHAR NombreLibre "anti-fantasma: cliente o nombre"
+    DATETIME HoraApertura
+    DATETIME HoraCierre
+    DECIMAL TarifaPorHora "taximetro"
+    NVARCHAR Estado "ABIERTA LIQUIDADA CANCELADA"
+    UNIQUEIDENTIFIER GaritaRelojId FK "NUEVO v6.2 · NULL"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  SESIONES_MESAS {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER CuentaId FK
+    UNIQUEIDENTIFIER MesaId FK
+    DATETIME HoraInicio
+    DATETIME HoraFin
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  JUGADORES {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER ClienteId FK "NULL"
+    NVARCHAR Username UK
+    NVARCHAR PasswordHash
+    NVARCHAR AvatarUrl
+    INT RecordCarambolas
+    DATETIME FechaRegistro
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  PARTICIPANTES {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER SesionMesaId FK "UK con JugadorId"
+    UNIQUEIDENTIFIER JugadorId FK
+    INT Puntaje
+    INT Posicion
+    BIT EsGanador
+    TINYINT Equipo "NUEVO v6.2 · 1 o 2 · dobles"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  PARTICIPANTE_MARCAS_TIEMPO {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER ParticipanteId FK
+    DATETIME MarcaTiempo "decision 7"
+    INT CarambolasEnMarca
+  }
+  RIVALIDADES {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER JugadorAid FK
+    UNIQUEIDENTIFIER JugadorBid FK
+    INT PartidasJugadas
+    INT VictoriasA
+    INT VictoriasB
+    DATETIME UltimaPartida
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  CATEGORIAS {
+    UNIQUEIDENTIFIER Id PK
+    NVARCHAR Nombre UK
+    NVARCHAR Icono
+    NVARCHAR ColorHex
+    NVARCHAR CategoriaConsumo "NUEVO v6.2 · mapea al enum fijo"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  PRODUCTOS {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER CategoriaId FK
+    NVARCHAR Nombre
+    DECIMAL PrecioVenta
+    DECIMAL CostoCompra "promedio ponderado"
+    DECIMAL CostoUltimaCompra "NUEVO v6.2"
+    INT StockActual
+    INT StockMinimo
+    BIT Activo
+    NVARCHAR Codigo "NUEVO v6.2 · P001 · UK filtrado"
+    BIT ControlaStock "NUEVO v6.2 · 0 = stock infinito"
+    BIT Favorito "NUEVO v6.2"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  PROMOCIONES {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER ProductoId FK
+    DECIMAL PrecioPromo
+    TIME HoraInicio
+    TIME HoraFin
+    TINYINT DiasSemana "bitmask, 127 = todos"
+    BIT Activa
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  PEDIDOS_CUENTAS {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER CuentaId FK
+    UNIQUEIDENTIFIER ProductoId FK
+    UNIQUEIDENTIFIER GrupoCompartidoId FK "NUEVO v6.2 · NULL"
+    INT Cantidad
+    DECIMAL PrecioUnitarioHist
+    DECIMAL CostoCompraHist "decision 5"
+    DECIMAL ValorParte "NUEVO v6.2 · NULL"
+    DECIMAL CostoParteHist "NUEVO v6.2 · NULL"
+    NVARCHAR CategoriaConsumo
+    NVARCHAR EstadoPedido "PENDIENTE ENTREGADO CANCELADO"
+    DATETIME2 FechaHora "v6.1"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  FACTURAS {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER CuentaId FK "UNIQUE: 1 factura por cuenta"
+    UNIQUEIDENTIFIER TurnoCajaId FK "decision 4"
+    INT Consecutivo UK "NUEVO v6.2 · filtrado"
+    NVARCHAR NumeroFactura "NUEVO v6.2 · calculada F-####"
+    DECIMAL SubtotalTiempo
+    DECIMAL SubtotalLicor
+    DECIMAL SubtotalSnacks
+    DECIMAL SubtotalOtros "incluye bebidas no alcoholicas"
+    DECIMAL TotalPagar "total original"
+    DECIMAL TotalPendienteFiado "saldo"
+    NVARCHAR MetodoPago
+    NVARCHAR MetodoPagoSecundario "pago mixto"
+    DECIMAL MontoPrimario
+    DECIMAL MontoSecundario
+    NVARCHAR EstadoPago "PENDIENTE PAGADO FIADO ANULADO"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  ABONOS_FIADO {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER FacturaId FK
+    UNIQUEIDENTIFIER TurnoCajaId FK "turno que recaudo"
+    DECIMAL Monto
+    NVARCHAR MetodoPago "default EFECTIVO"
+    DECIMAL DeudaAntes "NUEVO v6.2 · NULL"
+    DECIMAL DeudaDespues "NUEVO v6.2 · NULL"
+    DATETIME FechaHora
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  GASTOS_CAJA {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER TurnoCajaId FK
+    NVARCHAR Concepto
+    DECIMAL Monto
+    NVARCHAR Categoria
+    NVARCHAR MetodoPago "default EFECTIVO"
+    DATETIME FechaHora
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  MAQUINAS {
+    UNIQUEIDENTIFIER Id PK
+    NVARCHAR Nombre UK
+    BIT Activa
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  MAQUINAS_MOVIMIENTOS {
+    UNIQUEIDENTIFIER Id PK
+    UNIQUEIDENTIFIER MaquinaId FK
+    NVARCHAR Tipo "PREMIO CUADRE"
+    DECIMAL Monto
+    UNIQUEIDENTIFIER TurnoCajaId FK "NULL"
+    NVARCHAR Nota
+    DATETIME FechaHora
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  GRUPOS_COMPARTIDOS {
+    UNIQUEIDENTIFIER Id PK "NUEVA v6.2"
+    UNIQUEIDENTIFIER ProductoId FK
+    INT Cantidad
+    DECIMAL ValorTotal
+    INT PartesVivas
+    BIT Cobrada
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  GARITAS_RELOJ {
+    UNIQUEIDENTIFIER Id PK "NUEVA v6.2"
+    NVARCHAR Nombre
+    DECIMAL Valor
+    DATETIME2 InicioUtc "decision 12"
+    DATETIME2 ProximoCobroUtc
+    INT Cobros
+    BIT Activa
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  COMPRAS_INVENTARIO {
+    UNIQUEIDENTIFIER Id PK "NUEVA v6.1+v6.2 · absorbe HISTORIAL_COSTOS"
+    UNIQUEIDENTIFIER ProductoId FK
+    INT Cantidad "NULL si Origen=EDICION"
+    DECIMAL CostoUnitario
+    NVARCHAR Origen "COMPRA EDICION"
+    NVARCHAR Proveedor
+    UNIQUEIDENTIFIER TurnoCajaId FK "NULL"
+    DATETIME2 FechaHora
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }
+  CONFIGURACION_NEGOCIO {
+    UNIQUEIDENTIFIER Id PK "NUEVA v6.2 · una sola fila"
+    DECIMAL MargenObjetivo
+    DECIMAL PrecioGarita
+    NVARCHAR DatosPagoBanco "dato personal · acceso restringido"
+    NVARCHAR DatosPagoTipo
+    NVARCHAR DatosPagoNumero
+    NVARCHAR DatosPagoTitular
+    NVARCHAR DatosPagoQrUrl "ruta al archivo"
+    BIT EsSincronizado
+    DATETIME UltimaModificacion
+  }

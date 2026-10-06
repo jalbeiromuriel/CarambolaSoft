@@ -1,6 +1,7 @@
 # BACKLOG MAESTRO — CarambolaSoft (Mero Parche)
-### Fuente: POS temporal v6.11 en producción = especificación validada del negocio
-### Actualizado: 2026-07-21 · Avance estimado: ~45%
+### Fuente: POS temporal en producción (v6.28 al 2026-10-05; `referencias/` aún trae v6.11) = especificación validada del negocio
+### Actualizado: 2026-10-05 (línea base de BD y sección G) · Avance estimado: ~45% (sin recalcular)
+### Esquema real de la BD: `database/ElParcheDeJony_DB_v6.sql` · Modelo: `docs/modelo/` (ERD y UML v6.2)
 
 ---
 
@@ -23,7 +24,15 @@
 
 ---
 
-## B. BD v6.1 — delta de esquema pendiente
+## B. BD v6.1 / v6.2 — delta de esquema pendiente
+
+> **2026-10-05:** el delta v6.2 (que absorbe v6.1) está redactado en `database/propuestas/ElParcheDeJony_DB_v6_2_delta.sql`,
+> validado contra el esquema real. **NO se ha ejecutado.** Probar primero en la BD de laboratorio, con backup.
+> Trae: GARITAS_RELOJ, GRUPOS_COMPARTIDOS, COMPRAS_INVENTARIO (absorbe HISTORIAL_COSTOS), CONFIGURACION_NEGOCIO,
+> consecutivo de factura, deuda antes/después en abonos, campos de producto compartido, Codigo/ControlaStock/Favorito/CostoUltimaCompra en
+> PRODUCTOS, CategoriaConsumo en CATEGORIAS, Equipo en PARTICIPANTES, `GARITA` en CK_CUENTAS_Tipo e Icono → NVARCHAR.
+> Decisión: Bancolombia se registra como TRANSFERENCIA (los CHECK de método de pago no cambian).
+> Pendiente del delta: triggers (compartidos, ControlaStock, costo promedio) y vistas (VW_FIADOS_PENDIENTES por cliente, VW_MARGENES).
 
 - [ ] **COMPRAS_INVENTARIO**: ProductoId FK, Cantidad, CostoUnitario, FechaHora, Proveedor (opcional), TurnoCajaId (opcional), campos sync
 - [ ] **Trigger de costo promedio ponderado**: al insertar compra →
@@ -96,6 +105,33 @@
 
 - [ ] Consolidar duplicados en el POS antes de migrar (ej: "Aguardiente Rojo Trago" vs "aguardiente copa roja") — sin borrar historial
 - [ ] Script de migración: backup JSON POS → SQL Server (productos+costos promedio, clientes, fiados pendientes como FACTURAS estado FIADO)
-- [ ] Actualizar ERD/UML/maquetas al rebranding Mero Parche y al esquema v6/v6.1
-- [ ] Commit del ElParcheDeJony_DB_v6.sql (+ futuro v6.1) al repo y a referencias/ del monorepo
-- [x] POS v6.11 + logo.jpeg a referencias/ ✅ (pendiente commit)
+- [x] ERD y UML al esquema real v6 (+ delta v6.2 propuesto) ✅ 2026-10-05 → `docs/modelo/` — FALTA el rebranding Mero Parche en los diagramas y las maquetas
+- [x] Commit del ElParcheDeJony_DB_v6.sql al repo ✅ 2026-10-05 → `database/` (el futuro v6.2 entra cuando se ejecute)
+- [x] POS v6.11 + logo.jpeg a referencias/ ✅ — **actualizar a v6.28** (producción)
+- [ ] Mapear `Bancolombia` del POS → `TRANSFERENCIA` en la migración; fiados anteriores a v6.19 sin total original: reconstruir sumando productos y marcar la fila para revisión
+- [ ] [RIESGO] Re-sembrar iconos de CATEGORIAS **después** de cambiar la columna a NVARCHAR (re-sembrar antes con `N'...'` no sirve: la columna es VARCHAR)
+
+---
+
+## G. Requisitos nuevos del POS v6.17 → v6.28 (fuente: informe de cambios, 2026-10-02)
+
+Casos de uso que el sistema empresarial aún no tiene. IDs del informe (CU-xx) y decisiones propuestas D-A a D-H (reciben número oficial al aprobarlas; hoy van hasta la #12).
+Ninguno revierte las decisiones vigentes. El informe y las capturas viven en el Proyecto de Claude, no en el repo.
+
+- [ ] **CU-01 Factura consecutiva `F-####`** (D-A). Un pago mixto comparte número. [RIESGO] con tablets offline el servidor debe asignar el consecutivo al sincronizar (número provisional en el equipo)
+- [ ] **CU-02 Abono parcial de fiado**: pantalla "queda debiendo"; en la BD solo baja `TotalPendienteFiado` (`TotalPagar` no cambia, D-B). Orden de reparto entre varias facturas: **por confirmar** (recomendado: la más antigua primero). El cobro del abono suma al efectivo esperado del turno que lo recauda
+- [ ] **CU-03 Cartera de fiados por cliente** (D-C): una fila por cliente con sus facturas (`F-0001 · $10.000 (de $30.000)`); identidad normalizada por id, nombre o apodo → `VW_FIADOS_PENDIENTES` hoy es por factura
+- [ ] **CU-04 Recibo de fiado** por factura (total, abonado, saldo) con zona "¿Dónde pagar?"
+- [ ] **CU-05 Cierre de caja agrupado por cliente** (no registrados marcados; ventas rápidas y garita aparte). El cierre sigue inmutable tras confirmar
+- [ ] **CU-06 Buscar una venta por número de factura**
+- [ ] **CU-07 / CU-08 Producto compartido entre cuentas** (D-D, D-E): montos desiguales, suma = precio × cantidad, **stock se descuenta una sola vez** (hoy el trigger restaría por cada parte), restitución solo si ninguna parte se cobró. `Liquidar` debe sumar `ValorParte`
+- [ ] **CU-09 Garita por reloj** (D-G): reemplaza la cuenta CARTAS; cada cobro crea una cuenta `GARITA` + su factura; el reloj se calcula desde `InicioUtc` del servidor, nunca con contador local. [RIESGO] el análisis CARTAS vs LICORES pierde su fuente: decidir si se mide por los cobros de GARITAS_RELOJ
+- [ ] **CU-10** Botón "+ LICORES" → "+ MESA" (solo nombre visible; `TipoCuenta` sigue `LICORES`)
+- [ ] **CU-11 / CU-12 Reabastecer y editar costo con análisis de margen** (D-F): margen = (precio − costo) ÷ precio con el último costo de compra; alerta bajo el objetivo (hoy 40 %); el sistema sugiere, nunca cambia un precio solo; el costo promedio ponderado se mantiene
+- [ ] **CU-13 Pantalla de márgenes**: productos bajo objetivo, del más flojo al mejor, con "Subir a $X" (precio sugerido en servidor: `costo ÷ (1 − objetivo)` redondeado hacia arriba)
+- [ ] **CU-14 Datos de pago configurables** (D-H): viven en `CONFIGURACION_NEGOCIO`, salen en todos los recibos y en el QR de cobro. [RIESGO] son datos personales: acceso restringido, **nunca** en el código ni en el repo (que es público)
+- [ ] **Productos sin límite de stock** (Tinto, Aromática, garita): `ControlaStock` + trigger que lo respete; hoy `CK_PRODUCTOS_Stock` (≥ 0) hace fallar la venta con stock 0
+- [ ] **Zona horaria / decisión #12**: la API usa `DateTime.Now` y la BD `GETDATE()`; fijar convención (local vs UTC) antes del go-live — el sync por `desde=` depende de `UltimaModificacion`
+- [ ] Redondeo del tiempo de billar a la centena (T2) y pago con tres métodos (T4: hoy `FACTURAS` solo guarda dos)
+- [ ] **Commit pendiente (solo existe en el PC de Albeiro):** `sync.js`, `IndicadorSync.jsx` y el orquestador del motor de sync del frontend (A4)
+- [ ] Borrar `CarambolaSoft.Mesa/` (carpeta sin código: `.csproj` + `package.json`; el frontend real es `carambolasoft-mesa/`) y `PedidosCuenta.Partial.cs` en el próximo re-scaffold

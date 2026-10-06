@@ -1,0 +1,531 @@
+---
+title: El Parche de Jony — Diagrama de clases UML v6.2 · CarambolaSoft (esquema real BD v6 + delta v6.2 propuesto)
+---
+classDiagram
+direction TB
+
+%% Fuente: ElParcheDeJony_DB_v6.sql (SSMS, 2026-10-05). "NUEVO v6.2" = propuesta del delta, no ejecutada.
+%% Cambios frente al UML v5: Cuenta pasa a ser el eje comercial; se agregan Cliente, GastoCaja, Maquina,
+%% MaquinaMovimiento y Promocion; se quita Usuario (no existe tabla); Factura ya no tiene totalOriginal ni saldo.
+
+%% ================= INTERFACES =================
+class ISincronizable {
+  <<interface>>
+  +bool esSincronizado
+  +DateTime ultimaModificacion
+  +sincronizar() void
+  +marcarPendiente() void
+}
+class IAuditable {
+  <<interface>>
+  +DateTime ultimaModificacion
+  +registrarCambio() void
+}
+class IFacturable {
+  <<interface>>
+  +calcularSubtotalTiempo() Decimal
+  +calcularSubtotalConsumos() Decimal
+  +generarFactura() Factura
+}
+
+%% ================= ENUMERACIONES =================
+class TipoMesa {
+  <<enumeration>>
+  POOL
+  CARAMBOLA
+  SNOOKER
+}
+class EstadoMesa {
+  <<enumeration>>
+  DISPONIBLE
+  OCUPADA
+  MANTENIMIENTO
+}
+class TipoCuenta {
+  <<enumeration>>
+  LICORES
+  BILLAR
+  CARTAS
+  DOMINO
+  VENTA_RAPIDA
+  GARITA
+}
+class EstadoCuenta {
+  <<enumeration>>
+  ABIERTA
+  LIQUIDADA
+  CANCELADA
+}
+class EstadoPedido {
+  <<enumeration>>
+  PENDIENTE
+  ENTREGADO
+  CANCELADO
+}
+class CategoriaConsumo {
+  <<enumeration>>
+  TIEMPO
+  BEBIDAS_ALCOHOLICAS
+  SNACKS
+  BEBIDAS_NO_ALCOHOLICAS
+  OTROS
+}
+class EstadoPago {
+  <<enumeration>>
+  PENDIENTE
+  PAGADO
+  FIADO
+  ANULADO
+}
+class MetodoPago {
+  <<enumeration>>
+  EFECTIVO
+  TARJETA
+  NEQUI
+  DAVIPLATA
+  TRANSFERENCIA
+  FIADO
+}
+class TipoMovimientoMaquina {
+  <<enumeration>>
+  PREMIO
+  CUADRE
+}
+class CategoriaGasto {
+  <<enumeration>>
+  INSUMOS
+  TRANSPORTE
+  SERVICIOS
+  ADELANTO_EMPLEADO
+  OTROS
+}
+class OrigenCosto {
+  <<enumeration>>
+  COMPRA
+  EDICION
+}
+
+%% ================= CAJA / FACTURACIÓN =================
+class TurnoCaja {
+  -UUID id
+  -UUID usuarioId "sin tabla USUARIOS ni FK"
+  -DateTime fechaApertura
+  -DateTime fechaCierre
+  -Decimal baseEfectivo
+  -Decimal efectivoRealEntregado
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +abrir(base) void
+  +cerrar(efectivo) void
+  +estaAbierto() bool
+  +calcularEfectivoEsperado() Decimal
+  +calcularDiferencia() Decimal
+}
+class CierreDia {
+  -UUID id
+  -UUID turnoCajaId "único: 1 cierre por turno"
+  -Date fecha
+  -Decimal totalTiempo
+  -Decimal totalLicor
+  -Decimal totalOtros "no existe totalSnacks"
+  -Decimal totalGeneral
+  -Decimal totalFiado
+  -Decimal totalGastos
+  -Decimal totalPremiosMaq
+  -Decimal totalCobrosFiado
+  -Decimal efectivoReportado
+  -Decimal descuadre
+  -bool confirmado
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +calcularTotales() void
+  +calcularDescuadre() Decimal
+  +confirmarCierre() void
+  +estaConfirmado() bool
+  +agruparPorCliente() List
+}
+class Factura {
+  -UUID id
+  -UUID cuentaId "único: 1 factura por cuenta"
+  -UUID turnoCajaId
+  -int consecutivo "NUEVO v6.2 · único"
+  -String numeroFactura "NUEVO v6.2 · F-#### calculado"
+  -Decimal subtotalTiempo
+  -Decimal subtotalLicor
+  -Decimal subtotalSnacks
+  -Decimal subtotalOtros "incluye no alcohólicas"
+  -Decimal totalPagar "total original, no cambia"
+  -Decimal totalPendienteFiado "saldo, baja con abonos"
+  -MetodoPago metodoPago
+  -MetodoPago metodoPagoSecundario
+  -Decimal montoPrimario
+  -Decimal montoSecundario
+  -EstadoPago estadoPago
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +calcularTotal() Decimal
+  +pagar(metodo) void
+  +pagarMixto(m1, monto1, m2, monto2) void
+  +registrarFiado(monto) void
+  +anular() void
+  +getDesglosePorCategoria() Map
+}
+class AbonoFiado {
+  -UUID id
+  -UUID facturaId
+  -UUID turnoCajaId "turno que recaudó"
+  -Decimal monto
+  -MetodoPago metodoPago
+  -DateTime fechaHora
+  -Decimal deudaAntes "NUEVO v6.2"
+  -Decimal deudaDespues "NUEVO v6.2"
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +aplicar() void
+}
+class GastoCaja {
+  -UUID id
+  -UUID turnoCajaId
+  -String concepto
+  -Decimal monto
+  -CategoriaGasto categoria
+  -MetodoPago metodoPago
+  -DateTime fechaHora
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +registrar() void
+}
+
+%% ================= CUENTAS (eje comercial) =================
+class Cuenta {
+  -UUID id
+  -UUID turnoCajaId
+  -TipoCuenta tipoCuenta
+  -UUID mesaId "nulo"
+  -UUID clienteId "nulo"
+  -String nombreLibre "cliente o nombre: anti-fantasma"
+  -DateTime horaApertura
+  -DateTime horaCierre
+  -Decimal tarifaPorHora "taxímetro"
+  -EstadoCuenta estado
+  -UUID garitaRelojId "NUEVO v6.2 · nulo"
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +abrir() void
+  +agregarPedido(producto, cantidad) PedidoCuenta
+  +calcularSubtotalTiempo() Decimal
+  +calcularSubtotalConsumos() Decimal
+  +liquidar(pago) Factura
+  +cancelar() void
+  +estaAbierta() bool
+}
+class Cliente {
+  -UUID id
+  -String nombre
+  -String apodo
+  -bool activo
+  -int visitas
+  -Decimal gastoAcumulado
+  -DateTime fechaRegistro
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +desactivar() void
+  +getFiadoPendiente() Decimal
+}
+class GaritaReloj {
+  -UUID id
+  -String nombre
+  -Decimal valor
+  -DateTime inicioUtc "servidor, decisión 12"
+  -DateTime proximoCobroUtc
+  -int cobros
+  -bool activa
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +iniciar(nombre, valor) void
+  +cobrar(metodo) Cuenta
+  +posponer(minutos) void
+  +terminar() void
+  +estaVencida() bool
+}
+
+%% ================= MESAS / JUEGO =================
+class MesaBillar {
+  -UUID id
+  -int numero
+  -TipoMesa tipo
+  -EstadoMesa estado
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +ocupar() void
+  +liberar() void
+  +estaDisponible() bool
+}
+class SesionMesa {
+  -UUID id
+  -UUID cuentaId "no único: varias sesiones por cuenta"
+  -UUID mesaId
+  -DateTime horaInicio
+  -DateTime horaFin
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +iniciar() void
+  +finalizar() void
+  +estaActiva() bool
+}
+class Participante {
+  -UUID id
+  -UUID sesionMesaId
+  -UUID jugadorId
+  -int puntaje
+  -int posicion "1 a 4"
+  -bool esGanador
+  -int equipo "NUEVO v6.2 · 1 o 2 · dobles"
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +sumarCarambolas(cantidad) void
+  +marcarGanador() void
+  +getCadenciaPromedio() Decimal
+  +getRachaMaxima() int
+}
+class MarcaTiempo {
+  -UUID id
+  -UUID participanteId
+  -DateTime marcaTiempo "decisión 7"
+  -int carambolasEnMarca
+}
+class Jugador {
+  -UUID id
+  -UUID clienteId "nulo"
+  -String username
+  -String passwordHash
+  -String avatarUrl
+  -int recordCarambolas
+  -DateTime fechaRegistro
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +registrar(username, password) void
+  +autenticar(username, password) bool
+  +actualizarRecord(carambolas) void
+}
+class Rivalidad {
+  -UUID id
+  -UUID jugadorAId
+  -UUID jugadorBId
+  -int partidasJugadas
+  -int victoriasA
+  -int victoriasB
+  -DateTime ultimaPartida
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +registrarResultado(ganadorId) void
+  +getRatioPorJugador(jugadorId) Decimal
+}
+
+%% ================= INVENTARIO / CONSUMO =================
+class Categoria {
+  -UUID id
+  -String nombre
+  -String icono "hoy VARCHAR: emoji sale ??"
+  -String colorHex
+  -CategoriaConsumo categoriaConsumo "NUEVO v6.2"
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+}
+class Producto {
+  -UUID id
+  -UUID categoriaId
+  -String nombre
+  -Decimal precioVenta
+  -Decimal costoCompra "promedio ponderado"
+  -Decimal costoUltimaCompra "NUEVO v6.2"
+  -int stockActual
+  -int stockMinimo
+  -bool activo
+  -String codigo "NUEVO v6.2"
+  -bool controlaStock "NUEVO v6.2 · false = sin límite"
+  -bool favorito "NUEVO v6.2"
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +tieneStockSuficiente(cantidad) bool
+  +calcularMargen() Decimal
+  +calcularPrecioSugerido(margenObjetivo) Decimal
+}
+class Promocion {
+  -UUID id
+  -UUID productoId
+  -Decimal precioPromo
+  -Time horaInicio
+  -Time horaFin
+  -int diasSemana "bitmask 1 a 127"
+  -bool activa
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +estaVigente(momento) bool
+}
+class PedidoCuenta {
+  -UUID id
+  -UUID cuentaId
+  -UUID productoId
+  -UUID grupoCompartidoId "NUEVO v6.2 · nulo"
+  -int cantidad
+  -Decimal precioUnitarioHist
+  -Decimal costoCompraHist "decisión 5"
+  -Decimal valorParte "NUEVO v6.2"
+  -Decimal costoParteHist "NUEVO v6.2"
+  -CategoriaConsumo categoriaConsumo
+  -EstadoPedido estadoPedido
+  -DateTime fechaHora
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +getSubtotal() Decimal
+  +getMargen() Decimal
+  +entregar() void
+  +cancelar() void
+  +esParteCompartida() bool
+}
+class GrupoCompartido {
+  -UUID id
+  -UUID productoId
+  -int cantidad
+  -Decimal valorTotal
+  -int partesVivas
+  -bool cobrada
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +validarSumaPartes() bool
+  +liberarParte(pedidoId) void
+  +marcarCobrada() void
+}
+class CompraInventario {
+  -UUID id
+  -UUID productoId
+  -OrigenCosto origen
+  -int cantidad "nulo si EDICION"
+  -Decimal costoUnitario
+  -DateTime fechaHora
+  -String proveedor
+  -UUID turnoCajaId "nulo"
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +registrar() void
+}
+
+%% ================= MÁQUINAS =================
+class Maquina {
+  -UUID id
+  -String nombre
+  -bool activa
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +desactivar() void
+  +getPremiosPorReponer() Decimal
+}
+class MaquinaMovimiento {
+  -UUID id
+  -UUID maquinaId
+  -TipoMovimientoMaquina tipo
+  -Decimal monto
+  -UUID turnoCajaId "obligatorio en PREMIO"
+  -String nota
+  -DateTime fechaHora
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +registrar() void
+}
+
+%% ================= CONFIGURACIÓN =================
+class ConfiguracionNegocio {
+  -UUID id "una sola fila · NUEVO v6.2"
+  -Decimal margenObjetivo
+  -Decimal precioGarita
+  -String datosPagoBanco "dato personal"
+  -String datosPagoTipo
+  -String datosPagoNumero
+  -String datosPagoTitular
+  -String datosPagoQrUrl
+  -bool esSincronizado
+  -DateTime ultimaModificacion
+  +actualizarDatosPago() void
+}
+
+%% ================= INTERFACES: REALIZACIÓN =================
+note for ISincronizable "Implementada por las 23 clases de dominio (decisión 10). IFacturable pasa de SesionMesa a Cuenta."
+IAuditable <|.. TurnoCaja
+IAuditable <|.. Cuenta
+IAuditable <|.. Factura
+IAuditable <|.. Jugador
+IAuditable <|.. CierreDia
+IFacturable <|.. Cuenta
+
+%% ================= RELACIONES (FK reales) =================
+TurnoCaja "1" o-- "0..*" Cuenta : abre
+TurnoCaja "1" --> "0..*" Factura : cobra (FK directa)
+TurnoCaja "1" --> "0..*" AbonoFiado : recauda
+TurnoCaja "1" --> "0..1" CierreDia : cierra
+TurnoCaja "1" o-- "0..*" GastoCaja : registra
+TurnoCaja "1" --> "0..*" MaquinaMovimiento : registra
+TurnoCaja "1" --> "0..*" CompraInventario : registra
+Cliente "1" o-- "0..*" Cuenta : tiene
+Cliente "1" o-- "0..*" Jugador : es
+MesaBillar "1" o-- "0..*" Cuenta : ocupa
+MesaBillar "1" o-- "0..*" SesionMesa : aloja
+Cuenta "1" *-- "0..*" SesionMesa : juega
+Cuenta "1" *-- "0..*" PedidoCuenta : consume
+Cuenta "1" *-- "0..1" Factura : genera
+GaritaReloj "1" --> "0..*" Cuenta : cada cobro crea
+SesionMesa "1" *-- "1..4" Participante : compone
+Jugador "1" o-- "0..*" Participante : juega como
+Jugador "2" -- "0..*" Rivalidad : enfrenta
+Participante "1" *-- "0..*" MarcaTiempo : registra
+Factura "1" *-- "0..*" AbonoFiado : recibe abonos
+Categoria "1" o-- "0..*" Producto : agrupa
+Producto "1" <-- "0..*" PedidoCuenta : referencia
+Producto "1" o-- "0..*" Promocion : tiene
+Producto "1" o-- "0..*" CompraInventario : se repone
+Producto "1" o-- "0..*" GrupoCompartido : se comparte en
+GrupoCompartido "1" o-- "2..*" PedidoCuenta : reparte en partes
+Maquina "1" *-- "0..*" MaquinaMovimiento : mueve
+ConfiguracionNegocio ..> Producto : margen objetivo
+ConfiguracionNegocio ..> GaritaReloj : precio por defecto
+
+%% Las enumeraciones se usan como tipo de los atributos (metodoPago, estadoPago, tipoCuenta...); no se dibujan flechas.
+
+%% ================= ESTILOS POR DOMINIO =================
+style MesaBillar fill:#0f1a26,stroke:#22d3ee,stroke-width:2px,color:#e6f7ff
+style SesionMesa fill:#0f1a26,stroke:#22d3ee,stroke-width:2px,color:#e6f7ff
+style Participante fill:#0f1a26,stroke:#22d3ee,stroke-width:2px,color:#e6f7ff
+style MarcaTiempo fill:#0f1a26,stroke:#22d3ee,stroke-width:2px,color:#e6f7ff
+style GaritaReloj fill:#0f1a26,stroke:#22d3ee,stroke-width:3px,color:#e6f7ff
+style Categoria fill:#1d1022,stroke:#e879f9,stroke-width:2px,color:#fbeaff
+style Producto fill:#1d1022,stroke:#e879f9,stroke-width:2px,color:#fbeaff
+style Promocion fill:#1d1022,stroke:#e879f9,stroke-width:2px,color:#fbeaff
+style PedidoCuenta fill:#1d1022,stroke:#e879f9,stroke-width:2px,color:#fbeaff
+style GrupoCompartido fill:#1d1022,stroke:#e879f9,stroke-width:3px,color:#fbeaff
+style CompraInventario fill:#1d1022,stroke:#e879f9,stroke-width:3px,color:#fbeaff
+style Cuenta fill:#0e1d17,stroke:#34d399,stroke-width:3px,color:#e6fff4
+style TurnoCaja fill:#0e1d17,stroke:#34d399,stroke-width:2px,color:#e6fff4
+style CierreDia fill:#0e1d17,stroke:#34d399,stroke-width:2px,color:#e6fff4
+style Factura fill:#0e1d17,stroke:#34d399,stroke-width:2px,color:#e6fff4
+style AbonoFiado fill:#0e1d17,stroke:#34d399,stroke-width:2px,color:#e6fff4
+style GastoCaja fill:#0e1d17,stroke:#34d399,stroke-width:2px,color:#e6fff4
+style Maquina fill:#0e1d17,stroke:#34d399,stroke-width:2px,color:#e6fff4
+style MaquinaMovimiento fill:#0e1d17,stroke:#34d399,stroke-width:2px,color:#e6fff4
+style Cliente fill:#1a1a0e,stroke:#facc15,stroke-width:2px,color:#fffbe6
+style Jugador fill:#1a1a0e,stroke:#facc15,stroke-width:2px,color:#fffbe6
+style Rivalidad fill:#1a1a0e,stroke:#facc15,stroke-width:2px,color:#fffbe6
+style ConfiguracionNegocio fill:#1a1a0e,stroke:#facc15,stroke-width:3px,color:#fffbe6
+style ISincronizable fill:#12151f,stroke:#94a3b8,stroke-width:1.5px,stroke-dasharray:5 4,color:#e2e8f0
+style IAuditable fill:#12151f,stroke:#94a3b8,stroke-width:1.5px,stroke-dasharray:5 4,color:#e2e8f0
+style IFacturable fill:#12151f,stroke:#94a3b8,stroke-width:1.5px,stroke-dasharray:5 4,color:#e2e8f0
+style TipoMesa fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style EstadoMesa fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style TipoCuenta fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style EstadoCuenta fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style EstadoPedido fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style CategoriaConsumo fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style EstadoPago fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style MetodoPago fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style TipoMovimientoMaquina fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style CategoriaGasto fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+style OrigenCosto fill:#101421,stroke:#64748b,stroke-width:1px,color:#cbd5e1
