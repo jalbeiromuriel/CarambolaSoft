@@ -10,8 +10,8 @@
 //      (misma transacción: o entran las dos, o ninguna)
 // ============================================================
 
-import { openDb, SYNC_QUEUE } from './schema.js';
 
+import { openDb, SYNC_QUEUE, DEAD_LETTER, META } from './schema.js';
 /** GUID v4 generado en cliente (offline-first, idempotencia en sync) */
 export function nuevoGuid() {
   return crypto.randomUUID();
@@ -96,3 +96,91 @@ export async function pendientesSync() {
 // NOTA: no hay delete() físico a propósito.
 // Regla de la casa: nunca borrar registros con historial — solo desactivar
 // o cambiar estado (CANCELADO, ANULADO...), siempre vía put().
+
+// ============================================================
+//  MOTOR DE SINCRONIZACIÓN (A4) — helpers de apoyo
+//  Se suman a put(); no lo reemplazan.
+// ============================================================
+
+/**
+ * Escribe un registro que YA viene sincronizado del servidor.
+ * Estampa EsSincronizado = true y NO encola.
+ *
+ * [CLAVE] Esta es la vacuna anti-loop: bajar() usa ESTO, nunca put().
+ */
+export async function putSincronizado(tabla, entidad) {
+  const db = await openDb();
+
+  const registro = {
+    ...entidad,
+    EsSincronizado: true,
+    UltimaModificacion: entidad.UltimaModificacion ?? new Date().toISOString(),
+  };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(tabla, 'readwrite');
+    tx.objectStore(tabla).put(registro);
+    tx.oncomplete = () => resolve(registro);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error(`Transacción abortada en ${tabla}`));
+  });
+}
+
+/**
+ * Saca un registro de la cola tras un 200/201 confirmado.
+ * @param {number} seq - clave autoincrement de la fila en SYNC_QUEUE
+ */
+export async function borrarDeCola(seq) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SYNC_QUEUE, 'readwrite');
+    tx.objectStore(SYNC_QUEUE).delete(seq);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Mueve un registro rechazado por integridad (409/422) de la cola
+ * al cementerio DEAD_LETTER, en UNA SOLA transacción atómica.
+ */
+export async function moverADeadLetter(itemCola, motivo) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([SYNC_QUEUE, DEAD_LETTER], 'readwrite');
+
+    tx.objectStore(DEAD_LETTER).add({
+      tabla:       itemCola.tabla,
+      entidadId:   itemCola.registroId,
+      payload:     itemCola,
+      motivo:      motivo ?? 'Sin detalle',
+      fechaMuerte: new Date().toISOString(),
+    });
+    tx.objectStore(SYNC_QUEUE).delete(itemCola.seq);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('No se pudo mover a DEAD_LETTER'));
+  });
+}
+
+/** Lee un valor del store META (ej: el cursor de bajada). undefined si no existe. */
+export async function leerMeta(clave) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(META).objectStore(META).get(clave);
+    req.onsuccess = () => resolve(req.result?.valor);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Escribe un valor en el store META (ej: guardar el cursor tras una bajada). */
+export async function escribirMeta(clave, valor) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(META, 'readwrite');
+    tx.objectStore(META).put({ clave, valor });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
