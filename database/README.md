@@ -4,3 +4,4 @@
 - `propuestas/ElParcheDeJony_DB_v6_2_delta.sql` — delta v6.2 (absorbe v6.1). **PROPUESTA: no se ha ejecutado.** Probar en la BD de laboratorio, con backup previo. Cuando se ejecute, regenerar el script completo y subirlo aquí.
 
 Este repositorio es público: **no subir** datos (backups del POS, clientes, fiados), cadenas de conexión ni datos de pago.
+- `propuestas/ElParcheDeJony_DB_v6_2_costos_vistas.sql` — costo promedio ponderado (TR_COMPRAS_ActualizarCosto), VW_MARGENES y VW_FIADOS_POR_CLIENTE. **PROPUESTA: no se ha ejecutado.** Va DESPUÉS del delta v6.2.
