@@ -1,6 +1,7 @@
 import { useState } from 'react';
 // Informe de la partida (chico). Réplica del informe de la maqueta; imprime/guarda como PDF con window.print().
 // Los VALORES (consumo, tiempo, total) solo llegan aquí tras el PIN de administrador.
+import Replay from './Replay.jsx';
 import { compartirTarjeta } from '../../marcador/tarjeta.js';
 import { estadisticas, ranking, hms, valorTiempo, analisisPartida } from '../../marcador/logica.js';
 
@@ -64,6 +65,7 @@ function Carrera({ a }) {
 
 export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = '▶ VOLVER AL INICIO' }) {
   const [msg, setMsg] = useState('');
+  const [replay, setReplay] = useState(false);
   const maxScore = Math.max(1, ...d.filas.map((j) => j.puntaje));
   return (
     <div className="ct-modal on" style={{ background: 'rgba(2,5,12,.78)' }}>
@@ -144,12 +146,14 @@ export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = '�
         </div>
         {msg && <div style={{ textAlign: 'center', color: 'var(--verde)', fontSize: 13 }}>{msg}</div>}
         <div className="ct-rep-actions">
+          {d.analisis?.jugadas > 0 && <button style={{ borderColor: 'var(--amarillo)', color: 'var(--amarillo)' }} onClick={() => setReplay(true)}>🎬 VER REPLAY</button>}
           <button style={{ borderColor: 'var(--magenta)', color: 'var(--magenta)' }} onClick={async () => { const r = await compartirTarjeta(d); setMsg(r === 'descargada' ? 'Tarjeta descargada ✔' : ''); }}>📲 COMPARTIR TARJETA</button>
           <button className="ct-finPdf" onClick={onPdf}>⬇ DESCARGAR PDF</button>
           <button className="ct-finInicio" onClick={onInicio}>{textoInicio}</button>
           {onCobrar && <button className="ct-finInicio" onClick={onCobrar}>💵 COBRAR LA CUENTA</button>}
         </div>
       </div>
+      {replay && <Replay d={d} onCerrar={() => setReplay(false)} />}
     </div>
   );
 }
