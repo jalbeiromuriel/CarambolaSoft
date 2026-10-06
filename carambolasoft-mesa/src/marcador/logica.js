@@ -118,3 +118,80 @@ export function hms(segundos) {
   const p = (n) => String(n).padStart(2, '0');
   return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
 }
+
+// ============================================================
+//  Análisis de la partida (carrera, premios). Se calcula al finalizar, ANTES de borrar el detalle,
+//  y queda dentro del informe guardado.
+// ============================================================
+const COLORES_PAPEL = ['#0891b2', '#c026d3', '#16a34a', '#d97706'];   // legibles sobre el informe blanco
+const COLORES_NEON = ['#2dd4ee', '#e879f9', '#4ade80', '#fbbf24'];     // para la tarjeta oscura
+
+/**
+ * @param {'ind'|'par'} modo
+ * @param {{Id:string, nombre:string, Equipo:number|null, esInvitado:boolean, marcas:object[]}[]} jugadores
+ * @returns carrera (una línea por jugador, o por pareja), cambios de liderato, remontada y premios.
+ */
+export function analisisPartida(modo, jugadores) {
+  const claveDe = (j) => (modo === 'par' ? `eq${j.Equipo}` : j.Id);
+  const lineas = [];
+  const idx = new Map();
+  jugadores.forEach((j) => {
+    const k = claveDe(j);
+    if (!idx.has(k)) { idx.set(k, lineas.length); lineas.push({ clave: k, nombre: modo === 'par' ? `Pareja ${j.Equipo === 1 ? 'A' : 'B'}` : j.nombre, color: COLORES_PAPEL[lineas.length % 4], neon: COLORES_NEON[lineas.length % 4], puntos: [0] }); }
+  });
+
+  // Todas las series vigentes en orden de llegada = "jugadas" de la partida.
+  const jugadas = jugadores
+    .flatMap((j) => vigentes(j.marcas).map((m) => ({ k: claveDe(j), jugadorId: j.Id, nombre: j.nombre, valor: m.CarambolasEnMarca, t: m.MarcaTiempo })))
+    .sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
+
+  const acum = lineas.map(() => 0);
+  const cambios = [];
+  let lider = null, maxDeficit = new Map();
+  jugadas.forEach((jg, i) => {
+    acum[idx.get(jg.k)] += jg.valor;
+    lineas.forEach((l, n) => l.puntos.push(acum[n]));
+    const max = Math.max(...acum);
+    const tops = acum.filter((a) => a === max).length;
+    const nuevo = tops === 1 ? acum.indexOf(max) : lider;       // un empate no cambia al líder
+    if (nuevo !== lider) { if (lider !== null) cambios.push({ jugada: i + 1, de: lider, a: nuevo, jugadorId: jg.jugadorId, nombre: jg.nombre }); lider = nuevo; }
+    lineas.forEach((l, n) => { maxDeficit.set(n, Math.max(maxDeficit.get(n) ?? 0, max - acum[n])); });
+  });
+
+  const finales = acum.slice();
+  const maxFinal = Math.max(0, ...finales);
+  const ganadorLinea = maxFinal > 0 && finales.filter((f) => f === maxFinal).length === 1 ? finales.indexOf(maxFinal) : null;
+  const remontada = ganadorLinea !== null && (maxDeficit.get(ganadorLinea) ?? 0) >= 5
+    ? { linea: ganadorLinea, nombre: lineas[ganadorLinea].nombre, deficit: maxDeficit.get(ganadorLinea) } : null;
+
+  // ---- premios (por jugador, también en parejas) ----
+  const st = jugadores.map((j) => ({ j, ...estadisticas(j.marcas), serie: vigentes(j.marcas).map((m) => m.CarambolasEnMarca) }));
+  const premios = [];
+  const dar = (emoji, titulo, jugador, detalle) => premios.push({ emoji, titulo, jugadorId: jugador.Id, nombre: jugador.nombre, detalle });
+  const mayor = (arr, f) => arr.reduce((b, x) => (b === null || f(x) > f(b) ? x : b), null);
+
+  const conVarias = st.filter((s) => s.entradas >= 2);
+  const fr = mayor(conVarias.length ? conVarias : st.filter((s) => s.entradas >= 1), (s) => s.promedio);
+  if (fr && fr.entradas) dar('🎯', 'EL FRANCOTIRADOR', fr.j, `promedio ${fr.promedio.toFixed(2)} por entrada`);
+  const tk = mayor(st, (s) => s.mejor);
+  if (tk && tk.mejor > 0) dar('🔨', 'EL TANQUE', tk.j, `tacada de ${tk.mejor}`);
+  const regulares = st.filter((s) => s.entradas >= 3).map((s) => {
+    const m = s.promedio; const sd = Math.sqrt(s.serie.reduce((a, v) => a + (v - m) ** 2, 0) / s.entradas);
+    return { ...s, sd };
+  });
+  const fr2 = regulares.length ? regulares.reduce((b, s) => (s.sd < b.sd ? s : b)) : null;
+  if (fr2) dar('🧊', 'EL FRÍO', fr2.j, 'el más parejo: casi siempre la misma serie');
+  if (remontada) {
+    const j = jugadores.find((x) => claveDe(x) === lineas[remontada.linea].clave && st.find((s) => s.j === x)?.entradas) ?? jugadores[0];
+    const quien = modo === 'par' ? jugadores.find((x) => claveDe(x) === lineas[remontada.linea].clave) : j;
+    dar('🔥', 'EL REMONTADOR', quien, `venía ${remontada.deficit} abajo y la volteó`);
+  } else if (ganadorLinea !== null && cambios.length === 0) {
+    const g = jugadores.find((x) => claveDe(x) === lineas[ganadorLinea].clave);
+    dar('👑', 'EL DOMINADOR', g, 'mandó de principio a fin');
+  }
+  if (cambios.length) {
+    const u = cambios[cambios.length - 1];
+    dar('🧨', 'EL VERDUGO', jugadores.find((x) => x.Id === u.jugadorId), `la serie que le dio el partido (jugada ${u.jugada})`);
+  }
+  return { modo, lineas, jugadas: jugadas.length, cambios, remontada, premios };
+}

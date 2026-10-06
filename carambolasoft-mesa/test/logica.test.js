@@ -97,3 +97,24 @@ test('PIN: el hash depende de la sal y es repetible; solo 4 números', async () 
   assert.equal(pinValido('12a4'), false);
   assert.equal(pinValido('123'), false);
 });
+
+import { analisisPartida } from '../src/marcador/logica.js';
+const mk = (Id, nombre, vals, t0 = 0, Equipo = null) => ({ Id, nombre, Equipo, esInvitado: false, marcas: vals.map(([v, t]) => ({ Id: `${Id}${t}`, CarambolasEnMarca: v, MarcaTiempo: new Date(1e12 + t * 1000).toISOString(), Anulada: false })) });
+test('analisis: cambios de liderato, remontada y premios', () => {
+  const a = mk('a', 'Ana', [[2, 1], [2, 3], [20, 5]]);
+  const b = mk('b', 'Beto', [[9, 2], [9, 4], [1, 6]]);
+  const r = analisisPartida('ind', [a, b]);
+  assert.equal(r.jugadas, 6);
+  assert.deepEqual(r.lineas[0].puntos, [0, 2, 2, 4, 4, 24, 24]);
+  assert.equal(r.cambios.length, 2);                       // Ana→Beto→Ana
+  assert.equal(r.cambios.at(-1).nombre, 'Ana');
+  assert.ok(r.remontada && r.remontada.nombre === 'Ana' && r.remontada.deficit === 14);
+  const t = r.premios.map((p) => p.titulo);
+  assert.ok(t.includes('EL TANQUE') && t.includes('EL REMONTADOR') && t.includes('EL VERDUGO'));
+});
+test('analisis: wire to wire = dominador; parejas = 2 líneas', () => {
+  const r = analisisPartida('ind', [mk('a', 'Ana', [[5, 1], [5, 3]]), mk('b', 'Beto', [[1, 2], [1, 4]])]);
+  assert.ok(r.premios.some((p) => p.titulo === 'EL DOMINADOR'));
+  const p = analisisPartida('par', [mk('a', 'A1', [[3, 1]], 0, 1), mk('b', 'A2', [[3, 2]], 0, 1), mk('c', 'B1', [[4, 3]], 0, 2)]);
+  assert.equal(p.lineas.length, 2);
+});
