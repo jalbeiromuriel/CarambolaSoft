@@ -193,5 +193,6 @@ export function analisisPartida(modo, jugadores) {
     const u = cambios[cambios.length - 1];
     dar('🧨', 'EL VERDUGO', jugadores.find((x) => x.Id === u.jugadorId), `la serie que le dio el partido (jugada ${u.jugada})`);
   }
-  return { modo, lineas, jugadas: jugadas.length, cambios, remontada, premios };
+  const series = jugadas.map((jg) => ({ linea: idx.get(jg.k), valor: jg.valor, jugador: jg.nombre }));
+  return { modo, lineas, jugadas: jugadas.length, series, cambios, remontada, premios };
 }
