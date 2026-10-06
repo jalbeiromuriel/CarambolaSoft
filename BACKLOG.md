@@ -18,7 +18,7 @@
    - Bajada: traer cambios del servidor por `UltimaModificacion` (productos, precios, promos)
    - Reintentos con red intermitente (Service Worker / online-offline events)
    - Indicador de estado de sync en UI (equivalente al "💾 guardado" del POS)
-5. **Pantalla 3 — Marcador electrónico** (maqueta primero, luego código)
+5. **Pantalla 3 — Marcador electrónico** (maqueta aprobada en `referencias/contador/`; ver sección H)
 6. **Reescritura SesionesController + SesionRepository** (deuda técnica: handlers comentados; adaptar a v6 donde `TarifaPorHora` vive en CUENTAS)
 7. **Migración go-live**: inventario, clientes y fiados desde backup JSON del POS → SQL Server
 
@@ -133,5 +133,32 @@ Ninguno revierte las decisiones vigentes. El informe y las capturas viven en el 
 - [ ] **Productos sin límite de stock** (Tinto, Aromática, garita): `ControlaStock` + trigger que lo respete; hoy `CK_PRODUCTOS_Stock` (≥ 0) hace fallar la venta con stock 0
 - [ ] **Zona horaria / decisión #12**: la API usa `DateTime.Now` y la BD `GETDATE()`; fijar convención (local vs UTC) antes del go-live — el sync por `desde=` depende de `UltimaModificacion`
 - [ ] Redondeo del tiempo de billar a la centena (T2) y pago con tres métodos (T4: hoy `FACTURAS` solo guarda dos)
-- [ ] **Commit pendiente (solo existe en el PC de Albeiro):** `sync.js`, `IndicadorSync.jsx` y el orquestador del motor de sync del frontend (A4)
+- [x] `sync.js`, `IndicadorSync.jsx` y ajustes del motor de sync del frontend (A4) subidos al repo (PR #2, 2026-10-06). Pendiente verificar el orquestador, si es un archivo aparte
 - [ ] Borrar `CarambolaSoft.Mesa/` (carpeta sin código: `.csproj` + `package.json`; el frontend real es `carambolasoft-mesa/`) y `PedidosCuenta.Partial.cs` en el próximo re-scaffold
+
+---
+
+## H. Marcador (Contador del billar) — Pantalla 3 (2026-10-06)
+
+Fuente: maqueta aprobada en `referencias/contador/` (Inicio, Clientes, Marcador) e informe en `docs/modulos/Informe_Modulo_Marcador_CarambolaSoft.md`.
+Propuesta de BD (no ejecutada): `database/propuestas/ElParcheDeJony_DB_v6_2_marcador.sql`. Reutiliza `PARTICIPANTES` y `PARTICIPANTE_MARCAS_TIEMPO`; no crea tablas `MARCADOR_*`.
+
+**Reglas confirmadas por Albeiro**
+- El Marcador **agrega jugadores y registra carambolas**. No crea pedidos, no cobra, no toca stock ni caja, y no abre cuentas.
+- Solo se registra el número de carambolas de cada serie (bolas 1 a 9 y `+` para 10 o más). **No existe la entrada en cero.** Promedio = total ÷ series contadas.
+- Récord **por jugador** = su tacada (serie) más alta. El **récord a tumbar** es la tacada más alta de todas las jugadas de jugadores registrados; se supera solo con una serie estrictamente mayor. Los invitados juegan y suman, pero no cuentan para récord ni rivalidades.
+- Nuevo chico = nueva `SesionMesa` bajo la misma cuenta; los jugadores pueden ser los mismos o nuevos.
+- El teléfono del cliente es dato nuevo (`CLIENTES.Telefono`) y solo lo ve el administrador.
+- En la pantalla de mesa el consumo se ve **sin precios**. El informe con valores sale solo después del PIN de administrador.
+
+**Pendiente**
+- [ ] Ejecutar en laboratorio (con backup): delta v6.2 → triggers de stock → costos y vistas → delta del Marcador
+- [ ] Portar la maqueta a `carambolasoft-mesa/src/screens/Marcador/` (React) conectada a IndexedDB; cada serie se guarda en el momento (la maqueta pierde todo al recargar)
+- [ ] Jugadores identificados por id (no por nombre); máximo 4 jugadores; empate no marca ganador (decisión #8)
+- [ ] Corregir última = anular y reinsertar; el récord se recalcula desde las series (la maqueta lo deja mal al corregir)
+- [ ] Tiempo de mesa por minuto completo hacia arriba (como `Liquidar`), calculado desde la hora del servidor
+- [ ] PIN validado en el API; sin internet, hash con sal guardado en la tablet y revalidado al sincronizar
+- [ ] `MarcadorController` y endpoints de sync; el DTO de clientes hacia la tablet de mesa **sin** teléfono; endpoint de administrador para el teléfono
+- [ ] Pantalla de Clientes solo para administrador; agregar teléfono al formulario
+- [ ] Agregar `PARTICIPANTE_MARCAS_TIEMPO` a `VW_COLA_SINCRONIZACION`
+- [ ] Registrar como decisión #18: el Marcador es un módulo independiente que solo lee el consumo
