@@ -4,3 +4,4 @@
 - `propuestas/ElParcheDeJony_DB_v6_2_delta.sql` — delta v6.2 (absorbe v6.1). **PROPUESTA: no se ha ejecutado.** Probar en la BD de laboratorio, con backup previo. Cuando se ejecute, regenerar el script completo y subirlo aquí.
 
 Este repositorio es público: **no subir** datos (backups del POS, clientes, fiados), cadenas de conexión ni datos de pago.
+- `propuestas/ElParcheDeJony_DB_v6_2_marcador.sql` — Marcador sobre la BD real: teléfono de cliente, invitados, correcciones sin borrar, puntaje y récord derivados de las marcas, rivalidades corregidas, `VW_RECORD_CASA` y `VW_MARCADOR_PARTICIPANTE`. **PROPUESTA: no se ha ejecutado.** Va DESPUÉS del delta v6.2.
