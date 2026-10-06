@@ -67,7 +67,7 @@ return (
         <DetalleCuenta cuentaId={ruta.cuentaId} volver={() => setRuta({ pantalla: 'tablero' })} />
       )}
       {ruta.pantalla === 'contador' && (
-        <Contador salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />
+        <Contador irACuenta={(cuentaId) => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'cuenta', cuentaId }); }} salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />
       )}
       <IndicadorSync />
     </div>

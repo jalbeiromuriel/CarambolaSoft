@@ -36,7 +36,7 @@ export function construirInforme({ mesa, cuenta, modo, jugadores, durSeg, ganado
   };
 }
 
-export default function Informe({ d, onPdf, onInicio, onNuevoMismos, onNuevo }) {
+export default function Informe({ d, onPdf, onInicio, onCobrar }) {
   const maxScore = Math.max(1, ...d.filas.map((j) => j.puntaje));
   return (
     <div className="ct-modal on" style={{ background: 'rgba(2,5,12,.78)' }}>
@@ -96,14 +96,13 @@ export default function Informe({ d, onPdf, onInicio, onNuevoMismos, onNuevo }) 
             {d.tarifa > 0 && <tr><td>Tiempo de mesa <span style={{ color: '#98a2b4' }}>{d.tiempo}</span></td><td className="num">{cop(d.tiempoValor)}</td></tr>}
             {d.consumo.length === 0 && d.tarifa === 0 && <tr><td colSpan={2} style={{ color: '#98a2b4' }}>Sin consumo registrado.</td></tr>}
           </tbody></table>
-          <div className="ct-rep-total"><span>TOTAL DE LA CUENTA (referencia)</span><span>{cop(d.total)}</span></div>
-          <div className="ct-rep-foot">Generado por CarambolaSoft · {d.fecha} · Documento interno de Mero Parche · El cobro se hace en la barra</div>
+          <div className="ct-rep-total"><span>TOTAL A COBRAR</span><span>{cop(d.total)}</span></div>
+          <div className="ct-rep-foot">Generado por CarambolaSoft · {d.fecha} · Documento interno de Mero Parche</div>
         </div>
         <div className="ct-rep-actions">
           <button className="ct-finPdf" onClick={onPdf}>⬇ DESCARGAR PDF</button>
           <button className="ct-finInicio" onClick={onInicio}>▶ VOLVER AL INICIO</button>
-          <button onClick={onNuevoMismos}>NUEVO CHICO · MISMOS</button>
-          <button onClick={onNuevo}>NUEVO CHICO</button>
+          <button className="ct-finInicio" onClick={onCobrar}>💵 COBRAR LA CUENTA</button>
         </div>
       </div>
     </div>

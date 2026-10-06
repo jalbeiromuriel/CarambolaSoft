@@ -12,7 +12,7 @@ import PinModal from './PinModal.jsx';
 
 const BLOQUEO_ADMIN_MS = 2 * 60 * 1000;   // el desbloqueo de administrador caduca solo
 
-export default function Contador({ salir }) {
+export default function Contador({ salir, irACuenta }) {
   const [vista, setVista] = useState({ nombre: 'inicio' });          // inicio | clientes | marcador
   const [adminHasta, setAdminHasta] = useState(0);
   const [pin, setPin] = useState(null);                              // { motivo, resolver }
@@ -42,7 +42,7 @@ export default function Contador({ salir }) {
   };
 
   if (vista.nombre === 'clientes') return <Clientes admin={admin} irInicio={() => setVista({ nombre: 'inicio' })} irMarcador={() => setVista({ nombre: 'inicio', jugar: true })} />;
-  if (vista.nombre === 'marcador') return <Marcador mesaId={vista.mesaId} admin={admin} irInicio={() => setVista({ nombre: 'inicio' })} irClientes={() => setVista({ nombre: 'clientes' })} />;
+  if (vista.nombre === 'marcador') return <Marcador mesaId={vista.mesaId} admin={admin} irInicio={() => setVista({ nombre: 'inicio' })} irCuenta={irACuenta} />;
   return (
     <Inicio
       salir={salir}

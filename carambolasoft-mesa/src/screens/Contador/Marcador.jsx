@@ -19,7 +19,7 @@ const ACENTOS = ['var(--cian)', 'var(--magenta)', 'var(--verde)', 'var(--amarill
 const POOL = ['#e0b400', '#1e40af', '#c62828', '#6d28d9', '#e35b14', '#1f7a3f', '#7f1d1d', '#111318', '#e0b400'];
 const letra = (eq) => (eq === 1 ? 'A' : 'B');
 
-export default function Marcador({ mesaId, admin, irInicio, irClientes }) {
+export default function Marcador({ mesaId, admin, irInicio, irCuenta }) {
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState('');
   const [mesa, setMesa] = useState(null);
@@ -227,18 +227,6 @@ export default function Marcador({ mesaId, admin, irInicio, irClientes }) {
     finally { setOcupado(false); }
   }
 
-  function nuevoChico(mismos) {
-    const previos = jugRef.current;
-    setInforme(null); setSesion(null); setActivo(null); setDosDigitos(false); setCompuesto(''); setAhora(Date.now());
-    if (!mismos) { setJugadores([]); return; }
-    const rearmados = previos.map((j) => {
-      const cliente = j.jugador?.ClienteId ? clientes.find((c) => c.Id === j.jugador.ClienteId) : null;
-      const def = cliente ? { cliente } : { invitado: j.nombre };
-      return { Id: nuevoGuid(), nombre: j.nombre, apodo: j.apodo, esInvitado: !cliente && j.esInvitado, Equipo: j.Equipo, marcas: [], jugador: null, def };
-    }).filter((j) => j.def.cliente || j.def.invitado);
-    setJugadores(rearmados); setActivo(rearmados[0]?.Id ?? null);
-  }
-
   // ---------- render ----------
   if (cargando) return <div className="ct-marcador"><div className="ct-empty" style={{ margin: 40 }}>Cargando marcador…</div></div>;
   if (fallo) {
@@ -384,7 +372,7 @@ export default function Marcador({ mesaId, admin, irInicio, irClientes }) {
           {consumo.map((c) => <div key={c.productoId} className="ct-item"><span className="ct-name">{c.nombre}</span><span className="ct-q">x{c.cantidad}</span></div>)}
           <div className="ct-item time"><span className="ct-name">Tiempo de mesa</span><span className="ct-q">{hms((ahora - new Date(cuenta.HoraApertura).getTime()) / 1000)}</span></div>
         </div>
-        <div className="ct-mnote" style={{ padding: '12px 18px' }}>Desde aquí solo se mira. Los valores los ve el administrador en el informe y el cobro se hace en la barra.</div>
+        <div className="ct-mnote" style={{ padding: '12px 18px' }}>Desde aquí solo se mira. Los valores los ve el administrador en el informe al finalizar.</div>
       </div>
 
       <div className={`ct-modal ${modalAdd ? 'on' : ''}`} onClick={(e) => e.target === e.currentTarget && setModalAdd(null)}>
@@ -412,7 +400,7 @@ export default function Marcador({ mesaId, admin, irInicio, irClientes }) {
       </div>
 
       {informe && (
-        <Informe d={informe} onPdf={() => window.print()} onInicio={irInicio} onNuevoMismos={() => nuevoChico(true)} onNuevo={() => nuevoChico(false)} />
+        <Informe d={informe} onPdf={() => window.print()} onInicio={irInicio} onCobrar={() => irCuenta(cuenta.Id)} />
       )}
       {admin.modal}
     </div>
