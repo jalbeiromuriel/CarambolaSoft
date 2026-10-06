@@ -7,6 +7,7 @@ import { openDb } from './db/schema.js';
 import { getAll } from './db/repository.js';
 import TableroMesas from './screens/TableroMesas.jsx';
 import DetalleCuenta from './screens/DetalleCuenta.jsx';
+import Contador from './screens/Contador/Contador.jsx';
 import IndicadorSync from './components/IndicadorSync.jsx';
 // ------------------------------------------------------------
 // Semillas locales (Ids fijos = idempotentes ante StrictMode).
@@ -49,7 +50,7 @@ function escribir(db, tabla, registros) {
 }
 
 export default function App() {
-  const [ruta, setRuta] = useState({ pantalla: 'tablero' });
+  const [ruta, setRuta] = useState({ pantalla: window.location.hash === '#contador' ? 'contador' : 'tablero' });
   const [listo, setListo] = useState(false);
 
   useEffect(() => { sembrar().then(() => setListo(true)); }, []);
@@ -60,10 +61,13 @@ return (
     <div className="tablero">
       <style>{ESTILOS}</style>
       {ruta.pantalla === 'tablero' && (
-        <TableroMesas irACuenta={(cuentaId) => setRuta({ pantalla: 'cuenta', cuentaId })} />
+        <TableroMesas irACuenta={(cuentaId) => setRuta({ pantalla: 'cuenta', cuentaId })} irAContador={() => setRuta({ pantalla: 'contador' })} />
       )}
       {ruta.pantalla === 'cuenta' && (
         <DetalleCuenta cuentaId={ruta.cuentaId} volver={() => setRuta({ pantalla: 'tablero' })} />
+      )}
+      {ruta.pantalla === 'contador' && (
+        <Contador salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />
       )}
       <IndicadorSync />
     </div>

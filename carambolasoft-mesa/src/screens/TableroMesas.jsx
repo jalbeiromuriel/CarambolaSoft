@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
 import Cronometro from '../components/Cronometro.jsx';
 
-export default function TableroMesas({ irACuenta }) {
+export default function TableroMesas({ irACuenta, irAContador }) {
   const [mesas, setMesas] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [modal, setModal] = useState(null); // { tipo:'BILLAR', mesa } | { tipo:'LICORES' }
@@ -78,6 +78,12 @@ export default function TableroMesas({ irACuenta }) {
       <button className="boton-licores" onClick={() => setModal({ tipo: 'LICORES' })}>
         🍺 ABRIR CUENTA DE LICORES
       </button>
+
+      {irAContador && (
+        <button className="boton-licores" style={{ marginTop: 10, borderColor: 'var(--cian, #22d3ee)', color: 'var(--cian, #22d3ee)' }} onClick={irAContador}>
+          🎱 CONTADOR DEL BILLAR
+        </button>
+      )}
 
       {cuentasLicores.length > 0 && (
         <section className="seccion">
