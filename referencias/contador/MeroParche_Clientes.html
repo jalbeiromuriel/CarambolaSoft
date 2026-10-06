@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clientes · Mero Parche</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Orbitron:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a1018;--card:#111b28;--card2:#0c1420;--line:#243449;--txt:#eaf1fb;--muted:#8497b0;
+    --cian:#2dd4ee;--magenta:#e879f9;--verde:#4ade80;--amarillo:#fbbf24;--rojo:#ff5670;--oro:#eeb63f;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:radial-gradient(1200px 520px at 50% -6%,#16283a 0%,transparent 60%),linear-gradient(180deg,#0b131e,#0a1018);
+    color:var(--txt);font-family:'Rajdhani','Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;min-height:100vh;}
+  input{font-family:inherit;}
+  header{display:flex;align-items:center;gap:14px;padding:14px 26px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(16,52,42,.26),transparent);}
+  .balls{position:relative;width:44px;height:38px;flex:none;}
+  .balls b{position:absolute;width:20px;height:20px;border-radius:50%;box-shadow:inset -3px -4px 7px rgba(0,0,0,.5),0 2px 5px rgba(0,0,0,.5);}
+  .balls b:nth-child(1){left:0;top:0;background:radial-gradient(circle at 35% 30%,#fff8,transparent 45%),radial-gradient(circle at 50% 50%,#e0b400,#7a5f00);}
+  .balls b:nth-child(2){left:14px;top:2px;background:radial-gradient(circle at 35% 30%,#fff8,transparent 45%),radial-gradient(circle at 50% 50%,#c62828,#5c0f0f);}
+  .balls b:nth-child(3){left:8px;top:16px;background:radial-gradient(circle at 35% 30%,#fff8,transparent 45%),radial-gradient(circle at 50% 50%,#1e40af,#0a1c52);}
+  header h1{font-weight:700;font-size:22px;letter-spacing:2px;line-height:.95;} header h1 small{display:block;font-size:11px;letter-spacing:5px;color:var(--muted);font-weight:600;}
+  .count{margin-left:auto;font-size:13px;color:var(--muted);letter-spacing:1px;} .count b{color:var(--oro);font-size:18px;}
+  .nav{display:flex;gap:8px;} .nav a{text-decoration:none;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 14px;font-size:13px;font-weight:700;letter-spacing:1px;}
+  .nav a.mk{border-color:var(--oro);color:var(--oro);}
+
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 26px;border-bottom:1px solid var(--line);}
+  .search{flex:1;min-width:200px;background:#0b1220;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:11px 14px;font-size:15px;outline:none;} .search:focus{border-color:var(--cian);}
+  .togg{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;}
+  .nuevo{background:linear-gradient(180deg,rgba(238,182,63,.18),transparent);border:1px solid var(--oro);color:var(--oro);border-radius:10px;padding:11px 20px;font-weight:700;letter-spacing:1px;cursor:pointer;font-size:14px;}
+
+  .wrap{flex:1;padding:18px 26px;overflow:auto;}
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--line);}
+  td{padding:12px;border-bottom:1px solid #17212f;font-size:15px;}
+  tr.inact td{opacity:.5;}
+  .nm{font-weight:700;} .ap{color:var(--muted);}
+  .estado{font-size:11px;letter-spacing:1px;padding:4px 10px;border-radius:999px;border:1px solid var(--verde);color:var(--verde);}
+  .estado.off{border-color:var(--muted);color:var(--muted);}
+  .acts{display:flex;gap:8px;justify-content:flex-end;}
+  .acts button{border:1px solid var(--line);background:transparent;color:var(--txt);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .acts .ed:hover{border-color:var(--cian);color:var(--cian);} .acts .tg:hover{border-color:var(--amarillo);color:var(--amarillo);}
+  .empty{text-align:center;color:var(--muted);padding:60px 20px;font-size:16px;letter-spacing:.5px;}
+  .empty b{color:var(--oro);}
+
+  .warn{margin:14px 26px;padding:12px 16px;border:1px solid var(--rojo);border-radius:10px;color:var(--rojo);font-size:13px;display:none;}
+  footer{padding:12px 26px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;letter-spacing:1px;text-align:center;}
+
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30;padding:20px;background:rgba(2,5,12,.6);} .modal.on{display:flex;}
+  .mcard{width:min(420px,94vw);background:linear-gradient(180deg,#141f2e,#0d1622);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.6);padding:20px;}
+  .mcard h4{font-size:15px;letter-spacing:2px;color:var(--oro);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;} .mcard h4 .mx{cursor:pointer;color:var(--muted);font-size:18px;}
+  .field{margin-bottom:12px;} .field label{display:block;font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:5px;}
+  .field input{width:100%;background:#0b1220;border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:11px 12px;font-size:15px;outline:none;} .field input:focus{border-color:var(--cian);}
+  .ferr{color:var(--rojo);font-size:12px;min-height:14px;}
+  .mbtns{display:flex;gap:10px;margin-top:6px;} .mbtns button{flex:1;border-radius:9px;padding:12px;font-weight:700;letter-spacing:1px;cursor:pointer;font-size:14px;font-family:inherit;}
+  .mbtns .save{border:1px solid var(--verde);background:linear-gradient(180deg,rgba(74,222,128,.15),transparent);color:var(--verde);} .mbtns .cancel{border:1px solid var(--line);background:transparent;color:var(--muted);}
+</style>
+</head>
+<body>
+<header>
+  <span class="balls"><b></b><b></b><b></b></span>
+  <h1>MERO PARCHE<small>CLIENTES</small></h1>
+  <span class="count">ACTIVOS: <b id="cActivos">0</b> / <span id="cTotal">0</span></span>
+  <div class="nav"><a href="MeroParche_Inicio.html">◂ Inicio</a><a class="mk" href="MeroParche_Marcador.html">Marcador ▸</a></div>
+</header>
+
+<div class="warn" id="warn">⚠ Este navegador no está guardando datos (localStorage bloqueado). Ábrelo en Chrome desde el archivo, no en modo incógnito.</div>
+
+<div class="toolbar">
+  <input class="search" id="search" placeholder="Buscar por nombre o apodo…" autocomplete="off">
+  <label class="togg"><input type="checkbox" id="verInact"> Ver inactivos</label>
+  <button class="nuevo" id="nuevoBtn">＋ NUEVO CLIENTE</button>
+</div>
+
+<div class="wrap"><div id="tabla"></div></div>
+
+<footer>Los clientes se guardan en este PC · CarambolaSoft · Mero Parche</footer>
+
+<div class="modal" id="formModal"><div class="mcard">
+  <h4 id="formTitle">NUEVO CLIENTE <span class="mx" id="formClose">✕</span></h4>
+  <div class="field"><label>Nombre *</label><input id="fNombre" autocomplete="off"></div>
+  <div class="field"><label>Apodo (opcional)</label><input id="fApodo" autocomplete="off" placeholder="Ej: El Zurdo"></div>
+  <div class="field"><label>Teléfono (opcional)</label><input id="fTel" autocomplete="off" inputmode="tel"></div>
+  <div class="ferr" id="fErr"></div>
+  <div class="mbtns"><button class="save" id="fSave">GUARDAR</button><button class="cancel" id="fCancel">CANCELAR</button></div>
+</div></div>
+
+<script>
+var KEY='meroparche_clientes_v1';
+var editingId=null;
+function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16);});}
+function storageOK(){try{localStorage.setItem('__t','1');localStorage.removeItem('__t');return true;}catch(e){return false;}}
+function loadAll(){try{var a=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}}
+function saveAll(arr){try{localStorage.setItem(KEY,JSON.stringify(arr));}catch(e){}}
+
+function counts(){var all=loadAll();document.getElementById('cTotal').textContent=all.length;
+  document.getElementById('cActivos').textContent=all.filter(function(c){return c.activo!==false;}).length;}
+
+function render(){
+  var all=loadAll();
+  var q=(document.getElementById('search').value||'').toLowerCase();
+  var verInact=document.getElementById('verInact').checked;
+  var rows=all.filter(function(c){
+    if(!verInact && c.activo===false) return false;
+    if(q){var hay=((c.nombre||'')+' '+(c.apodo||'')).toLowerCase();if(hay.indexOf(q)===-1)return false;}
+    return true;
+  }).sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
+  counts();
+  var cont=document.getElementById('tabla');
+  if(all.length===0){cont.innerHTML='<div class="empty">Aún no hay clientes.<br>Toca <b>＋ NUEVO CLIENTE</b> para registrar al primero.</div>';return;}
+  if(rows.length===0){cont.innerHTML='<div class="empty">Sin resultados para la búsqueda.</div>';return;}
+  var html='<table><thead><tr><th>Nombre</th><th>Apodo</th><th>Teléfono</th><th>Estado</th><th style="text-align:right">Acciones</th></tr></thead><tbody>';
+  rows.forEach(function(c){
+    var off=c.activo===false;
+    html+='<tr class="'+(off?'inact':'')+'">'+
+      '<td class="nm">'+esc(c.nombre)+'</td>'+
+      '<td class="ap">'+(c.apodo?esc(c.apodo):'—')+'</td>'+
+      '<td>'+(c.telefono?esc(c.telefono):'—')+'</td>'+
+      '<td><span class="estado '+(off?'off':'')+'">'+(off?'INACTIVO':'ACTIVO')+'</span></td>'+
+      '<td><div class="acts"><button class="ed" data-id="'+c.id+'">Editar</button>'+
+      '<button class="tg" data-id="'+c.id+'">'+(off?'Activar':'Desactivar')+'</button></div></td></tr>';
+  });
+  html+='</tbody></table>';
+  cont.innerHTML=html;
+  var eds=cont.querySelectorAll('.ed');for(var i=0;i<eds.length;i++)eds[i].onclick=function(){openForm(this.getAttribute('data-id'));};
+  var tgs=cont.querySelectorAll('.tg');for(var j=0;j<tgs.length;j++)tgs[j].onclick=function(){toggle(this.getAttribute('data-id'));};
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];});}
+
+function openForm(id){
+  editingId=id||null;
+  var t=document.getElementById('formTitle');
+  document.getElementById('fErr').textContent='';
+  if(id){var c=loadAll().filter(function(x){return x.id===id;})[0]||{};
+    t.firstChild.textContent='EDITAR CLIENTE ';
+    document.getElementById('fNombre').value=c.nombre||'';document.getElementById('fApodo').value=c.apodo||'';document.getElementById('fTel').value=c.telefono||'';
+  }else{t.firstChild.textContent='NUEVO CLIENTE ';document.getElementById('fNombre').value='';document.getElementById('fApodo').value='';document.getElementById('fTel').value='';}
+  document.getElementById('formModal').classList.add('on');
+  setTimeout(function(){document.getElementById('fNombre').focus();},50);
+}
+function closeForm(){document.getElementById('formModal').classList.remove('on');editingId=null;}
+function saveForm(){
+  var nombre=(document.getElementById('fNombre').value||'').trim();
+  var apodo=(document.getElementById('fApodo').value||'').trim();
+  var tel=(document.getElementById('fTel').value||'').trim();
+  if(!nombre){document.getElementById('fErr').textContent='El nombre es obligatorio.';return;}
+  var all=loadAll();
+  if(editingId){for(var i=0;i<all.length;i++){if(all[i].id===editingId){all[i].nombre=nombre;all[i].apodo=apodo;all[i].telefono=tel;}}}
+  else{all.push({id:uuid(),nombre:nombre,apodo:apodo,telefono:tel,activo:true,creado:new Date().toISOString()});}
+  saveAll(all);closeForm();render();
+}
+function toggle(id){var all=loadAll();for(var i=0;i<all.length;i++){if(all[i].id===id){all[i].activo=all[i].activo===false;}}saveAll(all);render();}
+
+document.getElementById('nuevoBtn').onclick=function(){openForm(null);};
+document.getElementById('fSave').onclick=saveForm;
+document.getElementById('fCancel').onclick=closeForm;
+document.getElementById('formClose').onclick=closeForm;
+document.getElementById('search').addEventListener('input',render);
+document.getElementById('verInact').addEventListener('change',render);
+document.getElementById('fNombre').addEventListener('keydown',function(e){if(e.key==='Enter')saveForm();});
+
+if(!storageOK())document.getElementById('warn').style.display='block';
+render();
+</script>
+</body>
+</html>
