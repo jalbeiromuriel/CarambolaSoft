@@ -7,7 +7,7 @@ import { openDb } from './db/schema.js';
 import { getAll } from './db/repository.js';
 import TableroMesas from './screens/TableroMesas.jsx';
 import DetalleCuenta from './screens/DetalleCuenta.jsx';
-
+import IndicadorSync from './components/IndicadorSync.jsx';
 // ------------------------------------------------------------
 // Semillas locales (Ids fijos = idempotentes ante StrictMode).
 // Directo al store, SIN cola: son referencia local, no cambios
@@ -56,7 +56,7 @@ export default function App() {
 
   if (!listo) return null;
 
-  return (
+return (
     <div className="tablero">
       <style>{ESTILOS}</style>
       {ruta.pantalla === 'tablero' && (
@@ -65,6 +65,7 @@ export default function App() {
       {ruta.pantalla === 'cuenta' && (
         <DetalleCuenta cuentaId={ruta.cuentaId} volver={() => setRuta({ pantalla: 'tablero' })} />
       )}
+      <IndicadorSync />
     </div>
   );
 }

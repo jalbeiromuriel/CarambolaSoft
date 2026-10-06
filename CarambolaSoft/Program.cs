@@ -18,6 +18,15 @@ builder.Services.AddDbContext<CarambolaSoftDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// ── CORS: permitir que la tablet (Vite :5173) le pegue al API ──
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("TabletDev", policy =>
+        policy.WithOrigins("http://localhost:5173")  // origen del npm run dev
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
 // ── Infrastructure — Repositorios ───────────────────────────
 builder.Services.AddScoped<CarambolaSoft.Application.Interfaces.IMesaRepository, CarambolaSoft.Infrastructure.Repositories.MesaRepository>();
 
@@ -41,6 +50,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("TabletDev");   // ← va ANTES de Authorization y MapControllers
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

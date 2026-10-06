@@ -1,11 +1,12 @@
 // ============================================================
-//  CarambolaSoft — El Parche de Jony
+//  CarambolaSoft — Mero Parche (Licores y Billar)
 //  db/schema.js — IndexedDB espejo de BD v6 (19 stores + cola)
 //  Offline-First: toda operación escribe local primero.
+//  v2: agrega DEAD_LETTER (rechazos del server) y META (cursor de sync)
 // ============================================================
 
-export const DB_NAME = 'ElParcheDeJony';
-export const DB_VERSION = 1;
+export const DB_NAME = 'ElParcheDeJony';   // nombre técnico — NO renombrar sin migración
+export const DB_VERSION = 2;                // ← v2: activa el upgrade de los stores nuevos
 
 // Espejo 1:1 de las 19 tablas SQL (keyPath = Id, GUID generado en cliente)
 export const STORES = [
@@ -31,7 +32,9 @@ export const STORES = [
 ];
 
 // Cola de sincronización: registro de operaciones pendientes de subir
-export const SYNC_QUEUE = 'SYNC_QUEUE';
+export const SYNC_QUEUE  = 'SYNC_QUEUE';
+export const DEAD_LETTER = 'DEAD_LETTER';   // registros que el server rechazó por integridad (409/422)
+export const META        = 'META';          // cursor de bajada y banderas del motor de sync
 
 // Índices por store (para las consultas de las pantallas)
 const INDEXES = {
@@ -79,6 +82,23 @@ export function openDb() {
           autoIncrement: true, // orden de llegada = orden de subida
         });
         q.createIndex('porTabla', 'tabla', { unique: false });
+      }
+
+      // --- v2: cementerio de registros rechazados por el server ---
+      if (!db.objectStoreNames.contains(DEAD_LETTER)) {
+        const dl = db.createObjectStore(DEAD_LETTER, {
+          keyPath: 'seq',
+          autoIncrement: true,
+        });
+        dl.createIndex('porTabla',   'tabla',       { unique: false });
+        dl.createIndex('porEntidad', 'entidadId',   { unique: false });
+        dl.createIndex('porFecha',   'fechaMuerte', { unique: false });
+      }
+
+      // --- v2: metadatos del motor (cursor de bajada, último intento, etc.) ---
+      // keyPath 'clave' → registros tipo { clave: 'sync.cursor', valor: '2026-07-23T20:15:00Z' }
+      if (!db.objectStoreNames.contains(META)) {
+        db.createObjectStore(META, { keyPath: 'clave' });
       }
     };
 
