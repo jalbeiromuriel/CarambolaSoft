@@ -1,6 +1,7 @@
 // Inicio — bienvenida, Reto del Parche (tacada más alta) y accesos. Réplica de MeroParche_Inicio.html.
 import { useState, useEffect } from 'react';
-import { cargarReto, mesasConCuenta } from '../../marcador/datos.js';
+import { cargarReto, mesasConCuenta, listarInformes, leerInforme } from '../../marcador/datos.js';
+import Informe from './Informe.jsx';
 
 function Bola({ clase, n }) {
   return (
@@ -15,13 +16,21 @@ function Bola({ clase, n }) {
   );
 }
 
-export default function Inicio({ salir, abrirSelector, irClientes, jugar }) {
+export default function Inicio({ salir, abrirSelector, irClientes, jugar, admin }) {
   const [reto, setReto] = useState(null);
   const [mesas, setMesas] = useState(null);
   const [selector, setSelector] = useState(Boolean(abrirSelector));
 
   useEffect(() => { cargarReto().then(setReto); }, []);
   useEffect(() => { if (selector) mesasConCuenta().then(setMesas); }, [selector]);
+
+  const [lista, setLista] = useState(null);       // informes guardados (solo con PIN)
+  const [ver, setVer] = useState(null);
+
+  async function abrirInformes() {
+    if (!admin.activo && !(await admin.pedir('Los informes tienen valores de caja: solo administrador.'))) return;
+    setLista(await listarInformes());
+  }
 
   const ocupadas = (mesas ?? []).filter((m) => m.cuenta);
 
@@ -43,8 +52,25 @@ export default function Inicio({ salir, abrirSelector, irClientes, jugar }) {
 
         <button className="ct-cta" onClick={() => setSelector(true)}>¡ TOCÁ AQUÍ PARA JUGAR !</button>
         <button className="ct-cta2" onClick={irClientes}>👥 GESTIONAR CLIENTES</button>
+        <button className="ct-cta2" style={{ marginTop: 10 }} onClick={abrirInformes}>📄 INFORMES DE PARTIDAS</button>
         {salir && <button className="ct-cta2" style={{ marginTop: 10, fontSize: 12, padding: '10px 20px' }} onClick={salir}>◂ VOLVER AL TABLERO DE LA BARRA</button>}
       </div>
+
+      {lista && !ver && (
+        <div className="ct-selector" onClick={(e) => e.target === e.currentTarget && setLista(null)}>
+          <div className="ct-selcard">
+            <h4>INFORMES DE PARTIDAS <span onClick={() => setLista(null)} style={{ cursor: 'pointer', color: 'var(--muted)' }}>✕</span></h4>
+            {lista.length === 0 && <p className="ct-selnota">Aún no hay informes. Se guardan al finalizar cada chico.</p>}
+            {lista.map((i) => (
+              <button key={i.id} className="ct-selmesa" onClick={async () => setVer(await leerInforme(i.id))}>
+                <b>MESA {String(i.mesa).padStart(2, '0')}</b><span>{i.fecha} · {i.ganador}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {ver && <div className="ct-marcador ct-host"><Informe d={ver} onPdf={() => window.print()} onInicio={() => setVer(null)} textoInicio="◂ CERRAR" /></div>}
+      {admin.modal}
 
       {selector && (
         <div className="ct-selector" onClick={(e) => e.target === e.currentTarget && setSelector(false)}>

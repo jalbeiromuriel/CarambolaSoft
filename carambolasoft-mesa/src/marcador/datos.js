@@ -10,8 +10,8 @@
 //  [API] El servidor debe recibir a todos los ganadores de una partida en UN SOLO UPDATE
 //  (ver TR_PARTICIPANTES_ActualizarRivalidades en el delta del Marcador).
 // ============================================================
-import { put, get, getAll, porIndice, nuevoGuid, leerMeta, escribirMeta } from '../db/repository.js';
-import { ganadores, ranking, recordDeMarcas, retoDelParche } from './logica.js';
+import { put, get, getAll, porIndice, nuevoGuid, leerMeta, escribirMeta, borrarLocal } from '../db/repository.js';
+import { ganadores, recordDeMarcas, retoDelParche } from './logica.js';
 
 const ahora = () => new Date().toISOString();
 const porHora = (a, b) => (a.MarcaTiempo < b.MarcaTiempo ? -1 : a.MarcaTiempo > b.MarcaTiempo ? 1 : 0);
@@ -162,26 +162,33 @@ export async function corregirUltima(participante, ultima, plan, nuevaId = nuevo
 }
 
 /**
- * Cierra el chico: guarda puntaje, posición y ganadores; luego marca el fin de la sesión.
- * Un empate no marca ganador. NO cobra: el cobro de la cuenta se hace en la barra.
+ * Cierra el chico. DECISIÓN DEL DUEÑO (2026-10-06): de un chico solo queda el RÉCORD (ya guardado en
+ * JUGADORES al contar cada serie) y el INFORME. Se borra el detalle local: sesión, participantes y marcas.
+ * Consecuencia aceptada: no hay rivalidades, ganadores ni historial por jugador.
+ * Va primero el informe (snapshot) y luego el borrado: si algo falla en medio, el chico sigue abierto y se repite.
+ * NO cobra: el cobro de la cuenta se hace desde su detalle.
  */
-export async function finalizarChico(sesion, participantes, modo) {
-  const conPuntaje = participantes.map((p) => ({ Id: p.Id, Equipo: p.Equipo, puntaje: p.puntaje }));
-  const g = ganadores(modo, conPuntaje);
-  const orden = ranking(conPuntaje);
-  for (const p of participantes) {
-    const { Id, SesionMesaId, JugadorId, NombreInvitado, Equipo } = p;
-    await put('PARTICIPANTES', {
-      ...(await get('PARTICIPANTES', Id)),
-      Id, SesionMesaId, JugadorId, NombreInvitado, Equipo,
-      Puntaje: p.puntaje,
-      Posicion: Math.min(4, orden.findIndex((o) => o.Id === Id) + 1),
-      EsGanador: g.ids.includes(Id),
-    });
-  }
-  await put('SESIONES_MESAS', { ...(await get('SESIONES_MESAS', sesion.Id)), HoraFin: ahora() });
-  return g;
+export async function finalizarChico(sesion, participantes, modo, construirInforme) {
+  const g = ganadores(modo, participantes.map((p) => ({ Id: p.Id, Equipo: p.Equipo, puntaje: p.puntaje })));
+  const d = await construirInforme(g);
+  await guardarInforme(sesion.Id, d);
+  const marcas = (await Promise.all(participantes.map((p) => porIndice('PARTICIPANTE_MARCAS_TIEMPO', 'porParticipante', p.Id)))).flat();
+  await borrarLocal('PARTICIPANTE_MARCAS_TIEMPO', marcas.map((m) => m.Id));
+  await borrarLocal('PARTICIPANTES', participantes.map((p) => p.Id));
+  await borrarLocal('SESIONES_MESAS', [sesion.Id]);
+  return d;
 }
+
+// ---------- Informes guardados (solo snapshot; contienen valores → se abren con PIN) ----------
+const LISTA = 'marcador.informes';
+export async function guardarInforme(id, d) {
+  await escribirMeta(`marcador.informe.${id}`, d);
+  const lista = ((await leerMeta(LISTA)) ?? []).filter((i) => i.id !== id);
+  lista.unshift({ id, fecha: d.fecha, mesa: d.mesa, ganador: d.textoGanador, modo: d.modo, total: d.totalC });
+  await escribirMeta(LISTA, lista.slice(0, 100));
+}
+export async function listarInformes() { return (await leerMeta(LISTA)) ?? []; }
+export async function leerInforme(id) { return leerMeta(`marcador.informe.${id}`); }
 
 // ---------- Consumo de la cuenta (solo lectura) ----------
 /**

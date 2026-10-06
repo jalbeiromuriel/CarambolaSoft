@@ -36,7 +36,7 @@ export function construirInforme({ mesa, cuenta, modo, jugadores, durSeg, ganado
   };
 }
 
-export default function Informe({ d, onPdf, onInicio, onCobrar }) {
+export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = '▶ VOLVER AL INICIO' }) {
   const maxScore = Math.max(1, ...d.filas.map((j) => j.puntaje));
   return (
     <div className="ct-modal on" style={{ background: 'rgba(2,5,12,.78)' }}>
@@ -101,8 +101,8 @@ export default function Informe({ d, onPdf, onInicio, onCobrar }) {
         </div>
         <div className="ct-rep-actions">
           <button className="ct-finPdf" onClick={onPdf}>⬇ DESCARGAR PDF</button>
-          <button className="ct-finInicio" onClick={onInicio}>▶ VOLVER AL INICIO</button>
-          <button className="ct-finInicio" onClick={onCobrar}>💵 COBRAR LA CUENTA</button>
+          <button className="ct-finInicio" onClick={onInicio}>{textoInicio}</button>
+          {onCobrar && <button className="ct-finInicio" onClick={onCobrar}>💵 COBRAR LA CUENTA</button>}
         </div>
       </div>
     </div>

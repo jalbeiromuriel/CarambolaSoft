@@ -184,3 +184,27 @@ export async function escribirMeta(clave, valor) {
     tx.onerror = () => reject(tx.error);
   });
 }
+/**
+ * Borrado físico LOCAL, solo para datos efímeros (el detalle de un chico del Marcador).
+ * Quita el registro y cualquier operación suya pendiente en la cola. NO sincroniza el borrado hacia el server.
+ * Las demás tablas siguen la regla de la casa: nunca borrar con historial.
+ */
+export async function borrarLocal(tabla, ids) {
+  const db = await openDb();
+  const set = new Set(ids);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([tabla, SYNC_QUEUE], 'readwrite');
+    const negocio = tx.objectStore(tabla);
+    for (const id of set) negocio.delete(id);
+    const cola = tx.objectStore(SYNC_QUEUE).openCursor();
+    cola.onsuccess = () => {
+      const c = cola.result;
+      if (!c) return;
+      if (c.value.tabla === tabla && set.has(c.value.registroId)) c.delete();
+      c.continue();
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error(`No se pudo borrar en ${tabla}`));
+  });
+}

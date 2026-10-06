@@ -218,11 +218,13 @@ export default function Marcador({ mesaId, admin, irInicio, irCuenta }) {
     try {
       await cola.current;                               // que todas las series estén guardadas antes de cerrar
       const lista = jugRef.current.map((j) => ({ ...j, puntaje: stats(j).puntaje }));
-      const g = await finalizarChico(sesion, lista, modo);
-      const [consumoConPrecios, retoFinal] = await Promise.all([leerConsumo(cuenta.Id, { conPrecios: true }), cargarReto()]);
-      setReto(retoFinal);
+      const d = await finalizarChico(sesion, lista, modo, async (g) => {
+        const [consumoConPrecios, retoFinal] = await Promise.all([leerConsumo(cuenta.Id, { conPrecios: true }), cargarReto()]);
+        setReto(retoFinal);
+        return construirInforme({ mesa, cuenta, modo, jugadores: lista, durSeg: segs, ganador: g, reto: retoFinal, retoInicial, consumo: consumoConPrecios });
+      });
       setCajon(false); setDosDigitos(false); setCompuesto('');
-      setInforme(construirInforme({ mesa, cuenta, modo, jugadores: lista, durSeg: segs, ganador: g, reto: retoFinal, retoInicial, consumo: consumoConPrecios }));
+      setInforme(d);
     } catch (e) { avisar(`No se pudo cerrar el chico: ${e}`); }
     finally { setOcupado(false); }
   }

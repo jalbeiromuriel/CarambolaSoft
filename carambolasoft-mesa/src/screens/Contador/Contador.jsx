@@ -33,11 +33,13 @@ export default function Contador({ salir, irACuenta }) {
     pedir,
     bloquear: () => setAdminHasta(0),
     modal: pin && (
+      <div className="ct-marcador ct-host">
       <PinModal
         motivo={pin.motivo}
         onOk={() => { setAdminHasta(Date.now() + BLOQUEO_ADMIN_MS); pin.resolver(true); setPin(null); }}
         onCancelar={() => { pin.resolver(false); setPin(null); }}
       />
+      </div>
     ),
   };
 
@@ -46,6 +48,7 @@ export default function Contador({ salir, irACuenta }) {
   return (
     <Inicio
       salir={salir}
+      admin={admin}
       abrirSelector={vista.jugar}
       irClientes={() => setVista({ nombre: 'clientes' })}
       jugar={(mesaId) => setVista({ nombre: 'marcador', mesaId })}
