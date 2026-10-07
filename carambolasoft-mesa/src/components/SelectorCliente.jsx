@@ -11,7 +11,7 @@ export const etiquetaDe = ({ cliente, nombre }) => nombre.trim() || cliente?.Apo
 /** ⭐ suma una visita al cliente elegido. */
 export const sumarVisita = (cliente) => cliente && put('CLIENTES', { ...cliente, Visitas: (cliente.Visitas ?? 0) + 1 });
 
-export default function SelectorCliente({ valor, onChange, onModoNuevo, error, setError }) {
+export default function SelectorCliente({ valor, onChange, onModoNuevo, error, setError, soloCliente = false }) {
   const [clientes, setClientes] = useState([]);
   const [busca, setBusca] = useState('');
   const [nuevo, setNuevo] = useState(null);
@@ -68,12 +68,17 @@ export default function SelectorCliente({ valor, onChange, onModoNuevo, error, s
           </button>
         ))}
       </div>
-      <label>O nombre libre (apodo, seña…)</label>
-      <input value={nombre} onChange={(e) => onChange({ ...valor, nombre: e.target.value })}
-        placeholder="El Tigre, mesa ventana, Doña Marta…" />
-      <div className={`pn-reg ${cliente ? 'si' : ''}`}>
-        {cliente ? `✓ Cliente registrado: ${cliente.Nombre}` : nombre.trim() ? 'Sin cliente: no podrá fiar' : ''}
-      </div>
+      {!soloCliente && (
+        <>
+          <label>O nombre libre (apodo, seña…)</label>
+          <input value={nombre} onChange={(e) => onChange({ ...valor, nombre: e.target.value })}
+            placeholder="El Tigre, mesa ventana, Doña Marta…" />
+          <div className={`pn-reg ${cliente ? 'si' : ''}`}>
+            {cliente ? `✓ Cliente registrado: ${cliente.Nombre}` : nombre.trim() ? 'Sin cliente: no podrá fiar' : ''}
+          </div>
+        </>
+      )}
+      {soloCliente && <div className={`pn-reg ${cliente ? 'si' : ''}`}>{cliente ? `✓ ${cliente.Nombre}` : ''}</div>}
     </>
   );
 }
