@@ -17,7 +17,7 @@ export function dibujarTarjeta(d) {
   const r = resumenTactico(d), a = d.analisis;
   // El alto se calcula según el contenido (más premios o insights = tarjeta más alta), sin que nada se pise.
   const nM = Math.min(4, r.matriz.length), nP = Math.min(4, a?.premios?.length ?? 0), nI = Math.min(5, r.ins.length);
-  const H2 = 524 + (a?.jugadas > 0 ? 322 : 0) + (78 + nM * 54 + 20) + (nP ? 66 + Math.ceil(nP / 2) * 96 + 20 : 0) + (62 + nI * 36 + 16) + 90;
+  const H2 = 524 + (a?.jugadas > 0 ? 322 : 0) + (78 + nM * 54 + 20) + (nP ? 66 + Math.ceil(nP / 2) * 112 + 20 : 0) + (62 + nI * 36 + 16) + 90;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H2;
   const c = cv.getContext('2d');
   c.fillStyle = '#060a12'; c.fillRect(0, 0, W, H2);
@@ -88,16 +88,17 @@ export function dibujarTarjeta(d) {
   // premios
   const prem = (a?.premios ?? []).slice(0, nP);
   if (prem.length) {
-    doble(c, 40, y, W - 80, 66 + Math.ceil(prem.length / 2) * 96, MG);
+    doble(c, 40, y, W - 80, 66 + Math.ceil(prem.length / 2) * 112, MG);
     mono(c, '▌LOS PREMIOS DE LA NOCHE', 66, y + 40, { size: 20, color: MG, peso: 800 });
     prem.forEach((p, i) => {
-      const x = 66 + (i % 2) * 480, yy = y + 62 + Math.floor(i / 2) * 96;
-      c.fillStyle = 'rgba(232,121,249,.10)'; c.beginPath(); c.roundRect(x, yy, 456, 82, 14); c.fill();
-      mono(c, p.emoji, x + 14, yy + 56, { size: 44 });
+      const x = 66 + (i % 2) * 480, yy = y + 62 + Math.floor(i / 2) * 112;
+      c.fillStyle = 'rgba(232,121,249,.10)'; c.beginPath(); c.roundRect(x, yy, 456, 98, 14); c.fill();
+      mono(c, p.emoji, x + 14, yy + 62, { size: 44 });
       mono(c, p.titulo.replace(/^EL /, ''), x + 80, yy + 34, { size: 17, color: MG, peso: 800 });
-      mono(c, p.nombre, x + 80, yy + 66, { size: 28, color: '#fff', peso: 800, max: 360 });
+      mono(c, p.nombre, x + 80, yy + 64, { size: 28, color: '#fff', peso: 800, max: 360 });
+      mono(c, p.detalle, x + 80, yy + 88, { size: 15, color: MU, max: 366 });
     });
-    y += 66 + Math.ceil(prem.length / 2) * 96 + 20;
+    y += 66 + Math.ceil(prem.length / 2) * 112 + 20;
   }
 
   // insights
