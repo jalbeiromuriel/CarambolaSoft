@@ -4,6 +4,7 @@ export const HORA_MS = 3600000;
 export const AVISO_MS = 5 * 60000;          // el aviso salta 5 min antes de cumplir la hora
 export const NUEVO_MS = 10 * 60000;         // quien entró hace menos de esto no se marca por defecto
 export const VALOR_HORA = 1000;
+export const PRODUCTO_LIBRE_ID = '00000000-0000-0000-0000-000000000202'; // "Venta libre": ítem sin producto en venta rápida
 export const PRODUCTO_GARITA_ID = '00000000-0000-0000-0000-000000000201';
 
 export function nuevoReloj(ahora = Date.now(), valor = VALOR_HORA) {

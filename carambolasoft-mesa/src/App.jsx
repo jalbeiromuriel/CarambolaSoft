@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { openDb } from './db/schema.js';
 import { getAll, get } from './db/repository.js';
-import { PRODUCTO_GARITA_ID } from './cuenta/garita.js';
+import { PRODUCTO_GARITA_ID, PRODUCTO_LIBRE_ID } from './cuenta/garita.js';
 import Panel from './screens/Panel.jsx';
 import DetalleCuenta from './screens/DetalleCuenta.jsx';
 import Contador from './screens/Contador/Contador.jsx';
@@ -42,6 +42,11 @@ async function sembrar() {
   if (!(await get('PRODUCTOS', PRODUCTO_GARITA_ID))) {
     await escribir(db, 'PRODUCTOS', [
       { Id: PRODUCTO_GARITA_ID, Nombre: 'Garita (persona/hora)', PrecioVenta: 1000, CostoCompra: 0, StockActual: 0, ControlaStock: false, CategoriaConsumo: 'OTROS', Activo: true },
+    ]);
+  }
+  if (!(await get('PRODUCTOS', PRODUCTO_LIBRE_ID))) {
+    await escribir(db, 'PRODUCTOS', [
+      { Id: PRODUCTO_LIBRE_ID, Nombre: 'Venta libre', PrecioVenta: 0, CostoCompra: 0, StockActual: 0, ControlaStock: false, CategoriaConsumo: 'OTROS', Activo: true },
     ]);
   }
 }
