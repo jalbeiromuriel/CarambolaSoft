@@ -1,6 +1,6 @@
 /* =====================================================================
    CarambolaSoft / Mero Parche  -  Usuarios y roles (v6.3)
-   PROPUESTA: NO se ha ejecutado contra la BD real. Probar en LAB, con backup.
+   PROPUESTA: probada en LAB el 2026-10-07 (4 pruebas OK); NO ejecutada contra la BD real. Con backup.
    Va DESPUES del delta v6.2. Idempotente.
    Roles (decididos 2026-10-07):
      ADMIN    : control total (usuarios, precios, datos de pago, todo).
