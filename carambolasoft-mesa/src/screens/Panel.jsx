@@ -3,30 +3,23 @@
 // Fuente de verdad: IndexedDB. Mesa = dorado, Billar = verde. Garita y Venta rápida: Fase 1b.
 import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
-import { listarClientes, guardarCliente } from '../marcador/datos.js';
+import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
+import { cobroTiempo, msJugados, estaCorriendo, hms } from '../cuenta/tiempo.js';
 import LogoBola9 from '../components/LogoBola9.jsx';
 import './Panel.css';
 
 const TARIFA_BILLAR = 6000; // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const hora = (iso) => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-const norm = (t) => (t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-const hms = (iso, ahora) => {
-  const s = Math.max(0, Math.floor((ahora - new Date(iso)) / 1000));
-  return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((x) => String(x).padStart(2, '0')).join(':');
-};
 
 export default function Panel({ irACuenta, irAContador }) {
   const [mesas, setMesas] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [fiadoPorCliente, setFiadoPorCliente] = useState({});
-  const [clientes, setClientes] = useState([]);
-  const [cliente, setCliente] = useState(null); // cliente registrado elegido para la cuenta nueva
   const [modal, setModal] = useState(null); // { tipo:'MESA' } | { tipo:'BILLAR', mesaId }
-  const [nombre, setNombre] = useState('');   // nombre libre
-  const [busca, setBusca] = useState('');
-  const [nuevo, setNuevo] = useState(null);     // {nombre, apodo} mientras se crea un cliente rápido
+  const [sel, setSel] = useState({ cliente: null, nombre: '' }); // cliente elegido + nombre libre
+  const [creando, setCreando] = useState(false);                  // el selector está en 'nuevo cliente'
   const [tarifa, setTarifa] = useState(String(TARIFA_BILLAR));
   const [error, setError] = useState('');
   const [ahora, setAhora] = useState(Date.now());
@@ -35,7 +28,6 @@ export default function Panel({ irACuenta, irAContador }) {
     setMesas((await getAll('MESAS_BILLAR')).sort((a, b) => a.Numero - b.Numero));
     setCuentas(await porIndice('CUENTAS', 'porEstado', 'ABIERTA'));
     setPedidos(await getAll('PEDIDOS_CUENTAS'));
-    setClientes((await listarClientes()).filter((c) => c.Activo !== false)); // solo nombres: el teléfono no sale de Clientes
 
     // Deuda de fiado por cliente: facturas con saldo, unidas a su cuenta para saber el cliente.
     const todas = await getAll('CUENTAS');
@@ -61,30 +53,15 @@ export default function Panel({ irACuenta, irAContador }) {
   function resumen(c) {
     const items = pedidos.filter((p) => p.CuentaId === c.Id && p.EstadoPedido === 'ENTREGADO');
     const consumo = items.reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
-    const tiempo = c.TarifaPorHora
-      ? Math.round((Math.ceil((ahora - new Date(c.HoraApertura)) / 60000) * c.TarifaPorHora) / 60)
-      : 0;
+    const tiempo = cobroTiempo(c, ahora);
     return { pedidos: items.reduce((t, p) => t + p.Cantidad, 0), total: consumo + tiempo };
   }
 
-  const q = norm(busca);
-  const sugeridos = clientes
-    .filter((c) => !q || norm(c.Nombre).includes(q) || norm(c.Apodo).includes(q))
-    ;
-
-  function elegir(c) { setCliente(cliente?.Id === c.Id ? null : c); setError(''); }
-
-  async function crearRapido() {
-    if (!nuevo.nombre.trim()) { setError('Escribe el nombre.'); return; }
-    const c = await guardarCliente({ Nombre: nuevo.nombre, Apodo: nuevo.apodo });
-    setClientes((l) => [...l, c].sort((a, b) => a.Nombre.localeCompare(b.Nombre)));
-    setCliente(c); setNuevo(null); setError('');
-  }
-
-  function abrirModal(m) { setError(''); setNombre(''); setBusca(''); setNuevo(null); setCliente(null); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
+  function abrirModal(m) { setError(''); setSel({ cliente: null, nombre: '' }); setCreando(false); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
 
   async function abrirCuenta() {
-    const etiqueta = nombre.trim() || cliente?.Apodo || cliente?.Nombre || '';
+    const { cliente } = sel;
+    const etiqueta = etiquetaDe(sel);
     if (!etiqueta) { setError('Elige un cliente o escribe un nombre.'); return; }
     const esBillar = modal.tipo === 'BILLAR';
     if (esBillar && !modal.mesaId) { setError('Elige una mesa libre.'); return; }
@@ -96,15 +73,17 @@ export default function Panel({ irACuenta, irAContador }) {
       ClienteId: cliente?.Id ?? null,   // null = no registrado: no puede fiar
       NombreLibre: etiqueta,
       HoraApertura: new Date().toISOString(),
+      GrupoMesaId: esBillar ? null : crypto.randomUUID(), // cuentas de una misma mesa de licores comparten grupo
       HoraCierre: null,
       TarifaPorHora: esBillar ? Number(tarifa) : null,
+      ...(esBillar ? { MsAcumulados: 0, InicioChico: null } : {}), // el taxímetro arranca con ▶ INICIAR
       Estado: 'ABIERTA',
     });
     if (esBillar) {
       const mesa = mesas.find((m) => m.Id === modal.mesaId);
       await put('MESAS_BILLAR', { ...mesa, Estado: 'OCUPADA' });
     }
-    if (cliente) await put('CLIENTES', { ...cliente, Visitas: (cliente.Visitas ?? 0) + 1 }); // ⭐ suma una visita
+    await sumarVisita(cliente);
     setModal(null);
     irACuenta(cuenta.Id); // directo al detalle, como en el POS
   }
@@ -164,7 +143,7 @@ export default function Panel({ irACuenta, irAContador }) {
                 <h4>{c.NombreLibre}</h4>
                 <div className="pn-f">
                   <span>desde {hora(c.HoraApertura)} · {r.pedidos} ped.
-                    {billar && <span className="pn-cr">⏱ {hms(c.HoraApertura, ahora)}</span>}
+                    {billar && <span className="pn-cr">{estaCorriendo(c) ? '⏱' : '⏸'} {hms(msJugados(c, ahora))}</span>}
                   </span>
                   <span className="pn-tot">{fmt(r.total)}</span>
                 </div>
@@ -191,52 +170,15 @@ export default function Panel({ irACuenta, irAContador }) {
                 </div>
               </>
             )}
-            {nuevo ? (
-              <>
-                <label>Nuevo cliente rápido</label>
-                <input autoFocus value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} placeholder="Nombre completo" />
-                <input value={nuevo.apodo} onChange={(e) => setNuevo({ ...nuevo, apodo: e.target.value })} placeholder="Apodo (El Tigre, La Reina…)" style={{ marginTop: 8 }} />
-                {error && <div className="pn-err">{error}</div>}
-                <div className="pn-acc">
-                  <button className="no" onClick={() => { setNuevo(null); setError(''); }}>VOLVER</button>
-                  <button className="si" onClick={crearRapido}>CREAR Y SELECCIONAR</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="pn-cabcli">
-                  <label>Seleccionar cliente</label>
-                  <button onClick={() => { setNuevo({ nombre: '', apodo: '' }); setError(''); }}>+ Nuevo cliente</button>
-                </div>
-                <div className="pn-busca">
-                  <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nombre o apodo…" />
-                  {busca && <span onClick={() => setBusca('')}>✕</span>}
-                </div>
-                <div className="pn-lista">
-                  {sugeridos.length === 0 && <div className="pn-vacio">{clientes.length === 0 ? 'Aún no hay clientes. Crea uno con “+ Nuevo cliente”.' : 'Sin coincidencias.'}</div>}
-                  {sugeridos.map((c) => (
-                    <button key={c.Id} className={cliente?.Id === c.Id ? 'on' : ''} onClick={() => elegir(c)}>
-                      <div><b>{c.Nombre}</b>{c.Apodo && <em>“{c.Apodo}”</em>}</div>
-                      <span className="pn-est">⭐ {c.Visitas ?? 0}</span>
-                    </button>
-                  ))}
-                </div>
-                <label>O nombre libre (apodo, seña…)</label>
-                <input value={nombre} onChange={(e) => setNombre(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && abrirCuenta()} placeholder="El Tigre, mesa ventana, Doña Marta…" />
-                <div className={`pn-reg ${cliente ? 'si' : ''}`}>
-                  {cliente ? `✓ Cliente registrado: ${cliente.Nombre}` : nombre.trim() ? 'Sin cliente: no podrá fiar' : ''}
-                </div>
-              </>
-            )}
-            {!nuevo && modal.tipo === 'BILLAR' && (
+            <SelectorCliente valor={sel} onChange={setSel} onModoNuevo={setCreando} error={error} setError={setError} />
+            {!creando && modal.tipo === 'BILLAR' && (
               <>
                 <label>Tarifa por hora (COP)</label>
                 <input type="number" inputMode="numeric" value={tarifa} onChange={(e) => setTarifa(e.target.value)} />
               </>
             )}
-            {!nuevo && error && <div className="pn-err">{error}</div>}
-            {!nuevo && <div className="pn-acc">
+            {!creando && error && <div className="pn-err">{error}</div>}
+            {!creando && <div className="pn-acc">
               <button className="no" onClick={() => setModal(null)}>CANCELAR</button>
               <button className="si" onClick={abrirCuenta}>ABRIR CUENTA</button>
             </div>}
