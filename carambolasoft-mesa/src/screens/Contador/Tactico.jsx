@@ -1,6 +1,6 @@
 // INFORME TÁCTICO — pantalla principal tras finalizar un chico. Mezcla del informe de terminal ("core system")
 // con la carrera y los premios neón. Misma fuente de datos que la tarjeta PNG: resumenTactico(d).
-import { resumenTactico } from '../../marcador/tactico.js';
+import { resumenTactico, GLOSARIO } from '../../marcador/tactico.js';
 
 const MONO = "'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Consolas,'Courier New',monospace";
 const K = { fondo: '#060a12', borde: '#1e3a4a', cian: '#2dd4ee', oro: '#fbbf24', mag: '#e879f9', verde: '#4ade80', txt: '#d7e4f5', mute: '#6b8199' };
@@ -98,6 +98,18 @@ export default function Tactico({ d, acciones }) {
         <div style={marco()}>
           {sec('INSIGHTS AUTOMÁTICOS DEL PARCHE', K.oro)}
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.75 }}>{r.ins.map((t, i) => <li key={i}>{negrita(t)}</li>)}</ul>
+        </div>
+
+        <div style={marco()}>
+          {sec('GLOSARIO PARA LOS DESPISTADOS', K.verde)}
+          <div style={{ fontSize: 11, letterSpacing: 1.5, color: K.mag, margin: '2px 0 6px' }}>LOS PREMIOS</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: '6px 18px', fontSize: 12.5, lineHeight: 1.5 }}>
+            {GLOSARIO.premios.map(([t, x]) => <div key={t}><b style={{ color: '#fff' }}>{t}:</b> <span style={{ color: K.txt }}>{x}</span></div>)}
+          </div>
+          <div style={{ fontSize: 11, letterSpacing: 1.5, color: K.cian, margin: '12px 0 6px' }}>LAS PALABRAS DEL INFORME</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: '6px 18px', fontSize: 12.5, lineHeight: 1.5 }}>
+            {GLOSARIO.terminos.map(([t, x]) => <div key={t}><b style={{ color: K.oro }}>{t}:</b> <span style={{ color: K.txt }}>{x}</span></div>)}
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>{acciones}</div>

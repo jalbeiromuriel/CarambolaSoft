@@ -36,3 +36,27 @@ export function resumenTactico(d) {
   ];
   return { mvp, matriz, ins, kpis, ganadorId };
 }
+
+/** Glosario para los despistados: lo que significa cada premio y cada término del informe. */
+export const GLOSARIO = {
+  premios: [
+    ['🎯 Mera Puntería', 'El mejor promedio de carambolas por entrada.'],
+    ['🎱 Mera Tacada', 'La tacada (serie) más alta de la partida.'],
+    ['🔥 Mero Remontador', 'Ganó después de ir perdiendo por 5 o más carambolas.'],
+    ['🚀 Mero Patrón', 'Ganó sin que nadie le quitara el primer lugar en toda la partida.'],
+  ],
+  terminos: [
+    ['Carambola', 'Un punto de la partida.'],
+    ['Entrada', 'Cada turno de un jugador, en el que anota su serie.'],
+    ['Serie o tacada', 'Las carambolas seguidas que hace un jugador en una misma entrada.'],
+    ['Promedio', 'Carambolas divididas entre entradas.'],
+    ['Letalidad', 'Porcentaje de sus entradas que igualaron o superaron el promedio de la mesa.'],
+    ['Cambio de líder', 'Cuando alguien pasa al frente del marcador (el círculo blanco de la carrera).'],
+    ['Quiebre de juego', 'La jugada donde se definió el partido: el último cambio de líder.'],
+    ['Mayor ventaja', 'La diferencia más grande que sacó el líder sobre el segundo.'],
+    ['Mesa caliente', 'Porcentaje de series de 5 o más carambolas.'],
+    ['Récord del Parche', 'La tacada más alta de todos los jugadores registrados. Hay que tumbarla para quedarse con él.'],
+    ['Sello', 'El premio más pesado que ganó el MVP.'],
+    ['Invitado', 'Juega y suma, pero no cuenta para el récord.'],
+  ],
+};

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Replay from './Replay.jsx';
 import Tablero from './Tablero.jsx';
 import Tactico from './Tactico.jsx';
+import { GLOSARIO } from '../../marcador/tactico.js';
 import { compartirTarjeta } from '../../marcador/tarjeta.js';
 import { estadisticas, ranking, hms, valorTiempo, analisisPartida } from '../../marcador/logica.js';
 
@@ -156,6 +157,10 @@ export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = '�
             {d.consumo.length === 0 && d.tarifa === 0 && <tr><td colSpan={2} style={{ color: '#98a2b4' }}>Sin consumo registrado.</td></tr>}
           </tbody></table>
           <div className="ct-rep-total"><span>TOTAL A COBRAR</span><span>{cop(d.total)}</span></div>
+          <div className="ct-rep-sec">Glosario para los despistados</div>
+          <table className="rep"><tbody>
+            {[...GLOSARIO.premios, ...GLOSARIO.terminos].map(([t, x]) => <tr key={t}><td style={{ width: '32%', fontWeight: 700 }}>{t}</td><td style={{ color: '#3a4658', fontWeight: 400 }}>{x}</td></tr>)}
+          </tbody></table>
           <div className="ct-rep-foot">Generado por CarambolaSoft · {d.fecha} · Documento interno de Mero Parche</div>
         </div>
       </div>
