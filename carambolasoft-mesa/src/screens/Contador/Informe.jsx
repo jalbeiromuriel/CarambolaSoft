@@ -3,6 +3,7 @@ import { useState } from 'react';
 // Los VALORES (consumo, tiempo, total) solo llegan aquí tras el PIN de administrador.
 import Replay from './Replay.jsx';
 import Tablero from './Tablero.jsx';
+import Tactico from './Tactico.jsx';
 import { compartirTarjeta } from '../../marcador/tarjeta.js';
 import { estadisticas, ranking, hms, valorTiempo, analisisPartida } from '../../marcador/logica.js';
 
@@ -64,6 +65,8 @@ function Carrera({ a }) {
   );
 }
 
+const bt = (c) => ({ background: 'rgba(0,0,0,.5)', border: `1.5px solid ${c}`, color: c, borderRadius: 10, padding: '11px 16px', fontWeight: 800, letterSpacing: 1, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 });
+
 export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = '▶ VOLVER AL INICIO' }) {
   const [msg, setMsg] = useState('');
   const [replay, setReplay] = useState(false);
@@ -71,7 +74,16 @@ export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = '�
   const maxScore = Math.max(1, ...d.filas.map((j) => j.puntaje));
   return (
     <div className="ct-modal on" style={{ background: 'rgba(2,5,12,.78)' }}>
-      <div className="ct-repwrap">
+      <Tactico d={d} acciones={<>
+          {msg && <div style={{ width: '100%', textAlign: 'center', color: 'var(--verde)', fontSize: 13 }}>{msg}</div>}
+          {d.analisis?.series && d.analisis.jugadas > 0 && <button style={bt('var(--cian)')} onClick={() => setTablero(true)}>📊 TABLERO</button>}
+          {d.analisis?.jugadas > 0 && <button style={bt('var(--amarillo)')} onClick={() => setReplay(true)}>🎬 REPLAY</button>}
+          <button style={bt('var(--magenta)')} onClick={async () => { const r = await compartirTarjeta(d); setMsg(r === 'descargada' ? 'Tarjeta descargada ✔' : ''); }}>📲 COMPARTIR</button>
+          <button style={bt('var(--cian)')} onClick={onPdf}>⬇ PDF</button>
+          {onCobrar && <button style={bt('var(--verde)')} onClick={onCobrar}>💵 COBRAR LA CUENTA</button>}
+          <button style={bt('var(--verde)')} onClick={onInicio}>{textoInicio}</button>
+      </>} />
+      <div className="ct-repwrap ct-paper">
         <div className="ct-report ct-print-area">
           <div className="ct-rep-head">
             <div className="ct-rep-title">MERO PARCHE<small>INFORME DE PARTIDA · CARAMBOLA</small></div>
@@ -145,15 +157,6 @@ export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = '�
           </tbody></table>
           <div className="ct-rep-total"><span>TOTAL A COBRAR</span><span>{cop(d.total)}</span></div>
           <div className="ct-rep-foot">Generado por CarambolaSoft · {d.fecha} · Documento interno de Mero Parche</div>
-        </div>
-        {msg && <div style={{ textAlign: 'center', color: 'var(--verde)', fontSize: 13 }}>{msg}</div>}
-        <div className="ct-rep-actions">
-          {d.analisis?.series && d.analisis.jugadas > 0 && <button style={{ borderColor: 'var(--cian)', color: 'var(--cian)' }} onClick={() => setTablero(true)}>📊 TABLERO</button>}
-          {d.analisis?.jugadas > 0 && <button style={{ borderColor: 'var(--amarillo)', color: 'var(--amarillo)' }} onClick={() => setReplay(true)}>🎬 VER REPLAY</button>}
-          <button style={{ borderColor: 'var(--magenta)', color: 'var(--magenta)' }} onClick={async () => { const r = await compartirTarjeta(d); setMsg(r === 'descargada' ? 'Tarjeta descargada ✔' : ''); }}>📲 COMPARTIR TARJETA</button>
-          <button className="ct-finPdf" onClick={onPdf}>⬇ DESCARGAR PDF</button>
-          <button className="ct-finInicio" onClick={onInicio}>{textoInicio}</button>
-          {onCobrar && <button className="ct-finInicio" onClick={onCobrar}>💵 COBRAR LA CUENTA</button>}
         </div>
       </div>
       {replay && <Replay d={d} onCerrar={() => setReplay(false)} />}

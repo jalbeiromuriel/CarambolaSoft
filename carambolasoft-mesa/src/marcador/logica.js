@@ -147,7 +147,7 @@ export function analisisPartida(modo, jugadores) {
 
   const acum = lineas.map(() => 0);
   const cambios = [];
-  let lider = null, maxDeficit = new Map();
+  let lider = null, maxDeficit = new Map(), ventaja = { linea: null, valor: 0, jugada: 0 };
   jugadas.forEach((jg, i) => {
     acum[idx.get(jg.k)] += jg.valor;
     lineas.forEach((l, n) => l.puntos.push(acum[n]));
@@ -156,6 +156,8 @@ export function analisisPartida(modo, jugadores) {
     const nuevo = tops === 1 ? acum.indexOf(max) : lider;       // un empate no cambia al líder
     if (nuevo !== lider) { if (lider !== null) cambios.push({ jugada: i + 1, de: lider, a: nuevo, jugadorId: jg.jugadorId, nombre: jg.nombre }); lider = nuevo; }
     lineas.forEach((l, n) => { maxDeficit.set(n, Math.max(maxDeficit.get(n) ?? 0, max - acum[n])); });
+    const orden = [...acum].sort((x, y) => y - x), brecha = orden[0] - (orden[1] ?? 0);
+    if (brecha > ventaja.valor) ventaja = { linea: acum.indexOf(orden[0]), valor: brecha, jugada: i + 1 };
   });
 
   const finales = acum.slice();
@@ -194,5 +196,20 @@ export function analisisPartida(modo, jugadores) {
     dar('🧨', 'EL VERDUGO', jugadores.find((x) => x.Id === u.jugadorId), `la serie que le dio el partido (jugada ${u.jugada})`);
   }
   const series = jugadas.map((jg) => ({ linea: idx.get(jg.k), valor: jg.valor, jugador: jg.nombre }));
-  return { modo, lineas, jugadas: jugadas.length, series, cambios, remontada, premios };
+  const totC = st.reduce((t, x) => t + x.puntaje, 0), totE = st.reduce((t, x) => t + x.entradas, 0), promGlobal = totE ? totC / totE : 0;
+  // Letalidad = % de las entradas del jugador que igualaron o superaron el promedio de la mesa.
+  const porJugador = st.map((x) => ({
+    Id: x.j.Id, nombre: x.j.nombre, linea: idx.get(claveDe(x.j)), esInvitado: x.j.esInvitado, puntaje: x.puntaje, entradas: x.entradas,
+    promedio: x.promedio, mejor: x.mejor, letalidad: x.entradas ? Math.round((100 * x.serie.filter((v) => v >= promGlobal).length) / x.entradas) : 0,
+  }));
+  return { modo, lineas, jugadas: jugadas.length, series, cambios, remontada, premios, ventaja, porJugador, promGlobal };
+}
+
+const SELLOS = { 'EL DOMINADOR': 'Dominador Absoluto', 'EL REMONTADOR': 'Remontador Imparable', 'EL FRANCOTIRADOR': 'Francotirador Cuántico', 'EL VERDUGO': 'Verdugo de Cierre', 'EL TANQUE': 'Tanque Hidráulico', 'EL FRÍO': 'Sangre Fría Certificada' };
+const PRIORIDAD = ['EL DOMINADOR', 'EL REMONTADOR', 'EL FRANCOTIRADOR', 'EL VERDUGO', 'EL TANQUE', 'EL FRÍO'];
+/** Sello épico del MVP: el premio más "pesado" que ganó. Sin premios: "Jugador del Parche". */
+export function selloEpico(premios, jugadorId) {
+  const mios = premios.filter((p) => p.jugadorId === jugadorId).map((p) => p.titulo);
+  const t = PRIORIDAD.find((x) => mios.includes(x));
+  return t ? SELLOS[t] : 'Jugador del Parche';
 }

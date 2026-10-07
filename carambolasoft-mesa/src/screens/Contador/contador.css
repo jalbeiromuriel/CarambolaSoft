@@ -336,3 +336,8 @@
 .ct-marcador .ct-report table.rep td.num { text-align: right; }
 .ct-host { position: fixed !important; inset: 0 !important; z-index: 60 !important; background: none !important; height: auto !important; pointer-events: none; overflow: visible !important; }
 .ct-host .ct-modal { pointer-events: auto; }
+.ct-marcador .ct-paper, .ct-host .ct-paper { display: none; }
+@media print {
+  .ct-tactico { display: none !important; }
+  .ct-marcador .ct-paper, .ct-host .ct-paper { display: block !important; }
+}

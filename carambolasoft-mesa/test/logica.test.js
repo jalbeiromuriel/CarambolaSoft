@@ -118,3 +118,13 @@ test('analisis: wire to wire = dominador; parejas = 2 líneas', () => {
   const p = analisisPartida('par', [mk('a', 'A1', [[3, 1]], 0, 1), mk('b', 'A2', [[3, 2]], 0, 1), mk('c', 'B1', [[4, 3]], 0, 2)]);
   assert.equal(p.lineas.length, 2);
 });
+
+import { selloEpico } from '../src/marcador/logica.js';
+test('analisis: ventaja máxima, letalidad y sello', () => {
+  const r = analisisPartida('ind', [mk('a', 'Ana', [[5, 1], [5, 3]]), mk('b', 'Beto', [[1, 2], [1, 4]])]);
+  assert.equal(r.ventaja.valor, 9);
+  assert.equal(r.porJugador.find((p) => p.Id === 'a').letalidad, 100);   // promedio mesa 3: las dos series de Ana ≥ 3
+  assert.equal(r.porJugador.find((p) => p.Id === 'b').letalidad, 0);
+  assert.equal(selloEpico(r.premios, 'a'), 'Dominador Absoluto');
+  assert.equal(selloEpico(r.premios, 'zz'), 'Jugador del Parche');
+});
