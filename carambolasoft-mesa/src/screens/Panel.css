@@ -62,3 +62,10 @@
 .pn-lista button span{color:var(--mut);font-size:12px}
 .pn-lista button.on{background:#4ade8014;color:var(--ver)}
 .pn-lista .pn-vacio{padding:12px 14px}
+
+.pn-cabcli{display:flex;justify-content:space-between;align-items:center}
+.pn-cabcli button{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #4ade8055;background:transparent;color:var(--ver);cursor:pointer}
+.pn-busca{position:relative}
+.pn-busca span{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--mut)}
+.pn-lista button em{display:block;font-style:normal;color:var(--mut);font-size:12px;margin-top:2px}
+.pn-lista button .pn-est{color:var(--oro);font-size:13px;align-self:center}
