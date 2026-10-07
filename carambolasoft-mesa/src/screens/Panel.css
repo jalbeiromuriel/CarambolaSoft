@@ -53,3 +53,12 @@
 .pn-acc .no{background:transparent;color:var(--mut);border:1px solid var(--line)}
 .pn-acc .si{background:linear-gradient(180deg,#f2d27c,#c99a36);color:#1a1405}
 .pn-modal.bil .pn-acc .si{background:linear-gradient(180deg,#6ff0a0,#22a85a);color:#04140a}
+
+.pn-reg{margin-top:8px;font-size:11px;letter-spacing:2px;color:var(--mut);text-transform:uppercase}
+.pn-reg.si{color:var(--ver)}
+.pn-lista{margin-top:6px;max-height:168px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:#0e1422}
+.pn-lista button{display:flex;justify-content:space-between;gap:10px;width:100%;padding:11px 14px;background:transparent;border:0;border-bottom:1px solid var(--line);color:var(--tx);font-size:14px;cursor:pointer;text-align:left}
+.pn-lista button:last-child{border-bottom:0}
+.pn-lista button span{color:var(--mut);font-size:12px}
+.pn-lista button.on{background:#4ade8014;color:var(--ver)}
+.pn-lista .pn-vacio{padding:12px 14px}

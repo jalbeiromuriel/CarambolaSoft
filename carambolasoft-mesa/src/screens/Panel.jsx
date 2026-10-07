@@ -3,12 +3,14 @@
 // Fuente de verdad: IndexedDB. Mesa = dorado, Billar = verde. Garita y Venta rápida: Fase 1b.
 import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
+import { listarClientes } from '../marcador/datos.js';
 import LogoBola9 from '../components/LogoBola9.jsx';
 import './Panel.css';
 
 const TARIFA_BILLAR = 6000; // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const hora = (iso) => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+const norm = (t) => (t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const hms = (iso, ahora) => {
   const s = Math.max(0, Math.floor((ahora - new Date(iso)) / 1000));
   return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((x) => String(x).padStart(2, '0')).join(':');
@@ -19,6 +21,8 @@ export default function Panel({ irACuenta, irAContador }) {
   const [cuentas, setCuentas] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [fiadoPorCliente, setFiadoPorCliente] = useState({});
+  const [clientes, setClientes] = useState([]);
+  const [cliente, setCliente] = useState(null); // cliente registrado elegido para la cuenta nueva
   const [modal, setModal] = useState(null); // { tipo:'MESA' } | { tipo:'BILLAR', mesaId }
   const [nombre, setNombre] = useState('');
   const [tarifa, setTarifa] = useState(String(TARIFA_BILLAR));
@@ -29,6 +33,7 @@ export default function Panel({ irACuenta, irAContador }) {
     setMesas((await getAll('MESAS_BILLAR')).sort((a, b) => a.Numero - b.Numero));
     setCuentas(await porIndice('CUENTAS', 'porEstado', 'ABIERTA'));
     setPedidos(await getAll('PEDIDOS_CUENTAS'));
+    setClientes((await listarClientes()).filter((c) => c.Activo !== false)); // solo nombres: el teléfono no sale de Clientes
 
     // Deuda de fiado por cliente: facturas con saldo, unidas a su cuenta para saber el cliente.
     const todas = await getAll('CUENTAS');
@@ -60,7 +65,14 @@ export default function Panel({ irACuenta, irAContador }) {
     return { pedidos: items.reduce((t, p) => t + p.Cantidad, 0), total: consumo + tiempo };
   }
 
-  function abrirModal(m) { setError(''); setNombre(''); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
+  const q = norm(nombre);
+  const sugeridos = clientes
+    .filter((c) => !q || norm(c.Nombre).includes(q) || norm(c.Apodo).includes(q))
+    .slice(0, 8);
+
+  function elegir(c) { setCliente(c); setNombre(c.Nombre); setError(''); }
+
+  function abrirModal(m) { setError(''); setNombre(''); setCliente(null); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
 
   async function abrirCuenta() {
     if (!nombre.trim()) { setError('Escribe a nombre de quién va la cuenta.'); return; }
@@ -71,7 +83,7 @@ export default function Panel({ irACuenta, irAContador }) {
     const cuenta = await put('CUENTAS', {
       TipoCuenta: esBillar ? 'BILLAR' : 'LICORES',
       MesaId: esBillar ? modal.mesaId : null,
-      ClienteId: null,
+      ClienteId: cliente?.Id ?? null,   // null = no registrado: no puede fiar
       NombreLibre: nombre.trim(),
       HoraApertura: new Date().toISOString(),
       HoraCierre: null,
@@ -169,8 +181,19 @@ export default function Panel({ irACuenta, irAContador }) {
               </>
             )}
             <label>¿A nombre de quién?</label>
-            <input autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && abrirCuenta()} placeholder="Carlos gorra roja" />
+            <input autoFocus value={nombre} onChange={(e) => { setNombre(e.target.value); setCliente(null); }}
+              onKeyDown={(e) => e.key === 'Enter' && abrirCuenta()} placeholder="Busca un cliente o escribe un nombre" />
+            <div className={`pn-reg ${cliente ? 'si' : ''}`}>
+              {cliente ? '✓ Cliente registrado' : nombre.trim() ? 'No registrado: no podrá fiar' : 'Clientes registrados'}
+            </div>
+            <div className="pn-lista">
+              {sugeridos.length === 0 && <div className="pn-vacio">{clientes.length === 0 ? 'Aún no hay clientes registrados.' : 'Sin coincidencias.'}</div>}
+              {sugeridos.map((c) => (
+                <button key={c.Id} className={cliente?.Id === c.Id ? 'on' : ''} onClick={() => elegir(c)}>
+                  <b>{c.Nombre}</b>{c.Apodo && <span>“{c.Apodo}”</span>}
+                </button>
+              ))}
+            </div>
             {modal.tipo === 'BILLAR' && (
               <>
                 <label>Tarifa por hora (COP)</label>
