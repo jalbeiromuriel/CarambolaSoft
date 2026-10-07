@@ -182,7 +182,7 @@ export function analisisPartida(modo, jugadores) {
     const quien = jugadores.find((x) => claveDe(x) === lineas[remontada.linea].clave && (modo === 'par' || st.find((s) => s.j === x)?.entradas)) ?? jugadores[0];
     dar('🔥', 'MERO REMONTADOR', quien, `Iba ${remontada.deficit} abajo y ganó`);
   } else if (ganadorLinea !== null && cambios.length === 0) {
-    dar('🚀', 'MERO JUGADOR', jugadores.find((x) => claveDe(x) === lineas[ganadorLinea].clave), 'Nadie le quitó el primer lugar');
+    dar('🚀', 'MERO TRONCO', jugadores.find((x) => claveDe(x) === lineas[ganadorLinea].clave), 'Nadie le quitó el primer lugar');
   }
   const series = jugadas.map((jg) => ({ linea: idx.get(jg.k), valor: jg.valor, jugador: jg.nombre }));
   const totC = st.reduce((t, x) => t + x.puntaje, 0), totE = st.reduce((t, x) => t + x.entradas, 0), promGlobal = totE ? totC / totE : 0;
@@ -194,8 +194,8 @@ export function analisisPartida(modo, jugadores) {
   return { modo, lineas, jugadas: jugadas.length, series, cambios, remontada, premios, ventaja, porJugador, promGlobal };
 }
 
-const SELLOS = { 'MERO JUGADOR': 'Mero Jugador', 'MERO REMONTADOR': 'Mero Remontador', 'MERA PUNTERÍA': 'Mera Puntería', 'MERA TACADA': 'Mera Tacada' };
-const PRIORIDAD = ['MERO JUGADOR', 'MERO REMONTADOR', 'MERA PUNTERÍA', 'MERA TACADA'];
+const SELLOS = { 'MERO TRONCO': 'Mero Tronco', 'MERO REMONTADOR': 'Mero Remontador', 'MERA PUNTERÍA': 'Mera Puntería', 'MERA TACADA': 'Mera Tacada' };
+const PRIORIDAD = ['MERO TRONCO', 'MERO REMONTADOR', 'MERA PUNTERÍA', 'MERA TACADA'];
 /** Sello del MVP: el premio más "pesado" que ganó. Sin premios: "Jugador del Parche". */
 export function selloEpico(premios, jugadorId) {
   const mios = premios.filter((p) => p.jugadorId === jugadorId).map((p) => p.titulo);
