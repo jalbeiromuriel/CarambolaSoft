@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { openDb } from './db/schema.js';
 import { getAll } from './db/repository.js';
-import TableroMesas from './screens/TableroMesas.jsx';
+import Panel from './screens/Panel.jsx';
 import DetalleCuenta from './screens/DetalleCuenta.jsx';
 import Contador from './screens/Contador/Contador.jsx';
 import IndicadorSync from './components/IndicadorSync.jsx';
@@ -61,7 +61,7 @@ return (
     <div className="tablero">
       <style>{ESTILOS}</style>
       {ruta.pantalla === 'tablero' && (
-        <TableroMesas irACuenta={(cuentaId) => setRuta({ pantalla: 'cuenta', cuentaId })} irAContador={() => setRuta({ pantalla: 'contador' })} />
+        <Panel irACuenta={(cuentaId) => setRuta({ pantalla: 'cuenta', cuentaId })} irAContador={() => setRuta({ pantalla: 'contador' })} />
       )}
       {ruta.pantalla === 'cuenta' && (
         <DetalleCuenta cuentaId={ruta.cuentaId} volver={() => setRuta({ pantalla: 'tablero' })} />
