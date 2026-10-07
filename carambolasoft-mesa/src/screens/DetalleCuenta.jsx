@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { put, get, getAll, porIndice } from '../db/repository.js';
 import LogoBola9 from '../components/LogoBola9.jsx';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
-import { categoriaDe, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
+import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
 import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, hms } from '../cuenta/tiempo.js';
 import './Panel.css';
 import './Mesa.css';
@@ -80,8 +80,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const cantidadEn = (id) => entregados.filter((p) => p.ProductoId === id).reduce((t, p) => t + p.Cantidad, 0);
   const idsVendidos = masVendidos(pedidos);
   const idsSiempre = loDeSiempre(pedidos, todasCuentas, cuenta.ClienteId, cuenta.Id);
-  const claves = [];
-  for (const p of productos) { const c = categoriaDe(p, categorias); if (!claves.some((x) => x.clave === c.clave)) claves.push(c); }
+  const claves = categoriasVisibles(productos, categorias); // las del POS siempre, aunque aún no tengan productos
 
   let lista = productos;
   if (filtro === 'vendidos') lista = idsVendidos.map((id) => productos.find((p) => p.Id === id)).filter(Boolean);
@@ -137,7 +136,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     const etiqueta = etiquetaDe(sel);
     if (!etiqueta) { setNueva({ ...nueva, error: 'Elige un cliente o escribe un nombre.' }); return; }
     const c = await put('CUENTAS', {
-      TipoCuenta: cuenta.TipoCuenta, MesaId: cuenta.MesaId ?? null, GrupoMesaId: cuenta.GrupoMesaId ?? null,
+      TipoCuenta: cuenta.TipoCuenta, MesaId: cuenta.MesaId ?? null, GrupoMesaId: cuenta.MesaId ? null : grupoDe(cuenta), // las cuentas viejas sin grupo usan su propio Id
       ClienteId: sel.cliente?.Id ?? null, NombreLibre: etiqueta,
       HoraApertura: new Date().toISOString(), HoraCierre: null, TarifaPorHora: null, Estado: 'ABIERTA',
     });
@@ -255,7 +254,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <button className={filtro === 'todos' ? 'on' : ''} onClick={() => setFiltro('todos')}>Todos</button>
             <button className={`sp ${filtro === 'vendidos' ? 'on' : ''}`} onClick={() => setFiltro('vendidos')}>⭐ Más vendidos</button>
             <button className={filtro === 'fav' ? 'on' : ''} onClick={() => setFiltro('fav')}>❤️ Favoritos</button>
-            {cuenta.ClienteId && <button className={`ls ${filtro === 'siempre' ? 'on' : ''}`} onClick={() => setFiltro('siempre')}>🔄 Lo de siempre</button>}
+            <button className={`ls ${filtro === 'siempre' ? 'on' : ''}`} onClick={() => setFiltro('siempre')}>🔄 Lo de siempre</button>
             {claves.map((c) => (
               <button key={c.clave} className={filtro === c.clave ? 'on' : ''} onClick={() => setFiltro(c.clave)}>{c.nombre}</button>
             ))}
@@ -263,7 +262,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
           <div className="ms-prods">
             {lista.length === 0 && <div className="ms-vacio">
-              {filtro === 'fav' ? 'Toca el ♥ de un producto para dejarlo aquí.' : filtro === 'siempre' ? 'Este cliente aún no tiene historial.' : 'Sin productos.'}
+              {filtro === 'fav' ? 'Toca el ♥ de un producto para dejarlo aquí.' : filtro === 'siempre' ? (cuenta.ClienteId ? 'Este cliente aún no tiene historial.' : 'Esta cuenta no tiene cliente registrado.') : 'Sin productos.'}
             </div>}
             {lista.map((p) => {
               const cat = categoriaDe(p, categorias);
