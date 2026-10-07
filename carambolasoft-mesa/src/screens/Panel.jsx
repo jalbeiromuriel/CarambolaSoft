@@ -8,6 +8,7 @@ import { agrupar } from '../cuenta/grupos.js';
 import { cobroTiempo, msJugados, estaCorriendo, hms } from '../cuenta/tiempo.js';
 import { estadoReloj, mmss } from '../cuenta/garita.js';
 import { abrirGarita } from '../cuenta/garitaDb.js';
+import VentaRapida from '../components/VentaRapida.jsx';
 import LogoBola9 from '../components/LogoBola9.jsx';
 import './Panel.css';
 
@@ -19,6 +20,8 @@ export default function Panel({ irACuenta, irAContador }) {
   const [mesas, setMesas] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [pedidos, setPedidos] = useState([]);
+  const [avisoVR, setAvisoVR] = useState('');
+  const [rapida, setRapida] = useState(false);
   const [relojes, setRelojes] = useState([]);
   const [fiadoPorCliente, setFiadoPorCliente] = useState({});
   const [modal, setModal] = useState(null); // { tipo:'MESA' } | { tipo:'BILLAR', mesaId }
@@ -121,7 +124,9 @@ export default function Panel({ irACuenta, irAContador }) {
           <button className="pn-b ga" onClick={() => abrirModal({ tipo: 'GARITA' })}>
             <h3>⏱ GARITA</h3><p>aviso de cobro cada hora</p>
           </button>
-          <div className="pn-b off" aria-disabled="true"><h3>⚡ VENTA RÁPIDA</h3><p>granizados · pide y paga</p><small>FASE 1B</small></div>
+          <button className="pn-b vel" onClick={() => setRapida(true)}>
+            <h3>⚡ VENTA RÁPIDA</h3><p>granizados · pide y paga</p>
+          </button>
         </div>
 
         <div className="pn-sec">Mesas de billar<i /></div>
@@ -182,6 +187,9 @@ export default function Panel({ irACuenta, irAContador }) {
           })}
         </div>
       </div>
+
+      {rapida && <VentaRapida cerrar={() => setRapida(false)} alCobrar={(t) => { setRapida(false); setAvisoVR(`Venta registrada ✓ ${fmt(t)}`); setTimeout(() => setAvisoVR(''), 2800); cargar(); }} />}
+      {avisoVR && <div className="ms-aviso">{avisoVR}</div>}
 
       {modal && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
