@@ -110,11 +110,11 @@ test('analisis: cambios de liderato, remontada y premios', () => {
   assert.equal(r.cambios.at(-1).nombre, 'Ana');
   assert.ok(r.remontada && r.remontada.nombre === 'Ana' && r.remontada.deficit === 14);
   const t = r.premios.map((p) => p.titulo);
-  assert.ok(t.includes('EL TANQUE') && t.includes('EL REMONTADOR') && t.includes('EL VERDUGO'));
+  assert.ok(t.includes('EL TACADÓN') && t.includes('EL REMONTADOR') && t.includes('EL REMATADOR'));
 });
 test('analisis: wire to wire = dominador; parejas = 2 líneas', () => {
   const r = analisisPartida('ind', [mk('a', 'Ana', [[5, 1], [5, 3]]), mk('b', 'Beto', [[1, 2], [1, 4]])]);
-  assert.ok(r.premios.some((p) => p.titulo === 'EL DOMINADOR'));
+  assert.ok(r.premios.some((p) => p.titulo === 'EL PUNTERO'));
   const p = analisisPartida('par', [mk('a', 'A1', [[3, 1]], 0, 1), mk('b', 'A2', [[3, 2]], 0, 1), mk('c', 'B1', [[4, 3]], 0, 2)]);
   assert.equal(p.lineas.length, 2);
 });
@@ -125,6 +125,6 @@ test('analisis: ventaja máxima, letalidad y sello', () => {
   assert.equal(r.ventaja.valor, 9);
   assert.equal(r.porJugador.find((p) => p.Id === 'a').letalidad, 100);   // promedio mesa 3: las dos series de Ana ≥ 3
   assert.equal(r.porJugador.find((p) => p.Id === 'b').letalidad, 0);
-  assert.equal(selloEpico(r.premios, 'a'), 'Dominador Absoluto');
+  assert.equal(selloEpico(r.premios, 'a'), 'El Puntero');
   assert.equal(selloEpico(r.premios, 'zz'), 'Jugador del Parche');
 });

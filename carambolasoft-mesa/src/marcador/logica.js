@@ -176,24 +176,24 @@ export function analisisPartida(modo, jugadores) {
   const fr = mayor(conVarias.length ? conVarias : st.filter((s) => s.entradas >= 1), (s) => s.promedio);
   if (fr && fr.entradas) dar('🎯', 'EL FRANCOTIRADOR', fr.j, `promedio ${fr.promedio.toFixed(2)} por entrada`);
   const tk = mayor(st, (s) => s.mejor);
-  if (tk && tk.mejor > 0) dar('🔨', 'EL TANQUE', tk.j, `tacada de ${tk.mejor}`);
+  if (tk && tk.mejor > 0) dar('🎱', 'EL TACADÓN', tk.j, `la tacada más larga: ${tk.mejor}`);
   const regulares = st.filter((s) => s.entradas >= 3).map((s) => {
     const m = s.promedio; const sd = Math.sqrt(s.serie.reduce((a, v) => a + (v - m) ** 2, 0) / s.entradas);
     return { ...s, sd };
   });
   const fr2 = regulares.length ? regulares.reduce((b, s) => (s.sd < b.sd ? s : b)) : null;
-  if (fr2) dar('🧊', 'EL FRÍO', fr2.j, 'el más parejo: casi siempre la misma serie');
+  if (fr2) dar('📏', 'EL CONSTANTE', fr2.j, 'el más parejo: series casi iguales');
   if (remontada) {
     const j = jugadores.find((x) => claveDe(x) === lineas[remontada.linea].clave && st.find((s) => s.j === x)?.entradas) ?? jugadores[0];
     const quien = modo === 'par' ? jugadores.find((x) => claveDe(x) === lineas[remontada.linea].clave) : j;
     dar('🔥', 'EL REMONTADOR', quien, `venía ${remontada.deficit} abajo y la volteó`);
   } else if (ganadorLinea !== null && cambios.length === 0) {
     const g = jugadores.find((x) => claveDe(x) === lineas[ganadorLinea].clave);
-    dar('👑', 'EL DOMINADOR', g, 'mandó de principio a fin');
+    dar('🚀', 'EL PUNTERO', g, 'mandó de principio a fin');
   }
   if (cambios.length) {
     const u = cambios[cambios.length - 1];
-    dar('🧨', 'EL VERDUGO', jugadores.find((x) => x.Id === u.jugadorId), `la serie que le dio el partido (jugada ${u.jugada})`);
+    dar('💥', 'EL REMATADOR', jugadores.find((x) => x.Id === u.jugadorId), `la serie que definió el partido (jugada ${u.jugada})`);
   }
   const series = jugadas.map((jg) => ({ linea: idx.get(jg.k), valor: jg.valor, jugador: jg.nombre }));
   const totC = st.reduce((t, x) => t + x.puntaje, 0), totE = st.reduce((t, x) => t + x.entradas, 0), promGlobal = totE ? totC / totE : 0;
@@ -205,9 +205,9 @@ export function analisisPartida(modo, jugadores) {
   return { modo, lineas, jugadas: jugadas.length, series, cambios, remontada, premios, ventaja, porJugador, promGlobal };
 }
 
-const SELLOS = { 'EL DOMINADOR': 'Dominador Absoluto', 'EL REMONTADOR': 'Remontador Imparable', 'EL FRANCOTIRADOR': 'Francotirador Cuántico', 'EL VERDUGO': 'Verdugo de Cierre', 'EL TANQUE': 'Tanque Hidráulico', 'EL FRÍO': 'Sangre Fría Certificada' };
-const PRIORIDAD = ['EL DOMINADOR', 'EL REMONTADOR', 'EL FRANCOTIRADOR', 'EL VERDUGO', 'EL TANQUE', 'EL FRÍO'];
-/** Sello épico del MVP: el premio más "pesado" que ganó. Sin premios: "Jugador del Parche". */
+const SELLOS = { 'EL PUNTERO': 'El Puntero', 'EL REMONTADOR': 'El Remontador', 'EL FRANCOTIRADOR': 'El Francotirador', 'EL REMATADOR': 'El Rematador', 'EL TACADÓN': 'El Tacadón', 'EL CONSTANTE': 'El Constante' };
+const PRIORIDAD = ['EL PUNTERO', 'EL REMONTADOR', 'EL FRANCOTIRADOR', 'EL REMATADOR', 'EL TACADÓN', 'EL CONSTANTE'];
+/** Sello del MVP: el premio más "pesado" que ganó. Sin premios: "Jugador del Parche". */
 export function selloEpico(premios, jugadorId) {
   const mios = premios.filter((p) => p.jugadorId === jugadorId).map((p) => p.titulo);
   const t = PRIORIDAD.find((x) => mios.includes(x));
