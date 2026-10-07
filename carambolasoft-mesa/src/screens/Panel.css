@@ -102,3 +102,4 @@
 .vr-nota{color:var(--mut);font-size:11px;margin-top:4px}
 .pn-modal.vr-libre{width:min(380px,100%)}
 .pn-acc .si:disabled{opacity:.4;cursor:not-allowed}
+.vr-cli{float:right;font-family:Inter,sans-serif;font-size:13px;color:var(--tx)}.vr-cli button{margin-left:8px;border:1px solid #4ade8055;background:transparent;color:var(--ver);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px}
