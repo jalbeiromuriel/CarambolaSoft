@@ -162,7 +162,7 @@ export default function Tablero({ d, onCerrar }) {
               );
             })}
             {a.premios.length > 0 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-              {a.premios.map((p) => <span key={p.titulo} title={p.detalle} style={{ border: `1px solid ${C.borde}`, borderRadius: 16, padding: '3px 10px', fontSize: 12 }}>{p.emoji} {p.titulo.replace('EL ', '')}: <b>{p.nombre}</b></span>)}
+              {a.premios.map((p) => <span key={p.titulo} title={p.detalle} style={{ border: `1px solid ${C.borde}`, borderRadius: 16, padding: '3px 10px', fontSize: 12 }}>{p.emoji} {p.titulo.replace(/^EL /, '')}: <b>{p.nombre}</b></span>)}
             </div>}
           </div>
         </div>

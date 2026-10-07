@@ -94,7 +94,7 @@ export function dibujarTarjeta(d) {
       const x = 66 + (i % 2) * 480, yy = y + 62 + Math.floor(i / 2) * 96;
       c.fillStyle = 'rgba(232,121,249,.10)'; c.beginPath(); c.roundRect(x, yy, 456, 82, 14); c.fill();
       mono(c, p.emoji, x + 14, yy + 56, { size: 44 });
-      mono(c, p.titulo, x + 80, yy + 34, { size: 17, color: MG, peso: 800 });
+      mono(c, p.titulo.replace(/^EL /, ''), x + 80, yy + 34, { size: 17, color: MG, peso: 800 });
       mono(c, p.nombre, x + 80, yy + 66, { size: 28, color: '#fff', peso: 800, max: 360 });
     });
     y += 66 + Math.ceil(prem.length / 2) * 96 + 20;

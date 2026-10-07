@@ -113,7 +113,7 @@ export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = 'â
                 {d.analisis.premios.map((p) => (
                   <div key={p.titulo} style={{ border: '1px solid #e6e9ef', borderRadius: 10, padding: '10px 12px', display: 'flex', gap: 10, alignItems: 'center', breakInside: 'avoid' }}>
                     <span style={{ fontSize: 30 }}>{p.emoji}</span>
-                    <div style={{ textAlign: 'left' }}><div style={{ fontSize: 10, letterSpacing: 1.5, color: '#c026d3', fontWeight: 700 }}>{p.titulo}</div><div style={{ fontWeight: 700, fontSize: 16, color: '#0e1524' }}>{p.nombre}</div><div style={{ fontSize: 11.5, color: '#5a6678' }}>{p.detalle}</div></div>
+                    <div style={{ textAlign: 'left' }}><div style={{ fontSize: 10, letterSpacing: 1.5, color: '#c026d3', fontWeight: 700 }}>{p.titulo.replace(/^EL /, '')}</div><div style={{ fontWeight: 700, fontSize: 16, color: '#0e1524' }}>{p.nombre}</div><div style={{ fontSize: 11.5, color: '#5a6678' }}>{p.detalle}</div></div>
                   </div>
                 ))}
               </div>

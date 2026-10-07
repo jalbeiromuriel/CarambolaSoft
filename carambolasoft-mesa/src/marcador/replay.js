@@ -154,7 +154,7 @@ function escenaPodio(c, d, tp) {
     c.save(); c.translate(x + 150, y + 62); c.scale(clamp(kk, 0, 1.15), clamp(kk, 0, 1.15)); c.translate(-150, -62);
     caja(c, 0, 0, 300, 124, 24, 'rgba(232,121,249,.12)', 'rgba(232,121,249,.6)', 2);
     txt(c, p.emoji, 16, 80, { s: 60, al: 'left' });
-    txt(c, p.titulo, 92, 46, { s: 24, col: '#e879f9', al: 'left', max: 200 });
+    txt(c, p.titulo.replace(/^EL /, ''), 92, 46, { s: 24, col: '#e879f9', al: 'left', max: 200 });
     txt(c, p.nombre, 92, 92, { s: 40, col: '#fff', al: 'left', max: 200 });
     c.restore();
   });

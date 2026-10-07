@@ -88,7 +88,7 @@ export default function Tactico({ d, acciones }) {
               {a.premios.map((p) => (
                 <div key={p.titulo} style={{ display: 'flex', gap: 10, alignItems: 'center', border: `1px solid ${K.mag}55`, borderRadius: 8, padding: '8px 10px' }}>
                   <span style={{ fontSize: 28 }}>{p.emoji}</span>
-                  <div><div style={{ fontSize: 10, letterSpacing: 1.5, color: K.mag, fontWeight: 800 }}>{p.titulo}</div><div style={{ fontWeight: 800, color: '#fff' }}>{p.nombre}</div><div style={{ fontSize: 11, color: K.mute }}>{p.detalle}</div></div>
+                  <div><div style={{ fontSize: 10, letterSpacing: 1.5, color: K.mag, fontWeight: 800 }}>{p.titulo.replace(/^EL /, '')}</div><div style={{ fontWeight: 800, color: '#fff' }}>{p.nombre}</div><div style={{ fontSize: 11, color: K.mute }}>{p.detalle}</div></div>
                 </div>
               ))}
             </div>
