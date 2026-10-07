@@ -6,7 +6,7 @@
 // ============================================================
 
 export const DB_NAME = 'ElParcheDeJony';   // nombre técnico — NO renombrar sin migración
-export const DB_VERSION = 2;                // ← v2: activa el upgrade de los stores nuevos
+export const DB_VERSION = 3;                // v3: GARITAS_RELOJ
 
 // Espejo 1:1 de las 19 tablas SQL (keyPath = Id, GUID generado en cliente)
 export const STORES = [
@@ -29,6 +29,7 @@ export const STORES = [
   'FACTURAS',
   'ABONOS_FIADO',
   'CIERRE_DIA',
+  'GARITAS_RELOJ',
 ];
 
 // Cola de sincronización: registro de operaciones pendientes de subir

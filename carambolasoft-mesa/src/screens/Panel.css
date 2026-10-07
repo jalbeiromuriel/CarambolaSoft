@@ -77,3 +77,13 @@
 .pn-tip-t{font-size:10px;letter-spacing:2px;color:var(--oro);text-transform:uppercase;margin-bottom:6px}
 .pn-tip div:not(.pn-tip-t){display:flex;justify-content:space-between;gap:10px;padding:3px 0}
 .pn-tip b{color:var(--oro)}
+
+/* Garita — rosa */
+.pn{--ros:#e46a8a}
+.pn-b.ga{border-color:var(--ros);color:var(--ros);box-shadow:0 0 14px #e46a8a22;background:linear-gradient(180deg,#1a0a10,#0e1422)}
+.pn-c.ga{border-left-color:var(--ros)}.pn-c.ga .pn-k{color:var(--ros)}.pn-c.ga .pn-tot{color:var(--ros)}
+.pn-cr.ga{color:var(--ros)}
+.pn-c.al{border-color:#fbbf24;border-left-color:#fbbf24;box-shadow:0 0 16px #fbbf2455}.pn-c.al .pn-k{color:#fbbf24}.pn-c.al .pn-cr.ga{color:#fbbf24;font-weight:700}
+.pn-modal.ga{border-color:var(--ros);box-shadow:0 0 30px #e46a8a33}.pn-modal.ga h3{color:var(--ros)}.pn-modal.ga input:focus{border-color:var(--ros)}
+.pn-modal.ga .pn-acc .si{background:linear-gradient(#f08aa4,#c9506f);color:#2a0a14}
+.pn-cr.garita-r{margin:-2px 0 8px;font-size:13px}

@@ -9,6 +9,8 @@ import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, res
 import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, hms } from '../cuenta/tiempo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
+import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
+import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js';
 import './Panel.css';
 import './Mesa.css';
 
@@ -29,6 +31,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [cobro, setCobro] = useState(null);
   const [nueva, setNueva] = useState(null);   // { sel, creando, error }
   const [vincular, setVincular] = useState(null); // { sel, creando, error } — ligar un cliente a la cuenta abierta
+  const [reloj, setReloj] = useState(null);
+  const [avisoSel, setAvisoSel] = useState(null); // { ids:Set } — modal de cobro de la hora
+  const [descartado, setDescartado] = useState(0); // Cobros del aviso que se dejó para después
   const [aviso, setAviso] = useState('');
   const [ahora, setAhora] = useState(Date.now());
   const avisoT = useRef(null);
@@ -41,6 +46,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     const todas = await getAll('CUENTAS');
     setTodasCuentas(todas);
     setGrupo(base ? abiertas.filter((c) => grupoDe(c) === grupoDe(base)) : []);
+    setReloj(base?.GaritaRelojId ? (await get('GARITAS_RELOJ', base.GaritaRelojId)) ?? null : null);
     setPedidos(await getAll('PEDIDOS_CUENTAS'));
     setProductos((await getAll('PRODUCTOS')).filter((p) => p.Activo !== false));
     setCategorias(await getAll('CATEGORIAS'));
@@ -64,7 +70,16 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     return () => { vivo = false; };
   }, [cuenta?.Id, cuenta?.ClienteId, todasCuentas]);
 
+  const er = reloj ? estadoReloj(reloj, ahora) : null;
+  // Al llegar el aviso se abre solo el modal de cobro (marcados: todos menos los recién llegados)
+  useEffect(() => {
+    if (er?.enAviso && !avisoSel && descartado !== reloj.Cobros && grupo.length) {
+      setAvisoSel({ ids: new Set(grupo.filter((c) => marcadaPorDefecto(c)).map((c) => c.Id)) });
+    }
+  }, [er?.enAviso, reloj?.Cobros, grupo.length]); // eslint-disable-line
+
   if (!cuenta) return null;
+  const esGarita = cuenta.TipoCuenta === 'GARITA';
 
   const entregadosDe = (c) => pedidos.filter((p) => p.CuentaId === c.Id && p.EstadoPedido === 'ENTREGADO');
   const consumoDe = (c) => entregadosDe(c).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
@@ -88,11 +103,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   else if (filtro === 'siempre') lista = idsSiempre.map((id) => productos.find((p) => p.Id === id)).filter(Boolean);
   else if (filtro === 'fav') lista = productos.filter((p) => p.Favorito);
   else if (filtro !== 'todos') lista = productos.filter((p) => categoriaDe(p, categorias).clave === filtro);
-  lista = filtrar(lista, q);
+  lista = filtrar(lista.filter((p) => !/garita/i.test(p.Nombre)), q); // la garita se cobra con ＋ Persona y el aviso, no desde el catálogo
 
   // ── Pedidos (espejo local del trigger: el stock baja al entregar)
   async function agregar(prod) {
-    if ((prod.StockActual ?? 0) <= 0) { decir(`Sin stock: ${prod.Nombre}`); return; }
+    const controla = prod.ControlaStock !== false;
+    if (controla && (prod.StockActual ?? 0) <= 0) { decir(`Sin stock: ${prod.Nombre}`); return; }
     const existente = entregados.find((p) => p.ProductoId === prod.Id);
     if (existente) {
       await put('PEDIDOS_CUENTAS', { ...existente, Cantidad: existente.Cantidad + 1 });
@@ -105,7 +121,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         EstadoPedido: 'ENTREGADO', FechaHora: new Date().toISOString(),
       });
     }
-    await put('PRODUCTOS', { ...prod, StockActual: prod.StockActual - 1 });
+    if (controla) await put('PRODUCTOS', { ...prod, StockActual: prod.StockActual - 1 });
     await cargar();
   }
 
@@ -115,7 +131,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     await put('PEDIDOS_CUENTAS', pedido.Cantidad > 1
       ? { ...pedido, Cantidad: pedido.Cantidad - 1 }
       : { ...pedido, EstadoPedido: 'CANCELADO' });
-    if (prod) await put('PRODUCTOS', { ...prod, StockActual: prod.StockActual + 1 });
+    if (prod && prod.ControlaStock !== false) await put('PRODUCTOS', { ...prod, StockActual: prod.StockActual + 1 });
     await cargar();
   }
 
@@ -136,6 +152,11 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     const { sel } = nueva;
     const etiqueta = etiquetaDe(sel);
     if (!etiqueta) { setNueva({ ...nueva, error: 'Elige un cliente o escribe un nombre.' }); return; }
+    if (esGarita) {
+      const c = await agregarPersona(cuenta.GaritaRelojId, { cliente: sel.cliente, etiqueta });
+      await sumarVisita(sel.cliente);
+      setNueva(null); setActivaId(c.Id); await cargar(); return;
+    }
     const c = await put('CUENTAS', {
       TipoCuenta: cuenta.TipoCuenta, MesaId: cuenta.MesaId ?? null, GrupoMesaId: cuenta.MesaId ? null : grupoDe(cuenta), // las cuentas viejas sin grupo usan su propio Id
       ClienteId: sel.cliente?.Id ?? null, NombreLibre: etiqueta,
@@ -148,6 +169,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   async function cerrarMesa() {
     const conConsumo = grupo.filter((c) => totalDe(c) > 0);
     if (conConsumo.length) { decir(`Falta cobrar: ${conConsumo.map((c) => c.NombreLibre).join(', ')}`); return; }
+    if (cuenta.GaritaRelojId) await cerrarReloj(cuenta.GaritaRelojId);
     for (const c of grupo) await put('CUENTAS', { ...c, Estado: 'CANCELADA', HoraCierre: new Date().toISOString() });
     if (cuenta.MesaId) {
       const mesa = await get('MESAS_BILLAR', cuenta.MesaId);
@@ -192,7 +214,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     }
     setCobro(null);
     const quedan = grupo.filter((c) => c.Id !== cuenta.Id);
-    if (quedan.length === 0) { volver(); return; }
+    if (quedan.length === 0) { if (cuenta.GaritaRelojId) await cerrarReloj(cuenta.GaritaRelojId); volver(); return; }
     setActivaId(quedan[0].Id); decir('Cobrado ✓'); await cargar();
   }
 
@@ -201,7 +223,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const nombreDe = (v) => METODOS.find((m) => m.v === v)?.t;
   const ordenados = [...entregados].sort((a, b) => (b.FechaHora ?? '').localeCompare(a.FechaHora ?? ''));
   const dueno = grupo[0]?.NombreLibre ?? cuenta.NombreLibre; // la mesa lleva el nombre de su primera cuenta
-  const titulo = esBillar ? `Billar · ${dueno}` : `${dueno} · Licores`;
+  const titulo = esGarita ? `⏱ Garita · ${dueno}` : esBillar ? `Billar · ${dueno}` : `${dueno} · Licores`;
 
   return (
     <div className="pn ms">
@@ -232,6 +254,23 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             })}
             <button className="ms-tab nueva" onClick={() => setNueva({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>＋ Nueva cuenta</button>
           </div>
+
+          {esGarita && reloj && (
+            <div className={`ms-bil ga ${er.enAviso ? 'al' : 'run'}`}>
+              <div>
+                <div className="ms-lab rosa">⏱ Garita · {fmt(reloj.Valor)}/persona/hora</div>
+                <div className="ms-cr">{hms(er.transcurrido)}</div>
+                <small>{er.enAviso ? '⏰ ¡Cumple la hora! cobra otra' : `aviso en ${mmss(er.faltaAviso)}`} · hora {reloj.Cobros}</small>
+              </div>
+              <div className="ms-acum">
+                <small>👥 {grupo.length} {grupo.length === 1 ? 'persona' : 'personas'}</small>
+                <strong>{fmt(grupo.length * reloj.Valor)}/h</strong>
+              </div>
+              {er.enAviso
+                ? <button className="ini" onClick={() => setAvisoSel({ ids: new Set(grupo.filter((c) => marcadaPorDefecto(c)).map((c) => c.Id)) })}>COBRAR HORA</button>
+                : <button className="ini" onClick={() => setNueva({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>＋ Persona</button>}
+            </div>
+          )}
 
           {esBillar && cuenta.TarifaPorHora > 0 && (
             <div className={`ms-bil ${estaCorriendo(cuenta) ? 'run' : ''}`}>
@@ -294,7 +333,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         <aside className="ms-card">
           <div className="ms-tm">
             <div><small>TOTAL MESA</small><div className="v">{fmt(totalMesa)}</div></div>
-            <button className="ms-oro" onClick={cerrarMesa}>Cerrar mesa</button>
+            <button className="ms-oro" onClick={cerrarMesa}>{esGarita ? 'Terminar garita' : 'Cerrar mesa'}</button>
           </div>
           <div className="ms-nom">{cuenta.NombreLibre}</div>
           <div className="ms-ap">
@@ -449,6 +488,37 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <div className="pn-acc">
               <button className="no" onClick={() => setCobro(null)}>CANCELAR</button>
               <button className="si" onClick={confirmarCobro}>✓ CONFIRMAR COBRO</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {avisoSel && reloj && (
+        <div className="pn-velo alto" onClick={(e) => e.target === e.currentTarget && (setDescartado(reloj.Cobros), setAvisoSel(null))}>
+          <div className="pn-modal ga">
+            <h3>⏰ Cobrar otra hora · garita</h3>
+            <small className="ga-sub">Marca a quienes siguen. Los recién llegados salen sin marcar.</small>
+            <div className="ga-lista">
+              {grupo.map((c) => {
+                const on = avisoSel.ids.has(c.Id);
+                return (
+                  <label key={c.Id} className={`cb-chk ${on ? 'on' : ''}`}>
+                    <input type="checkbox" checked={on} onChange={() => setAvisoSel((a) => {
+                      const ids = new Set(a.ids); on ? ids.delete(c.Id) : ids.add(c.Id); return { ids };
+                    })} />
+                    <span className="box">{on ? '✓' : ''}</span>
+                    {c.NombreLibre}<em>{fmt(reloj.Valor)}</em>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="ga-tot">A cobrar <b>{fmt(avisoSel.ids.size * reloj.Valor)}</b></div>
+            <div className="pn-acc">
+              <button className="no" onClick={() => { setDescartado(reloj.Cobros); setAvisoSel(null); }}>DESPUÉS</button>
+              <button className="si" onClick={async () => {
+                await cobrarAviso(reloj, grupo.filter((c) => avisoSel.ids.has(c.Id)));
+                setAvisoSel(null); decir('Hora cobrada ✓'); await cargar();
+              }}>COBRAR {avisoSel.ids.size} {avisoSel.ids.size === 1 ? 'PERSONA' : 'PERSONAS'}</button>
             </div>
           </div>
         </div>
