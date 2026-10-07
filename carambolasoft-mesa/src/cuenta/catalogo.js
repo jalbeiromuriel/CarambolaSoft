@@ -33,6 +33,17 @@ const NOMBRES = {
   licores: 'Licores', snacks: 'Snacks', frias: 'Bebidas frías', calientes: 'Bebidas calientes',
   cigarrillos: 'Cigarrillos', juegos: 'Juegos', granizados: 'Granizados', tiempo: 'Tiempo', otros: 'Otros',
 };
+const DEL_POS = ['licores', 'snacks', 'frias', 'calientes', 'cigarrillos', 'juegos', 'granizados'];
+
+/** Chips de categoría: las 7 del POS siempre + cualquier otra que traigan los productos. */
+export function categoriasVisibles(productos, categorias = []) {
+  const lista = DEL_POS.map((clave) => ({ clave, nombre: NOMBRES[clave], ...GRUPOS[clave] }));
+  for (const p of productos) {
+    const c = categoriaDe(p, categorias);
+    if (!lista.some((x) => x.clave === c.clave) && c.clave !== 'tiempo') lista.push(c);
+  }
+  return lista;
+}
 export const colorTiempo = GRUPOS.tiempo.color;
 
 export function filtrar(productos, q) {
