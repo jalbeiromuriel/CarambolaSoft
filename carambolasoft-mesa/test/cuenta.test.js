@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { msJugados, cobroTiempo, iniciarChico, terminarChico, estaCorriendo, msChicoActual } from '../src/cuenta/tiempo.js';
-import { categoriaDe, filtrar, masVendidos, loDeSiempre, resumenPorCategoria } from '../src/cuenta/catalogo.js';
+import { categoriaDe, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, categoriasVisibles } from '../src/cuenta/catalogo.js';
 
 const T0 = Date.parse('2026-10-07T20:00:00Z');
 const min = (n) => n * 60000;
@@ -64,4 +64,10 @@ test('resumen por categoría suma por grupo', () => {
   const prods = [{ Id: 'p1', CategoriaConsumo: 'SNACKS' }];
   const r = resumenPorCategoria([{ ProductoId: 'p1', PrecioUnitarioHist: 3000, Cantidad: 2 }], prods, []);
   assert.equal(r[0].total, 6000);
+});
+
+test('chips: las 7 categorías del POS siempre, más las extra', () => {
+  assert.deepEqual(categoriasVisibles([]).map((c) => c.nombre),
+    ['Licores', 'Snacks', 'Bebidas frías', 'Bebidas calientes', 'Cigarrillos', 'Juegos', 'Granizados']);
+  assert.equal(categoriasVisibles([{ CategoriaConsumo: 'OTROS' }]).at(-1).clave, 'otros');
 });
