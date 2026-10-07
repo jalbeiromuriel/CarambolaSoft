@@ -71,3 +71,15 @@ test('chips: las 7 categorías del POS siempre, más las extra', () => {
     ['Licores', 'Snacks', 'Bebidas frías', 'Bebidas calientes', 'Cigarrillos', 'Juegos', 'Granizados']);
   assert.equal(categoriasVisibles([{ CategoriaConsumo: 'OTROS' }]).at(-1).clave, 'otros');
 });
+
+test('grupos: cuentas de una misma mesa quedan juntas, las viejas solas', async () => {
+  const { agrupar, grupoDe } = await import('../src/cuenta/grupos.js');
+  const cs = [
+    { Id: 'a', GrupoMesaId: 'g', HoraApertura: '2026-10-07T20:00:00Z' },
+    { Id: 'b', MesaId: 'm1', HoraApertura: '2026-10-07T20:01:00Z' },
+    { Id: 'c', GrupoMesaId: 'g', HoraApertura: '2026-10-07T20:02:00Z' },
+    { Id: 'd', HoraApertura: '2026-10-07T20:03:00Z' },
+  ];
+  assert.deepEqual(agrupar(cs).map((g) => g.map((c) => c.Id)), [['a', 'c'], ['b'], ['d']]);
+  assert.equal(grupoDe(cs[3]), 'd');
+});

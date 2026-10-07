@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
+import { agrupar } from '../cuenta/grupos.js';
 import { cobroTiempo, msJugados, estaCorriendo, hms } from '../cuenta/tiempo.js';
 import LogoBola9 from '../components/LogoBola9.jsx';
 import './Panel.css';
@@ -130,22 +131,34 @@ export default function Panel({ irACuenta, irAContador }) {
         </div>
         <div className="pn-cuentas">
           {cuentas.length === 0 && <div className="pn-vacio">No hay cuentas abiertas.</div>}
-          {cuentas.map((c) => {
+          {agrupar(cuentas).map((g) => {
+            const c = g[0];                                   // la mesa lleva el nombre de su primera cuenta
             const billar = c.TipoCuenta === 'BILLAR';
-            const r = resumen(c);
-            const deuda = c.ClienteId ? fiadoPorCliente[c.ClienteId] : 0;
+            const rs = g.map(resumen);
+            const pedidosN = rs.reduce((t, r) => t + r.pedidos, 0);
+            const total = rs.reduce((t, r) => t + r.total, 0);
+            const conTaxi = g.find((x) => x.TarifaPorHora);
+            const clientesDeuda = [...new Set(g.map((x) => x.ClienteId).filter(Boolean))];
+            const deuda = clientesDeuda.reduce((t, id) => t + (fiadoPorCliente[id] ?? 0), 0);
             return (
               <div key={c.Id} className={`pn-c ${billar ? 'bi' : 'l'}`} onClick={() => irACuenta(c.Id)}>
                 <div className="pn-k">
                   <span>{billar ? `🎱 BILLAR${numMesa(c.MesaId) ? ` · M${numMesa(c.MesaId)}` : ''}` : '🥃 MESA'}</span>
-                  {deuda > 0 && <span className="pn-fia">FÍA {fmt(deuda)}</span>}
+                  <span className="pn-der">
+                    {deuda > 0 && <span className="pn-fia">FÍA {fmt(deuda)}</span>}
+                    <span className="pn-n" title={g.map((x) => x.NombreLibre).join(', ')}>👥 {g.length}</span>
+                  </span>
                 </div>
                 <h4>{c.NombreLibre}</h4>
                 <div className="pn-f">
-                  <span>desde {hora(c.HoraApertura)} · {r.pedidos} ped.
-                    {billar && <span className="pn-cr">{estaCorriendo(c) ? '⏱' : '⏸'} {hms(msJugados(c, ahora))}</span>}
+                  <span>desde {hora(c.HoraApertura)} · {pedidosN} ped.
+                    {conTaxi && <span className="pn-cr">{estaCorriendo(conTaxi) ? '⏱' : '⏸'} {hms(msJugados(conTaxi, ahora))}</span>}
                   </span>
-                  <span className="pn-tot">{fmt(r.total)}</span>
+                  <span className="pn-tot">{fmt(total)}</span>
+                </div>
+                <div className="pn-tip">
+                  <div className="pn-tip-t">{g.length} {g.length === 1 ? 'cliente' : 'clientes'} en la mesa</div>
+                  {g.map((x, i) => <div key={x.Id}><span>👤 {x.NombreLibre}</span><b>{fmt(rs[i].total)}</b></div>)}
                 </div>
               </div>
             );

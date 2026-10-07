@@ -7,13 +7,13 @@ import LogoBola9 from '../components/LogoBola9.jsx';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
 import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, hms } from '../cuenta/tiempo.js';
+import { grupoDe } from '../cuenta/grupos.js';
 import './Panel.css';
 import './Mesa.css';
 
 const METODOS = ['EFECTIVO', 'NEQUI', 'DAVIPLATA', 'TARJETA', 'TRANSFERENCIA', 'FIADO'];
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const horaDe = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) : '');
-const grupoDe = (c) => c.MesaId ?? c.GrupoMesaId ?? c.Id;
 
 export default function DetalleCuenta({ cuentaId, volver }) {
   const [activaId, setActivaId] = useState(cuentaId);

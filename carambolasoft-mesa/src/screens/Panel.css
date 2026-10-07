@@ -24,7 +24,7 @@
 .pn-m.oc{border-color:var(--ver);box-shadow:0 0 12px #4ade8033}.pn-m.oc span{color:var(--ver)}
 .pn-m.lib b{color:var(--mut)}
 .pn-cuentas{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
-.pn-c{background:var(--card);border:1px solid var(--line);border-left:5px solid;border-radius:12px;padding:14px 16px;cursor:pointer;user-select:none;transition:transform .05s ease}
+.pn-c{position:relative;background:var(--card);border:1px solid var(--line);border-left:5px solid;border-radius:12px;padding:14px 16px;cursor:pointer;user-select:none;transition:transform .05s ease}
 .pn-c:active{transform:scale(.98)}
 .pn-c.l{border-left-color:var(--oro)}.pn-c.bi{border-left-color:var(--ver)}
 .pn-k{display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:3px;font-weight:600;min-height:20px}
@@ -69,3 +69,11 @@
 .pn-busca span{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--mut)}
 .pn-lista button em{display:block;font-style:normal;color:var(--mut);font-size:12px;margin-top:2px}
 .pn-lista button .pn-est{color:var(--oro);font-size:13px;align-self:center}
+
+.pn-der{display:flex;align-items:center;gap:8px}
+.pn-n{font-size:11px;letter-spacing:1px;color:var(--tx);border:1px solid var(--line);background:#0e1422;border-radius:99px;padding:3px 9px;font-weight:700}
+.pn-tip{display:none;position:absolute;left:8px;right:8px;top:calc(100% - 6px);z-index:15;background:#0b0f19;border:1px solid var(--oro);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px #000c;font-size:13px}
+.pn-c:hover{z-index:16}.pn-c:hover .pn-tip{display:block}
+.pn-tip-t{font-size:10px;letter-spacing:2px;color:var(--oro);text-transform:uppercase;margin-bottom:6px}
+.pn-tip div:not(.pn-tip-t){display:flex;justify-content:space-between;gap:10px;padding:3px 0}
+.pn-tip b{color:var(--oro)}
