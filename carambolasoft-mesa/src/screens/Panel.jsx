@@ -3,7 +3,7 @@
 // Fuente de verdad: IndexedDB. Mesa = dorado, Billar = verde. Garita y Venta rápida: Fase 1b.
 import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
-import { listarClientes } from '../marcador/datos.js';
+import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import LogoBola9 from '../components/LogoBola9.jsx';
 import './Panel.css';
 
@@ -24,7 +24,9 @@ export default function Panel({ irACuenta, irAContador }) {
   const [clientes, setClientes] = useState([]);
   const [cliente, setCliente] = useState(null); // cliente registrado elegido para la cuenta nueva
   const [modal, setModal] = useState(null); // { tipo:'MESA' } | { tipo:'BILLAR', mesaId }
-  const [nombre, setNombre] = useState('');
+  const [nombre, setNombre] = useState('');   // nombre libre
+  const [busca, setBusca] = useState('');
+  const [nuevo, setNuevo] = useState(null);     // {nombre, apodo} mientras se crea un cliente rápido
   const [tarifa, setTarifa] = useState(String(TARIFA_BILLAR));
   const [error, setError] = useState('');
   const [ahora, setAhora] = useState(Date.now());
@@ -65,17 +67,25 @@ export default function Panel({ irACuenta, irAContador }) {
     return { pedidos: items.reduce((t, p) => t + p.Cantidad, 0), total: consumo + tiempo };
   }
 
-  const q = norm(nombre);
+  const q = norm(busca);
   const sugeridos = clientes
     .filter((c) => !q || norm(c.Nombre).includes(q) || norm(c.Apodo).includes(q))
-    .slice(0, 8);
+    ;
 
-  function elegir(c) { setCliente(c); setNombre(c.Nombre); setError(''); }
+  function elegir(c) { setCliente(cliente?.Id === c.Id ? null : c); setError(''); }
 
-  function abrirModal(m) { setError(''); setNombre(''); setCliente(null); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
+  async function crearRapido() {
+    if (!nuevo.nombre.trim()) { setError('Escribe el nombre.'); return; }
+    const c = await guardarCliente({ Nombre: nuevo.nombre, Apodo: nuevo.apodo });
+    setClientes((l) => [...l, c].sort((a, b) => a.Nombre.localeCompare(b.Nombre)));
+    setCliente(c); setNuevo(null); setError('');
+  }
+
+  function abrirModal(m) { setError(''); setNombre(''); setBusca(''); setNuevo(null); setCliente(null); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
 
   async function abrirCuenta() {
-    if (!nombre.trim()) { setError('Escribe a nombre de quién va la cuenta.'); return; }
+    const etiqueta = nombre.trim() || cliente?.Apodo || cliente?.Nombre || '';
+    if (!etiqueta) { setError('Elige un cliente o escribe un nombre.'); return; }
     const esBillar = modal.tipo === 'BILLAR';
     if (esBillar && !modal.mesaId) { setError('Elige una mesa libre.'); return; }
     if (esBillar && !(Number(tarifa) > 0)) { setError('La tarifa por hora es obligatoria en billar.'); return; }
@@ -84,7 +94,7 @@ export default function Panel({ irACuenta, irAContador }) {
       TipoCuenta: esBillar ? 'BILLAR' : 'LICORES',
       MesaId: esBillar ? modal.mesaId : null,
       ClienteId: cliente?.Id ?? null,   // null = no registrado: no puede fiar
-      NombreLibre: nombre.trim(),
+      NombreLibre: etiqueta,
       HoraApertura: new Date().toISOString(),
       HoraCierre: null,
       TarifaPorHora: esBillar ? Number(tarifa) : null,
@@ -94,6 +104,7 @@ export default function Panel({ irACuenta, irAContador }) {
       const mesa = mesas.find((m) => m.Id === modal.mesaId);
       await put('MESAS_BILLAR', { ...mesa, Estado: 'OCUPADA' });
     }
+    if (cliente) await put('CLIENTES', { ...cliente, Visitas: (cliente.Visitas ?? 0) + 1 }); // ⭐ suma una visita
     setModal(null);
     irACuenta(cuenta.Id); // directo al detalle, como en el POS
   }
@@ -180,31 +191,55 @@ export default function Panel({ irACuenta, irAContador }) {
                 </div>
               </>
             )}
-            <label>¿A nombre de quién?</label>
-            <input autoFocus value={nombre} onChange={(e) => { setNombre(e.target.value); setCliente(null); }}
-              onKeyDown={(e) => e.key === 'Enter' && abrirCuenta()} placeholder="Busca un cliente o escribe un nombre" />
-            <div className={`pn-reg ${cliente ? 'si' : ''}`}>
-              {cliente ? '✓ Cliente registrado' : nombre.trim() ? 'No registrado: no podrá fiar' : 'Clientes registrados'}
-            </div>
-            <div className="pn-lista">
-              {sugeridos.length === 0 && <div className="pn-vacio">{clientes.length === 0 ? 'Aún no hay clientes registrados.' : 'Sin coincidencias.'}</div>}
-              {sugeridos.map((c) => (
-                <button key={c.Id} className={cliente?.Id === c.Id ? 'on' : ''} onClick={() => elegir(c)}>
-                  <b>{c.Nombre}</b>{c.Apodo && <span>“{c.Apodo}”</span>}
-                </button>
-              ))}
-            </div>
-            {modal.tipo === 'BILLAR' && (
+            {nuevo ? (
+              <>
+                <label>Nuevo cliente rápido</label>
+                <input autoFocus value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} placeholder="Nombre completo" />
+                <input value={nuevo.apodo} onChange={(e) => setNuevo({ ...nuevo, apodo: e.target.value })} placeholder="Apodo (El Tigre, La Reina…)" style={{ marginTop: 8 }} />
+                {error && <div className="pn-err">{error}</div>}
+                <div className="pn-acc">
+                  <button className="no" onClick={() => { setNuevo(null); setError(''); }}>VOLVER</button>
+                  <button className="si" onClick={crearRapido}>CREAR Y SELECCIONAR</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="pn-cabcli">
+                  <label>Seleccionar cliente</label>
+                  <button onClick={() => { setNuevo({ nombre: '', apodo: '' }); setError(''); }}>+ Nuevo cliente</button>
+                </div>
+                <div className="pn-busca">
+                  <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nombre o apodo…" />
+                  {busca && <span onClick={() => setBusca('')}>✕</span>}
+                </div>
+                <div className="pn-lista">
+                  {sugeridos.length === 0 && <div className="pn-vacio">{clientes.length === 0 ? 'Aún no hay clientes. Crea uno con “+ Nuevo cliente”.' : 'Sin coincidencias.'}</div>}
+                  {sugeridos.map((c) => (
+                    <button key={c.Id} className={cliente?.Id === c.Id ? 'on' : ''} onClick={() => elegir(c)}>
+                      <div><b>{c.Nombre}</b>{c.Apodo && <em>“{c.Apodo}”</em>}</div>
+                      <span className="pn-est">⭐ {c.Visitas ?? 0}</span>
+                    </button>
+                  ))}
+                </div>
+                <label>O nombre libre (apodo, seña…)</label>
+                <input value={nombre} onChange={(e) => setNombre(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && abrirCuenta()} placeholder="El Tigre, mesa ventana, Doña Marta…" />
+                <div className={`pn-reg ${cliente ? 'si' : ''}`}>
+                  {cliente ? `✓ Cliente registrado: ${cliente.Nombre}` : nombre.trim() ? 'Sin cliente: no podrá fiar' : ''}
+                </div>
+              </>
+            )}
+            {!nuevo && modal.tipo === 'BILLAR' && (
               <>
                 <label>Tarifa por hora (COP)</label>
                 <input type="number" inputMode="numeric" value={tarifa} onChange={(e) => setTarifa(e.target.value)} />
               </>
             )}
-            {error && <div className="pn-err">{error}</div>}
-            <div className="pn-acc">
+            {!nuevo && error && <div className="pn-err">{error}</div>}
+            {!nuevo && <div className="pn-acc">
               <button className="no" onClick={() => setModal(null)}>CANCELAR</button>
               <button className="si" onClick={abrirCuenta}>ABRIR CUENTA</button>
-            </div>
+            </div>}
           </div>
         </div>
       )}
