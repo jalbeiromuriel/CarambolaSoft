@@ -7,11 +7,11 @@ import LogoBola9 from '../components/LogoBola9.jsx';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
 import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, hms } from '../cuenta/tiempo.js';
+import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import './Panel.css';
 import './Mesa.css';
 
-const METODOS = ['EFECTIVO', 'NEQUI', 'DAVIPLATA', 'TARJETA', 'TRANSFERENCIA', 'FIADO'];
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const horaDe = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) : '');
 
@@ -28,6 +28,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [q, setQ] = useState('');
   const [cobro, setCobro] = useState(null);
   const [nueva, setNueva] = useState(null);   // { sel, creando, error }
+  const [vincular, setVincular] = useState(null); // { sel, creando, error } — ligar un cliente a la cuenta abierta
   const [aviso, setAviso] = useState('');
   const [ahora, setAhora] = useState(Date.now());
   const avisoT = useRef(null);
@@ -155,19 +156,23 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     volver();
   }
 
-  // ── Cobro (espejo de confirmCobro del POS; el modal se rediseña en la fase "Cobrar")
-  async function confirmarCobro() {
-    const { metodo, metodo2, mixto, monto1, pago } = cobro;
-    if (mixto && (!monto1 || monto1 <= 0)) { decir('Ingresa el monto del método 1'); return; }
-    if (mixto && monto1 > total) { decir('El monto 1 supera el total'); return; }
-    const met1 = mixto ? cobro.metodo1 : metodo;
-    const met2 = mixto ? metodo2 : null;
-    const m1 = mixto ? monto1 : total;
-    const m2 = mixto ? total - monto1 : 0;
-    if (pago > 0 && pago < total && met1 !== 'FIADO' && !mixto) { decir(`Pago insuficiente: faltan ${fmt(total - pago)}`); return; }
-    if ((met1 === 'FIADO' || met2 === 'FIADO') && !cuenta.ClienteId) { decir('El fiado necesita cliente registrado'); return; }
+  // ── Vincular cliente a la cuenta abierta (habilita fiado y ⭐ visitas)
+  async function vincularCliente() {
+    const c = vincular.sel.cliente;
+    if (!c) { setVincular({ ...vincular, error: 'Elige un cliente o crea uno nuevo.' }); return; }
+    await put('CUENTAS', { ...cuenta, ClienteId: c.Id });
+    await sumarVisita(c);
+    setVincular(null); decir(`Cuenta vinculada a ${c.Nombre} ✓`); await cargar();
+  }
 
-    const pendienteFiado = met1 === 'FIADO' ? m1 : met2 === 'FIADO' ? m2 : 0;
+  // ── Cobro: las reglas viven en cuenta/cobro.js
+  const abrirCobro = () => setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0 });
+
+  async function confirmarCobro() {
+    const plan = planCobro({ ...cobro, total, tieneCliente: !!cuenta.ClienteId });
+    if (plan.error) { decir(plan.error); return; }
+    const { met1, met2, m1, m2, pendienteFiado } = plan;
+    const { mixto } = cobro;
     const suma = (f) => entregados.filter(f).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
     await put('FACTURAS', {
       CuentaId: cuenta.Id, TurnoCajaId: cuenta.TurnoCajaId ?? null, SubtotalTiempo: subTiempo,
@@ -191,7 +196,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     setActivaId(quedan[0].Id); decir('Cobrado ✓'); await cargar();
   }
 
-  const devuelta = cobro && cobro.pago >= total ? cobro.pago - total : null;
+  const devuelta = cobro && !cobro.mixto && cobro.metodo === 'EFECTIVO' && cobro.pago >= total ? cobro.pago - total : null;
+  const soloDigitos = (v) => Number(String(v).replace(/\D/g, '')) || 0;
+  const nombreDe = (v) => METODOS.find((m) => m.v === v)?.t;
   const ordenados = [...entregados].sort((a, b) => (b.FechaHora ?? '').localeCompare(a.FechaHora ?? ''));
   const dueno = grupo[0]?.NombreLibre ?? cuenta.NombreLibre; // la mesa lleva el nombre de su primera cuenta
   const titulo = esBillar ? `Billar · ${dueno}` : `${dueno} · Licores`;
@@ -293,6 +300,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           <div className="ms-ap">
             {cliente?.Apodo && cliente.Apodo !== cuenta.NombreLibre && <>“{cliente.Apodo}” · </>}
             {cliente ? <>⭐ {cliente.Visitas ?? 0} visitas</> : <span className="rojo">Sin cliente registrado</span>}
+            {!cuenta.ClienteId && <button className="ms-vinc" onClick={() => setVincular({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>+ Vincular cliente</button>}
             {deuda > 0 && <> · <span className="rojo">Fía {fmt(deuda)}</span></>}
           </div>
 
@@ -322,11 +330,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
           <div className="ms-acc">
             <button className="ms-cobrar" disabled={total <= 0}
-              onClick={() => setCobro({ metodo: 'EFECTIVO', metodo1: 'EFECTIVO', metodo2: 'NEQUI', mixto: false, monto1: 0, pago: 0 })}>
+              onClick={abrirCobro}>
               💳 Cobrar {fmt(total)}
             </button>
-            <button className="ic" disabled title="Compartir producto — próxima fase">🤝</button>
-            <button className="ic" disabled title="Recibo — próxima fase">🧾</button>
           </div>
         </aside>
       </div>
@@ -347,48 +353,102 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         </div>
       )}
 
+      {vincular && (
+        <div className="pn-velo alto" onClick={(e) => e.target === e.currentTarget && setVincular(null)}>
+          <div className="pn-modal">
+            <h3>Vincular cliente · {cuenta.NombreLibre}</h3>
+            <SelectorCliente soloCliente valor={vincular.sel} onChange={(sel) => setVincular((v) => ({ ...v, sel }))}
+              onModoNuevo={(creando) => setVincular((v) => ({ ...v, creando }))}
+              error={vincular.error} setError={(error) => setVincular((v) => ({ ...v, error }))} />
+            {!vincular.creando && vincular.error && <div className="pn-err">{vincular.error}</div>}
+            {!vincular.creando && <div className="pn-acc">
+              <button className="no" onClick={() => setVincular(null)}>CANCELAR</button>
+              <button className="si" onClick={vincularCliente}>VINCULAR</button>
+            </div>}
+          </div>
+        </div>
+      )}
+
       {cobro && (
-        <div className="velo" onClick={(e) => e.target === e.currentTarget && setCobro(null)}>
-          <div className="modal">
-            <h3>COBRAR · {cuenta.NombreLibre}</h3>
-            <div className="total-modal">{fmt(total)}<small>TOTAL A COBRAR</small></div>
+        <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setCobro(null)}>
+          <div className="pn-modal cb">
+            <h3>Cobrar · {cuenta.NombreLibre}</h3>
+            <div className="cb-tot">{fmt(total)}</div>
+            <div className="cb-tl">TOTAL A COBRAR</div>
+            <div className="cb-cats">
+              {subTiempo > 0 && <span>🎱 Tiempo {fmt(subTiempo)}</span>}
+              {resumen.map((r) => <span key={r.clave}>{r.emoji} {r.nombre} {fmt(r.total)}</span>)}
+            </div>
+
             {!cobro.mixto && (
               <>
-                <label>MÉTODO DE PAGO</label>
-                <select value={cobro.metodo} onChange={(e) => setCobro({ ...cobro, metodo: e.target.value })}>
-                  {METODOS.map((m) => <option key={m}>{m}</option>)}
-                </select>
-                <label>💵 PAGO DEL CLIENTE</label>
-                <input type="number" placeholder="Ej: 100000" value={cobro.pago || ''}
-                  onChange={(e) => setCobro({ ...cobro, pago: Number(e.target.value) || 0 })} />
-                <div className="devuelta">
-                  DEVOLVER: <strong style={{ color: devuelta !== null ? 'var(--verde)' : 'var(--amarillo)' }}>
-                    {devuelta !== null ? fmt(devuelta) : cobro.pago > 0 ? 'Pago insuficiente' : '—'}
-                  </strong>
+                <div className="cb-lab">Método de pago</div>
+                <div className="cb-met">
+                  {METODOS.map((m) => {
+                    const bloqueado = m.v === 'FIADO' && !cuenta.ClienteId;
+                    return (
+                      <button key={m.v} className={`${m.v === 'FIADO' ? 'fi' : ''} ${cobro.metodo === m.v ? 'on' : ''}`} disabled={bloqueado}
+                        title={bloqueado ? 'Vincula un cliente para fiar' : ''} onClick={() => setCobro({ ...cobro, metodo: m.v })}>
+                        {m.t}{bloqueado ? ' 🔒' : ''}
+                      </button>
+                    );
+                  })}
                 </div>
               </>
             )}
-            <label className="check-mixto">
-              <input type="checkbox" checked={cobro.mixto} onChange={(e) => setCobro({ ...cobro, mixto: e.target.checked })} />
-              💳 Pagar con dos métodos
-            </label>
-            {cobro.mixto && (
-              <div className="mixto">
-                <div><label>MONTO MÉTODO 1</label>
-                  <input type="number" value={cobro.monto1 || ''} onChange={(e) => setCobro({ ...cobro, monto1: Number(e.target.value) || 0 })} /></div>
-                <div><label>MÉTODO 1</label>
-                  <select value={cobro.metodo1} onChange={(e) => setCobro({ ...cobro, metodo1: e.target.value })}>
-                    {METODOS.map((m) => <option key={m}>{m}</option>)}</select></div>
-                <div><label>RESTO (AUTOMÁTICO)</label>
-                  <input readOnly value={cobro.monto1 ? fmt(Math.max(0, total - cobro.monto1)) : ''} /></div>
-                <div><label>MÉTODO 2</label>
-                  <select value={cobro.metodo2} onChange={(e) => setCobro({ ...cobro, metodo2: e.target.value })}>
-                    {METODOS.map((m) => <option key={m}>{m}</option>)}</select></div>
+
+            {!cuenta.ClienteId && (
+              <div className="cb-alerta">
+                🚫 {cuenta.NombreLibre} no es cliente registrado: el fiado no está disponible.
+                <button onClick={() => setVincular({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>Vincular cliente</button>
               </div>
             )}
-            <div className="acciones">
-              <button className="cancelar" onClick={() => setCobro(null)}>CANCELAR</button>
-              <button className="abrir" style={{ background: 'var(--verde)' }} onClick={confirmarCobro}>✓ CONFIRMAR COBRO</button>
+            {cuenta.ClienteId && cliente && (
+              <div className="cb-cli">A nombre de <b>{cliente.Nombre}{cliente.Apodo ? ` · “${cliente.Apodo}”` : ''}</b>{deuda > 0 && <span>Debe <b>{fmt(deuda)}</b></span>}</div>
+            )}
+
+            {!cobro.mixto && cobro.metodo === 'EFECTIVO' && (
+              <>
+                <div className="cb-lab">💵 Pago del cliente</div>
+                <div className="cb-fila">
+                  <div className="p"><small>PAGO</small>
+                    <input inputMode="numeric" placeholder="$ —" value={cobro.pago ? '$' + cobro.pago.toLocaleString('es-CO') : ''}
+                      onChange={(e) => setCobro({ ...cobro, pago: soloDigitos(e.target.value) })} /></div>
+                  <div className="d"><small>DEVOLVER</small>
+                    <div className="n">{devuelta !== null ? fmt(devuelta) : cobro.pago > 0 ? 'Falta ' + fmt(total - cobro.pago) : '—'}</div></div>
+                </div>
+                <div className="cb-tc">Total cuenta <b>{fmt(total)}</b></div>
+              </>
+            )}
+
+            {cobro.mixto && (
+              <>
+                <div className="cb-lab">Dos métodos</div>
+                <div className="cb-mx">
+                  <div className="c a"><div className="t">MÉTODO 1</div>
+                    <input className="v" inputMode="numeric" placeholder="$ —" value={cobro.monto1 ? '$' + cobro.monto1.toLocaleString('es-CO') : ''}
+                      onChange={(e) => setCobro({ ...cobro, monto1: soloDigitos(e.target.value) })} />
+                    <div className="mm">{METODOS.map((m) => (
+                      <button key={m.v} disabled={m.v === 'FIADO' && !cuenta.ClienteId} className={cobro.metodo1 === m.v ? 'on' : ''}
+                        onClick={() => setCobro({ ...cobro, metodo1: m.v })}>{m.t}</button>))}</div></div>
+                  <div className="c"><div className="t">MÉTODO 2 · EL RESTO</div>
+                    <div className="v ver">{cobro.monto1 > 0 && cobro.monto1 < total ? fmt(total - cobro.monto1) : '$ —'}</div>
+                    <div className="mm">{METODOS.map((m) => (
+                      <button key={m.v} disabled={m.v === 'FIADO' && !cuenta.ClienteId} className={cobro.metodo2 === m.v ? 'on' : ''}
+                        onClick={() => setCobro({ ...cobro, metodo2: m.v })}>{m.t}</button>))}</div></div>
+                </div>
+              </>
+            )}
+
+            <label className="cb-chk">
+              <input type="checkbox" checked={cobro.mixto} onChange={(e) => setCobro({ ...cobro, mixto: e.target.checked })} />
+              <span className="box">{cobro.mixto ? '✓' : ''}</span>
+              💳 Pagar con dos métodos (ej: efectivo + Nequi)
+            </label>
+
+            <div className="pn-acc">
+              <button className="no" onClick={() => setCobro(null)}>CANCELAR</button>
+              <button className="si" onClick={confirmarCobro}>✓ CONFIRMAR COBRO</button>
             </div>
           </div>
         </div>

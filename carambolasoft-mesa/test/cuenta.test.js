@@ -83,3 +83,24 @@ test('grupos: cuentas de una misma mesa quedan juntas, las viejas solas', async 
   assert.deepEqual(agrupar(cs).map((g) => g.map((c) => c.Id)), [['a', 'c'], ['b'], ['d']]);
   assert.equal(grupoDe(cs[3]), 'd');
 });
+
+test('cobro: efectivo con devuelta, exacto y pago insuficiente', async () => {
+  const { planCobro } = await import('../src/cuenta/cobro.js');
+  const base = { total: 15000, mixto: false, metodo: 'EFECTIVO', tieneCliente: false };
+  assert.equal(planCobro({ ...base, pago: 20000 }).devolver, 5000);
+  assert.equal(planCobro({ ...base, pago: 0 }).devolver, null);           // sin digitar = exacto
+  assert.match(planCobro({ ...base, pago: 10000 }).error, /insuficiente/);
+  assert.equal(planCobro({ ...base, metodo: 'NEQUI' }).devolver, null);   // solo efectivo da devuelta
+});
+
+test('cobro: fiado exige cliente; dos métodos reparten y piden métodos distintos', async () => {
+  const { planCobro } = await import('../src/cuenta/cobro.js');
+  assert.match(planCobro({ total: 8000, mixto: false, metodo: 'FIADO', tieneCliente: false }).error, /cliente/);
+  assert.equal(planCobro({ total: 8000, mixto: false, metodo: 'FIADO', tieneCliente: true }).pendienteFiado, 8000);
+  const mx = { total: 15000, mixto: true, metodo1: 'EFECTIVO', metodo2: 'FIADO', monto1: 10000, tieneCliente: true };
+  const r = planCobro(mx);
+  assert.deepEqual([r.m1, r.m2, r.pendienteFiado], [10000, 5000, 5000]);
+  assert.match(planCobro({ ...mx, metodo2: 'EFECTIVO' }).error, /distintos/);
+  assert.match(planCobro({ ...mx, monto1: 15000 }).error, /menor al total/);
+  assert.match(planCobro({ ...mx, tieneCliente: false }).error, /cliente/);
+});

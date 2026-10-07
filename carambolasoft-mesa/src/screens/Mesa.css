@@ -57,3 +57,42 @@
 .ms-cobrar:disabled{opacity:.4;cursor:not-allowed}
 .ms-acc .ic{width:50px;border:1px solid var(--line);border-radius:9px;background:#0e1422;font-size:16px;opacity:.45}
 .ms-aviso{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#0e1422;border:1px solid var(--oro);color:var(--oro);padding:11px 18px;border-radius:10px;z-index:99;font-size:13px;box-shadow:0 8px 30px #000a}
+
+.ms-vinc{margin-left:8px;font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid #4ade8055;background:transparent;color:var(--ver);cursor:pointer}
+.pn-modal.cb{width:min(540px,100%)}
+.cb-tot{text-align:center;margin:10px 0 0;font-size:44px;font-weight:800;color:var(--ver)}
+.cb-tl{text-align:center;font-size:10px;letter-spacing:3px;color:var(--mut);margin-bottom:12px}
+.cb-cats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;font-size:11px;color:var(--mut);margin-bottom:6px}
+.cb-cats span{border:1px solid var(--line);border-radius:99px;padding:3px 9px}
+.cb-lab{font-size:10px;letter-spacing:3px;color:var(--mut);text-transform:uppercase;margin:14px 0 7px}
+.cb-met{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cb-met button{padding:12px 6px;border:1px solid var(--line);border-radius:10px;background:#0e1422;color:var(--tx);font-size:12.5px;cursor:pointer;min-height:44px}
+.cb-met button.on{border-color:var(--oro);background:#e8c06a14;color:var(--oro);font-weight:700}
+.cb-met button.fi{color:var(--rojo)}.cb-met button.fi.on{border-color:var(--rojo);background:#fb71851a}
+.cb-met button:disabled{opacity:.35;cursor:not-allowed}
+.cb-alerta{margin-top:12px;border:1px solid #fb718566;background:#fb71851a;color:var(--rojo);border-radius:10px;padding:10px 12px;font-size:12.5px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+.cb-alerta button{white-space:nowrap;font-size:11px;padding:5px 10px;border-radius:6px;border:1px solid var(--rojo);background:transparent;color:var(--rojo);cursor:pointer}
+.cb-cli{margin-top:12px;border:1px solid var(--line);background:#0e1422;border-radius:10px;padding:10px 13px;font-size:13px;display:flex;justify-content:space-between;gap:10px}
+.cb-cli span b{color:var(--rojo)}
+.cb-fila{display:grid;grid-template-columns:1.25fr 1fr;gap:10px}
+.cb-fila>div{border-radius:12px;padding:10px 14px}
+.cb-fila small{display:block;font-size:10px;letter-spacing:3px;margin-bottom:4px}
+.cb-fila .p{border:1px solid #4ade8077;background:#4ade8012}.cb-fila .p small{color:var(--ver)}
+.cb-fila .p input{width:100%;background:transparent;border:0;outline:0;color:var(--ver);font-size:24px;font-weight:800;padding:0}
+.cb-fila .d{border:1px solid #e8c06a77;background:#e8c06a12}.cb-fila .d small{color:var(--oro)}
+.cb-fila .d .n{font-size:24px;font-weight:800;color:var(--oro)}
+.cb-tc{font-size:12px;color:var(--mut);margin-top:8px;text-align:right}.cb-tc b{color:#cbd0dc}
+.cb-mx{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cb-mx .c{border:1px solid var(--line);border-radius:12px;padding:12px;background:#0e1422}.cb-mx .c.a{border-color:var(--oro)}
+.cb-mx .t{font-size:10px;letter-spacing:2px;color:var(--mut)}
+.cb-mx .v{display:block;width:100%;background:transparent;border:0;outline:0;font-size:22px;font-weight:800;color:var(--oro);margin:4px 0 8px;padding:0}
+.cb-mx .v.ver{color:var(--ver)}
+.cb-mx .mm{display:flex;gap:6px;flex-wrap:wrap}
+.cb-mx .mm button{font-size:11px;border:1px solid var(--line);border-radius:7px;padding:6px 8px;background:transparent;color:var(--tx);cursor:pointer}
+.cb-mx .mm button.on{border-color:var(--oro);color:var(--oro)}.cb-mx .mm button:disabled{opacity:.35}
+.cb-chk{display:flex;gap:9px;align-items:center;margin:16px 0 4px;font-size:13px;color:#cbd0dc;cursor:pointer}
+.cb-chk input{display:none}.cb-chk .box{width:20px;height:20px;border:1px solid var(--mut);border-radius:5px;display:grid;place-items:center;font-size:13px}
+.cb-chk input:checked+.box{background:var(--oro);color:#1a1405;border-color:var(--oro)}
+.pn-velo.alto{z-index:40}
+.pn-modal .cb-chk{display:flex;text-transform:none;letter-spacing:0;font-size:13px;color:#cbd0dc;margin-top:16px}
+.cb-tot{line-height:1.1}.cb-tl{margin-top:6px}
