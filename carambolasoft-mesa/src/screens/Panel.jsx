@@ -6,6 +6,8 @@ import { put, getAll, porIndice } from '../db/repository.js';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
 import { agrupar } from '../cuenta/grupos.js';
 import { cobroTiempo, msJugados, estaCorriendo, hms } from '../cuenta/tiempo.js';
+import { estadoReloj, mmss } from '../cuenta/garita.js';
+import { abrirGarita } from '../cuenta/garitaDb.js';
 import LogoBola9 from '../components/LogoBola9.jsx';
 import './Panel.css';
 
@@ -17,6 +19,7 @@ export default function Panel({ irACuenta, irAContador }) {
   const [mesas, setMesas] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [pedidos, setPedidos] = useState([]);
+  const [relojes, setRelojes] = useState([]);
   const [fiadoPorCliente, setFiadoPorCliente] = useState({});
   const [modal, setModal] = useState(null); // { tipo:'MESA' } | { tipo:'BILLAR', mesaId }
   const [sel, setSel] = useState({ cliente: null, nombre: '' }); // cliente elegido + nombre libre
@@ -29,6 +32,7 @@ export default function Panel({ irACuenta, irAContador }) {
     setMesas((await getAll('MESAS_BILLAR')).sort((a, b) => a.Numero - b.Numero));
     setCuentas(await porIndice('CUENTAS', 'porEstado', 'ABIERTA'));
     setPedidos(await getAll('PEDIDOS_CUENTAS'));
+    setRelojes(await getAll('GARITAS_RELOJ'));
 
     // Deuda de fiado por cliente: facturas con saldo, unidas a su cuenta para saber el cliente.
     const todas = await getAll('CUENTAS');
@@ -64,6 +68,13 @@ export default function Panel({ irACuenta, irAContador }) {
     const { cliente } = sel;
     const etiqueta = etiquetaDe(sel);
     if (!etiqueta) { setError('Elige un cliente o escribe un nombre.'); return; }
+    if (modal.tipo === 'GARITA') {
+      const c = await abrirGarita({ cliente, etiqueta });
+      await sumarVisita(cliente);
+      setModal(null);
+      irACuenta(c.Id);
+      return;
+    }
     const esBillar = modal.tipo === 'BILLAR';
     if (esBillar && !modal.mesaId) { setError('Elige una mesa libre.'); return; }
     if (esBillar && !(Number(tarifa) > 0)) { setError('La tarifa por hora es obligatoria en billar.'); return; }
@@ -107,7 +118,9 @@ export default function Panel({ irACuenta, irAContador }) {
           <button className="pn-b bil" onClick={() => abrirModal({ tipo: 'BILLAR', mesaId: mesasLibres[0]?.Id ?? null })}>
             <h3>+ BILLAR</h3><p>mesa con taxímetro</p>
           </button>
-          <div className="pn-b off" aria-disabled="true"><h3>⏱ GARITA</h3><p>aviso de cobro cada hora</p><small>FASE 1B</small></div>
+          <button className="pn-b ga" onClick={() => abrirModal({ tipo: 'GARITA' })}>
+            <h3>⏱ GARITA</h3><p>aviso de cobro cada hora</p>
+          </button>
           <div className="pn-b off" aria-disabled="true"><h3>⚡ VENTA RÁPIDA</h3><p>granizados · pide y paga</p><small>FASE 1B</small></div>
         </div>
 
@@ -134,6 +147,9 @@ export default function Panel({ irACuenta, irAContador }) {
           {agrupar(cuentas).map((g) => {
             const c = g[0];                                   // la mesa lleva el nombre de su primera cuenta
             const billar = c.TipoCuenta === 'BILLAR';
+            const garita = c.TipoCuenta === 'GARITA';
+            const reloj = garita ? relojes.find((r) => r.Id === c.GaritaRelojId) : null;
+            const er = reloj ? estadoReloj(reloj, ahora) : null;
             const rs = g.map(resumen);
             const pedidosN = rs.reduce((t, r) => t + r.pedidos, 0);
             const total = rs.reduce((t, r) => t + r.total, 0);
@@ -141,15 +157,16 @@ export default function Panel({ irACuenta, irAContador }) {
             const clientesDeuda = [...new Set(g.map((x) => x.ClienteId).filter(Boolean))];
             const deuda = clientesDeuda.reduce((t, id) => t + (fiadoPorCliente[id] ?? 0), 0);
             return (
-              <div key={c.Id} className={`pn-c ${billar ? 'bi' : 'l'}`} onClick={() => irACuenta(c.Id)}>
+              <div key={c.Id} className={`pn-c ${billar ? 'bi' : garita ? 'ga' : 'l'} ${er?.enAviso ? 'al' : ''}`} onClick={() => irACuenta(c.Id)}>
                 <div className="pn-k">
-                  <span>{billar ? `🎱 BILLAR${numMesa(c.MesaId) ? ` · M${numMesa(c.MesaId)}` : ''}` : '🥃 MESA'}</span>
+                  <span>{billar ? `🎱 BILLAR${numMesa(c.MesaId) ? ` · M${numMesa(c.MesaId)}` : ''}` : garita ? '⏱ GARITA' : '🥃 MESA'}</span>
                   <span className="pn-der">
                     {deuda > 0 && <span className="pn-fia">FÍA {fmt(deuda)}</span>}
                     <span className="pn-n" title={g.map((x) => x.NombreLibre).join(', ')}>👥 {g.length}</span>
                   </span>
                 </div>
                 <h4>{c.NombreLibre}</h4>
+                {reloj && <div className="pn-cr ga garita-r">⏱ {hms(er.transcurrido)} · {er.enAviso ? '⏰ 5 MIN ¡cobrar!' : `aviso en ${mmss(er.faltaAviso)}`}</div>}
                 <div className="pn-f">
                   <span>desde {hora(c.HoraApertura)} · {pedidosN} ped.
                     {conTaxi && <span className="pn-cr">{estaCorriendo(conTaxi) ? '⏱' : '⏸'} {hms(msJugados(conTaxi, ahora))}</span>}
@@ -168,8 +185,8 @@ export default function Panel({ irACuenta, irAContador }) {
 
       {modal && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
-          <div className={`pn-modal ${modal.tipo === 'BILLAR' ? 'bil' : ''}`}>
-            <h3>{modal.tipo === 'BILLAR' ? 'Abrir billar' : 'Abrir mesa · licores y snacks'}</h3>
+          <div className={`pn-modal ${modal.tipo === 'BILLAR' ? 'bil' : modal.tipo === 'GARITA' ? 'ga' : ''}`}>
+            <h3>{modal.tipo === 'BILLAR' ? 'Abrir billar' : modal.tipo === 'GARITA' ? 'Iniciar garita · primera persona' : 'Abrir mesa · licores y snacks'}</h3>
             {modal.tipo === 'BILLAR' && (
               <>
                 <label>Mesa</label>
@@ -193,7 +210,7 @@ export default function Panel({ irACuenta, irAContador }) {
             {!creando && error && <div className="pn-err">{error}</div>}
             {!creando && <div className="pn-acc">
               <button className="no" onClick={() => setModal(null)}>CANCELAR</button>
-              <button className="si" onClick={abrirCuenta}>ABRIR CUENTA</button>
+              <button className="si" onClick={abrirCuenta}>{modal.tipo === 'GARITA' ? 'INICIAR GARITA' : 'ABRIR CUENTA'}</button>
             </div>}
           </div>
         </div>

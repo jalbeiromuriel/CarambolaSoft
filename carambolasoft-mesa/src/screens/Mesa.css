@@ -96,3 +96,15 @@
 .pn-velo.alto{z-index:40}
 .pn-modal .cb-chk{display:flex;text-transform:none;letter-spacing:0;font-size:13px;color:#cbd0dc;margin-top:16px}
 .cb-tot{line-height:1.1}.cb-tl{margin-top:6px}
+
+/* Garita */
+.ms-bil.ga{border-color:#e46a8a55;background:#e46a8a08}.ms-bil.ga.run{background:#e46a8a14;border-color:#e46a8aaa}
+.ms-bil.ga .ms-cr,.ms-bil.ga .ms-acum strong{color:#e46a8a}.ms-bil.ga .ini{background:#e46a8a;color:#2a0a14}
+.ms-lab.rosa{color:#e46a8a;margin:0}
+.ms-bil.ga.al{background:#fbbf2418;border-color:#fbbf24;box-shadow:0 0 16px #fbbf2455}
+.ms-bil.ga.al .ms-cr,.ms-bil.ga.al .ms-acum strong,.ms-bil.ga.al .ms-lab{color:#fbbf24}.ms-bil.ga.al .ini{background:#fbbf24;color:#1a1405}
+.ga-sub{color:var(--mut);font-size:12px}
+.ga-lista{margin-top:10px;display:grid;gap:6px}
+.ga-lista .cb-chk{margin:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#0e1422;justify-content:flex-start}
+.ga-lista .cb-chk.on{border-color:#e46a8a;color:#fff}.ga-lista em{margin-left:auto;font-style:normal;color:#e46a8a;font-weight:700}
+.ga-tot{margin-top:12px;text-align:right;color:var(--mut)}.ga-tot b{color:#e46a8a;font-size:20px;margin-left:8px}

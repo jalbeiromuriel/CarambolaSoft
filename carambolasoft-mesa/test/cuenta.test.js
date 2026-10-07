@@ -104,3 +104,25 @@ test('cobro: fiado exige cliente; dos métodos reparten y piden métodos distint
   assert.match(planCobro({ ...mx, monto1: 15000 }).error, /menor al total/);
   assert.match(planCobro({ ...mx, tieneCliente: false }).error, /cliente/);
 });
+
+// ── Garita
+import { nuevoReloj, estadoReloj, avanzarReloj, marcadaPorDefecto, mmss, HORA_MS } from '../src/cuenta/garita.js';
+import { grupoDe as grupoG } from '../src/cuenta/grupos.js';
+test('garita: aviso a los 55 min y avance de hora', () => {
+  const t0 = Date.parse('2026-10-07T20:00:00Z');
+  const r = nuevoReloj(t0);
+  assert.equal(estadoReloj(r, t0 + 54 * 60000).enAviso, false);
+  assert.equal(estadoReloj(r, t0 + 55 * 60000).enAviso, true);
+  const r2 = avanzarReloj(r);
+  assert.equal(r2.Cobros, 2);
+  assert.equal(estadoReloj(r2, t0 + 56 * 60000).enAviso, false);
+  assert.equal(estadoReloj(r2, t0 + 115 * 60000).enAviso, true);
+  assert.equal(estadoReloj(r, t0 + HORA_MS / 2).transcurrido, 30 * 60000);
+});
+test('garita: llegados recién no se marcan; mmss; grupo por reloj', () => {
+  const t0 = Date.parse('2026-10-07T20:00:00Z');
+  assert.equal(marcadaPorDefecto({ HoraApertura: new Date(t0 - 5 * 60000).toISOString() }, t0), false);
+  assert.equal(marcadaPorDefecto({ HoraApertura: new Date(t0 - 20 * 60000).toISOString() }, t0), true);
+  assert.equal(mmss(30 * 60000 + 52000), '30:52');
+  assert.equal(grupoG({ Id: 'a', GaritaRelojId: 'g' }), 'g');
+});

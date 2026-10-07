@@ -4,10 +4,12 @@
 // ============================================================
 import { useState, useEffect } from 'react';
 import { openDb } from './db/schema.js';
-import { getAll } from './db/repository.js';
+import { getAll, get } from './db/repository.js';
+import { PRODUCTO_GARITA_ID } from './cuenta/garita.js';
 import Panel from './screens/Panel.jsx';
 import DetalleCuenta from './screens/DetalleCuenta.jsx';
 import Contador from './screens/Contador/Contador.jsx';
+import AlertaGarita from './components/AlertaGarita.jsx';
 import IndicadorSync from './components/IndicadorSync.jsx';
 // ------------------------------------------------------------
 // Semillas locales (Ids fijos = idempotentes ante StrictMode).
@@ -33,6 +35,13 @@ async function sembrar() {
       { Id: '00000000-0000-0000-0000-000000000103', Nombre: 'Media de Aguardiente', PrecioVenta: 55000, CostoCompra: 42000, StockActual: 6,  CategoriaConsumo: 'BEBIDAS_ALCOHOLICAS', Activo: true },
       { Id: '00000000-0000-0000-0000-000000000104', Nombre: 'Gaseosa',             PrecioVenta: 4000,  CostoCompra: 2200,  StockActual: 18, CategoriaConsumo: 'BEBIDAS_NO_ALCOHOLICAS', Activo: true },
       { Id: '00000000-0000-0000-0000-000000000105', Nombre: 'Papas',               PrecioVenta: 3500,  CostoCompra: 2000,  StockActual: 15, CategoriaConsumo: 'SNACKS', Activo: true },
+    ]);
+  }
+
+  // Aditivo: el servicio "Garita" (1 persona = 1 hora). No controla stock.
+  if (!(await get('PRODUCTOS', PRODUCTO_GARITA_ID))) {
+    await escribir(db, 'PRODUCTOS', [
+      { Id: PRODUCTO_GARITA_ID, Nombre: 'Garita (persona/hora)', PrecioVenta: 1000, CostoCompra: 0, StockActual: 0, ControlaStock: false, CategoriaConsumo: 'OTROS', Activo: true },
     ]);
   }
 }
@@ -69,6 +78,7 @@ return (
       {ruta.pantalla === 'contador' && (
         <Contador irACuenta={(cuentaId) => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'cuenta', cuentaId }); }} salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />
       )}
+      <AlertaGarita visible={ruta.pantalla !== 'cuenta'} irACuenta={(cuentaId) => setRuta({ pantalla: 'cuenta', cuentaId })} />
       <IndicadorSync />
     </div>
   );
@@ -78,6 +88,7 @@ return (
 // Estilos globales (mientras llega el refactor a CSS propio)
 // ------------------------------------------------------------
 const ESTILOS = `
+.al-garita { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; padding: 12px; border: 0; background: #fbbf24; color: #1a1405; font-weight: 800; letter-spacing: 1px; cursor: pointer; }
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;900&display=swap');
 
 :root {
