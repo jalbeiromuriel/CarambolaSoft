@@ -9,7 +9,7 @@ import { cobroTiempo, msJugados, estaCorriendo, hms } from '../cuenta/tiempo.js'
 import { estadoReloj, mmss } from '../cuenta/garita.js';
 import { abrirGarita } from '../cuenta/garitaDb.js';
 import VentaRapida from '../components/VentaRapida.jsx';
-import LogoBola9 from '../components/LogoBola9.jsx';
+import Encabezado from '../components/Encabezado.jsx';
 import './Panel.css';
 
 const TARIFA_BILLAR = 6000; // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
@@ -105,13 +105,7 @@ export default function Panel({ irACuenta, irAContador }) {
 
   return (
     <div className="pn">
-      <header className="pn-top">
-        <LogoBola9 size={46} />
-        <div>
-          <div className="pn-t1">Mero Parche</div>
-          <div className="pn-t2">Licores &amp; Billar · Sistema de Ventas</div>
-        </div>
-      </header>
+      <Encabezado activo="panel" />
 
       <div className="pn-wrap">
         <div className="pn-btns">

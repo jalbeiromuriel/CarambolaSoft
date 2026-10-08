@@ -3,7 +3,7 @@
 // comanda con hora y −/+, resumen por categoría, taxímetro por chico en billar. El cobro (modal) se rediseña en su fase.
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { put, get, getAll, porIndice } from '../db/repository.js';
-import LogoBola9 from '../components/LogoBola9.jsx';
+import Encabezado from '../components/Encabezado.jsx';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
 import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, hms } from '../cuenta/tiempo.js';
@@ -227,13 +227,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
   return (
     <div className="pn ms">
-      <header className="pn-top">
-        <LogoBola9 size={46} />
-        <div>
-          <div className="pn-t1">Mero Parche</div>
-          <div className="pn-t2">Licores &amp; Billar · Sistema de Ventas</div>
-        </div>
-      </header>
+      <Encabezado activo="panel" irPanel={volver} />
 
       <div className="ms-sub">
         <button className="ms-volver" onClick={volver}>← Volver</button>
