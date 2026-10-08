@@ -15,6 +15,7 @@ import { PrimerUso, Login, CambioObligatorio } from './screens/Auth.jsx';
 import Usuarios from './screens/Usuarios.jsx';
 import { listarUsuarios } from './cuenta/authDb.js';
 import { get as getReg } from './db/repository.js';
+import Inactividad from './components/Inactividad.jsx';
 import AlertaGarita from './components/AlertaGarita.jsx';
 import IndicadorSync from './components/IndicadorSync.jsx';
 // ------------------------------------------------------------
@@ -112,6 +113,7 @@ return (
         <Contador irACuenta={(cuentaId) => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'cuenta', cuentaId }); }} salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />
       )}
       <AlertaGarita visible={ruta.pantalla !== 'cuenta'} irACuenta={(cuentaId) => setRuta({ pantalla: 'cuenta', cuentaId })} />
+      <Inactividad cerrar={cerrarSesion} />
       <IndicadorSync />
     </div>
     </SesionContext.Provider>
@@ -122,6 +124,7 @@ return (
 // Estilos globales (mientras llega el refactor a CSS propio)
 // ------------------------------------------------------------
 const ESTILOS = `
+.al-inact { position: fixed; top: 0; left: 0; right: 0; z-index: 70; padding: 12px; background: #fb7185; color: #2a0a10; font-weight: 800; text-align: center; }
 .al-garita { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; padding: 12px; border: 0; background: #fbbf24; color: #1a1405; font-weight: 800; letter-spacing: 1px; cursor: pointer; }
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;900&display=swap');
 

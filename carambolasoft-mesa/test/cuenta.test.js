@@ -152,3 +152,11 @@ test('auth: rescate y secciones por rol', () => {
   assert.ok(!seccionVisible('caja', 'EMPLEADO') && !seccionVisible('adm', 'EMPLEADO'));
   assert.ok(esAdmin('PATRONA') && !esAdmin('EMPLEADO'));
 });
+
+import { estadoInactividad, INACTIVIDAD_MS } from '../src/cuenta/auth.js';
+test('auth: inactividad avisa 30 s antes y cierra a los 10 min', () => {
+  const t = 1_000_000;
+  assert.equal(estadoInactividad(t, t + 60000), 'activa');
+  assert.equal(estadoInactividad(t, t + INACTIVIDAD_MS - 20000), 'aviso');
+  assert.equal(estadoInactividad(t, t + INACTIVIDAD_MS), 'cerrar');
+});

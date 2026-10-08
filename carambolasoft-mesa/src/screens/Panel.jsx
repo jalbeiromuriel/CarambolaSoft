@@ -103,6 +103,47 @@ export default function Panel({ irACuenta, irAContador }) {
     irACuenta(cuenta.Id); // directo al detalle, como en el POS
   }
 
+  const tarjeta = (g) => {
+
+    const c = g[0];                                   // la mesa lleva el nombre de su primera cuenta
+    const billar = c.TipoCuenta === 'BILLAR';
+    const garita = c.TipoCuenta === 'GARITA';
+    const reloj = garita ? relojes.find((r) => r.Id === c.GaritaRelojId) : null;
+    const er = reloj ? estadoReloj(reloj, ahora) : null;
+    const rs = g.map(resumen);
+    const pedidosN = rs.reduce((t, r) => t + r.pedidos, 0);
+    const total = rs.reduce((t, r) => t + r.total, 0);
+    const conTaxi = g.find((x) => x.TarifaPorHora);
+    const clientesDeuda = [...new Set(g.map((x) => x.ClienteId).filter(Boolean))];
+    const deuda = clientesDeuda.reduce((t, id) => t + (fiadoPorCliente[id] ?? 0), 0);
+    return (
+      <div key={c.Id} className={`pn-c ${billar ? 'bi' : garita ? 'ga' : 'l'} ${er?.enAviso ? 'al' : ''}`} onClick={() => irACuenta(c.Id)}>
+        <div className="pn-k">
+          <span>{billar ? `🎱 BILLAR${numMesa(c.MesaId) ? ` · M${numMesa(c.MesaId)}` : ''}` : garita ? '⏱ GARITA' : '🥃 MESA'}</span>
+          <span className="pn-der">
+            {deuda > 0 && <span className="pn-fia">FÍA {fmt(deuda)}</span>}
+            <span className="pn-n" title={g.map((x) => x.NombreLibre).join(', ')}>👥 {g.length}</span>
+          </span>
+        </div>
+        <h4>{c.NombreLibre}</h4>
+        {reloj && <div className="pn-cr ga garita-r">⏱ {hms(er.transcurrido)} · {er.enAviso ? '⏰ 5 MIN ¡cobrar!' : `aviso en ${mmss(er.faltaAviso)}`}</div>}
+        <div className="pn-f">
+          <span>desde {hora(c.HoraApertura)} · {pedidosN} ped.
+            {conTaxi && <span className="pn-cr">{estaCorriendo(conTaxi) ? '⏱' : '⏸'} {hms(msJugados(conTaxi, ahora))}</span>}
+          </span>
+          <span className="pn-tot">{fmt(total)}</span>
+        </div>
+        <div className="pn-tip">
+          <div className="pn-tip-t">{g.length} {g.length === 1 ? 'cliente' : 'clientes'} en la mesa</div>
+          {g.map((x, i) => <div key={x.Id}><span>👤 {x.NombreLibre}</span><b>{fmt(rs[i].total)}</b></div>)}
+        </div>
+      </div>
+    );
+  };
+  const grupos = agrupar(cuentas);
+  const enJuego = grupos.filter((g) => g[0].TipoCuenta === 'BILLAR' || g[0].TipoCuenta === 'GARITA');
+  const licores = grupos.filter((g) => !enJuego.includes(g));
+
   return (
     <div className="pn">
       <Encabezado activo="panel" />
@@ -123,62 +164,18 @@ export default function Panel({ irACuenta, irAContador }) {
           </button>
         </div>
 
-        <div className="pn-sec">Mesas de billar<i /></div>
-        <div className="pn-mesas">
-          {mesas.length === 0 && <div className="pn-vacio">Aún no hay mesas cargadas.</div>}
-          {mesas.map((m) => {
-            const c = cuentaDeMesa(m.Id);
-            const oc = m.Estado === 'OCUPADA' && c;
-            return (
-              <button key={m.Id} className={`pn-m ${oc ? 'oc' : 'lib'}`}
-                onClick={() => (oc ? irACuenta(c.Id) : abrirModal({ tipo: 'BILLAR', mesaId: m.Id }))}>
-                <b>MESA {m.Numero}</b><span>{oc ? 'OCUPADA' : 'LIBRE'}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="pn-sec">Cuentas abiertas — toca para gestionar o liquidar<i />
+        <div className="pn-sec ver">Billar y garita en juego<span className="pn-nota">· aparecen al abrir, desaparecen al cobrar</span><i />
           {irAContador && <button className="pn-chipbtn" onClick={irAContador}>🎱 CONTADOR DEL BILLAR</button>}
         </div>
         <div className="pn-cuentas">
-          {cuentas.length === 0 && <div className="pn-vacio">No hay cuentas abiertas.</div>}
-          {agrupar(cuentas).map((g) => {
-            const c = g[0];                                   // la mesa lleva el nombre de su primera cuenta
-            const billar = c.TipoCuenta === 'BILLAR';
-            const garita = c.TipoCuenta === 'GARITA';
-            const reloj = garita ? relojes.find((r) => r.Id === c.GaritaRelojId) : null;
-            const er = reloj ? estadoReloj(reloj, ahora) : null;
-            const rs = g.map(resumen);
-            const pedidosN = rs.reduce((t, r) => t + r.pedidos, 0);
-            const total = rs.reduce((t, r) => t + r.total, 0);
-            const conTaxi = g.find((x) => x.TarifaPorHora);
-            const clientesDeuda = [...new Set(g.map((x) => x.ClienteId).filter(Boolean))];
-            const deuda = clientesDeuda.reduce((t, id) => t + (fiadoPorCliente[id] ?? 0), 0);
-            return (
-              <div key={c.Id} className={`pn-c ${billar ? 'bi' : garita ? 'ga' : 'l'} ${er?.enAviso ? 'al' : ''}`} onClick={() => irACuenta(c.Id)}>
-                <div className="pn-k">
-                  <span>{billar ? `🎱 BILLAR${numMesa(c.MesaId) ? ` · M${numMesa(c.MesaId)}` : ''}` : garita ? '⏱ GARITA' : '🥃 MESA'}</span>
-                  <span className="pn-der">
-                    {deuda > 0 && <span className="pn-fia">FÍA {fmt(deuda)}</span>}
-                    <span className="pn-n" title={g.map((x) => x.NombreLibre).join(', ')}>👥 {g.length}</span>
-                  </span>
-                </div>
-                <h4>{c.NombreLibre}</h4>
-                {reloj && <div className="pn-cr ga garita-r">⏱ {hms(er.transcurrido)} · {er.enAviso ? '⏰ 5 MIN ¡cobrar!' : `aviso en ${mmss(er.faltaAviso)}`}</div>}
-                <div className="pn-f">
-                  <span>desde {hora(c.HoraApertura)} · {pedidosN} ped.
-                    {conTaxi && <span className="pn-cr">{estaCorriendo(conTaxi) ? '⏱' : '⏸'} {hms(msJugados(conTaxi, ahora))}</span>}
-                  </span>
-                  <span className="pn-tot">{fmt(total)}</span>
-                </div>
-                <div className="pn-tip">
-                  <div className="pn-tip-t">{g.length} {g.length === 1 ? 'cliente' : 'clientes'} en la mesa</div>
-                  {g.map((x, i) => <div key={x.Id}><span>👤 {x.NombreLibre}</span><b>{fmt(rs[i].total)}</b></div>)}
-                </div>
-              </div>
-            );
-          })}
+          {enJuego.length === 0 && <div className="pn-vacio">Nada en juego.</div>}
+          {enJuego.map(tarjeta)}
+        </div>
+
+        <div className="pn-sec">Mesas de licores<span className="pn-nota">· solo licores y snacks</span><i /></div>
+        <div className="pn-cuentas">
+          {licores.length === 0 && <div className="pn-vacio">No hay mesas de licores abiertas.</div>}
+          {licores.map(tarjeta)}
         </div>
       </div>
 

@@ -112,3 +112,4 @@
 .pn-nav button.off{opacity:.45;border-style:dashed;cursor:not-allowed}
 .pn-nav button.pn-who{border-color:#4ade8077;color:var(--ver);background:#4ade8010;border-radius:99px;margin-left:8px}
 .pn-nav button.pn-who.emp{border-color:#38bdf877;color:#38bdf8;background:#38bdf810}
+.pn-sec.ver{color:var(--ver)}.pn-nota{color:var(--mut);letter-spacing:1px;text-transform:none;font-size:11px}
