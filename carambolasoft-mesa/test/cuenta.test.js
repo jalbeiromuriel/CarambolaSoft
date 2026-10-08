@@ -233,3 +233,9 @@ test('fraccionados: abre envase solo cuando faltan sueltas', () => {
   assert.equal(inv.abrirEnvase(copa, { StockActual: 0 }), null);
   assert.equal(inv.descargar({ StockActual: 2 }, null, 3), null);
 });
+
+test('recargo sobre costo vs margen sobre precio', () => {
+  assert.equal(Math.round(inv.margenPct(6200, 3000)), 52);
+  assert.equal(Math.round(inv.recargoPct(6200, 3000)), 107);
+  assert.equal(Math.round(inv.margenPct(8680, 3000)), 65);
+});

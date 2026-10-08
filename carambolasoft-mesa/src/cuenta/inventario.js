@@ -8,6 +8,8 @@ const redondea50 = (n) => Math.ceil(n / 50) * 50;   // precios "de tienda": múl
 
 /** Margen % = (precio − costo) ÷ precio. Sin precio → 0. */
 export const margenPct = (precio, costo) => (precio > 0 ? ((precio - costo) / precio) * 100 : 0);
+/** Recargo sobre el costo (markup) % = (precio − costo) ÷ costo. */
+export const recargoPct = (precio, costo) => (costo > 0 ? ((precio - costo) / costo) * 100 : 0);
 export const gananciaUnidad = (precio, costo) => precio - costo;
 
 /** Precio que deja el margen pedido: costo ÷ (1 − m). Redondeado hacia arriba a $50. */

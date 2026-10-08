@@ -63,7 +63,7 @@ export default function Inventario() {
           {['todos', ...nombresCat].map((c) => <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c === 'todos' ? 'Todos' : c}</button>)}
         </div>
         <table className="iv-t">
-          <thead><tr><th>Código</th><th>Producto</th><th>Categoría</th><th className="n">Precio</th><th className="n">Costo</th><th className="n">Stock</th><th /></tr></thead>
+          <thead><tr><th>Código</th><th>Producto</th><th>Categoría</th><th className="n">Precio</th><th className="n" title="Costo y margen sobre el precio">Costo · margen</th><th className="n">Stock</th><th /></tr></thead>
           <tbody>
             {lista.map((p) => {
               const m = inv.margenPct(p.PrecioVenta, p.CostoCompra ?? 0), niv = inv.nivelMargen(m, objetivo), ps = inv.promoEstado(p.Promo);
@@ -75,7 +75,7 @@ export default function Inventario() {
                   <td><b>{p.Nombre}</b>{inv.esFraccionado(p) && <span className="iv-env">🔗 {p.Fraccion.Rinde}/env</span>}{p.Promo && <span className={'iv-pr ' + (ps === 'ACTIVA' ? 'on' : '')}>{ps === 'ACTIVA' ? '🟢' : '🏷️'} PROMO{p.Promo.HoraIni ? ` ${p.Promo.HoraIni}-${p.Promo.HoraFin}` : ''}</span>}</td>
                   <td><span className="iv-cat">{categoriaDe(p, categorias).nombre}</span></td>
                   <td className="n"><b>{fmt(p.PrecioVenta)}</b></td>
-                  <td className="n mut">{fmt(p.CostoCompra ?? 0)}<span className={'iv-m ' + niv}>{p.CostoCompra > 0 ? Math.round(m) + '%' : ''}</span></td>
+                  <td className="n mut">{fmt(p.CostoCompra ?? 0)}<span className={'iv-m ' + niv} title={p.CostoCompra > 0 ? `Margen sobre el precio. Recargo sobre el costo: +${Math.round(inv.recargoPct(p.PrecioVenta, p.CostoCompra))}%` : ''}>{p.CostoCompra > 0 ? Math.round(m) + '%' : ''}</span></td>
                   <td className={'n ' + (st <= 0 ? 'sin' : bajoMin ? 'bajo' : 'ok')}>{st <= 0 ? (frac ? inv.textoStock(p, origen) : 'Sin stock') : inv.textoStock(p, origen)}{bajoMin && st > 0 ? ' ⚠' : ''}</td>
                   <td><div className="iv-acc">
                     <button onClick={() => setModal({ tipo: 'editar', prod: p })}>Editar</button>
@@ -134,7 +134,8 @@ function Simulador({ p, cerrar, aplicar }) {
         <span>Nuevo precio</span>
         <div><input type="range" min="0" max={inv.INCREMENTO_MAX} value={pct} onChange={(e) => fijar(inv.precioConIncremento(actual, Number(e.target.value)))} />
           <div className="iv-tk"><span>+0%</span><span>+100%</span><span>+250%</span><span>+500%</span></div></div>
-        <b>{fmt(precio)}</b>
+        <input className="iv-hi iv-np" inputMode="numeric" value={precio ? '$' + precio.toLocaleString('es-CO') : ''} placeholder="$ precio"
+          onChange={(e) => { const v = num(e.target.value); setPrecio(v); setPct(Math.min(inv.INCREMENTO_MAX, Math.max(0, inv.incrementoDe(actual, v)))); setMg(String(Math.round(inv.margenPct(v, costo)))); }} />
       </div>
       <div className="iv-chips">{inv.ATAJOS_INCREMENTO.map((a) => <button key={a} className={pct === a ? 'on' : ''} onClick={() => fijar(inv.precioConIncremento(actual, a))}>+{a}%</button>)}</div>
       <div className="iv-kp">
@@ -143,6 +144,7 @@ function Simulador({ p, cerrar, aplicar }) {
         <div><small>Ganas por unidad</small><b>{fmt(s.gana)}</b></div>
         <div><small>Ganancia al mes</small><b className="v">{fmt(s.mes)}</b></div>
       </div>
+      <p className="iv-hint iv-rec">Margen <b>{Math.round(s.margen)}%</b> = de cada $100 que vendes, <b>${Math.round(s.margen)}</b> son ganancia (sobre el precio). Recargo sobre el costo: <b>+{Math.round(inv.recargoPct(precio, costo))}%</b>. Cambio vs. precio actual: <b>{inv.incrementoDe(actual, precio) >= 0 ? '+' : ''}{inv.incrementoDe(actual, precio)}%</b>.</p>
       <p className="iv-hint">{precio === actual ? 'Este es tu precio actual. Mueve la barra o escribe un margen.' : `De ${fmt(actual)} a ${fmt(precio)} (${pct >= 0 ? '+' : ''}${inv.incrementoDe(actual, precio)}%). El simulador solo calcula: el precio cambia cuando pulses Aplicar.`}</p>
       <div className="pn-acc"><button className="no" onClick={cerrar}>Cerrar</button><button className="si" disabled={precio === actual || !(precio > 0)} onClick={() => aplicar(precio)}>✓ Aplicar este precio</button></div>
     </Modal>
