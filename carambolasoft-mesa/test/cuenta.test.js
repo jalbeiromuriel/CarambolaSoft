@@ -217,3 +217,19 @@ test('promo: fechas y franja horaria (cruza medianoche)', () => {
   assert.equal(inv.validarPromo({ Precio: 0 }), 'Escribe el precio promocional');
   assert.equal(inv.descuentoPct(4000, 3000), 25);
 });
+
+test('fraccionados: abre envase solo cuando faltan sueltas', () => {
+  const botella = { Id: 'B', StockActual: 3 };
+  const copa = { Id: 'C', StockActual: 1, Fraccion: { OrigenId: 'B', Rinde: 12 } };
+  assert.equal(inv.disponible(copa, botella), 37);
+  assert.equal(inv.textoStock(copa, botella), '1 sueltas · 3 env.');
+  const r1 = inv.descargar(copa, botella, 1);
+  assert.equal(r1.prod.StockActual, 0); assert.equal(r1.abiertos, 0); assert.equal(r1.origen, null);
+  const r2 = inv.descargar({ ...copa, StockActual: 0 }, botella, 1);
+  assert.equal(r2.prod.StockActual, 11); assert.equal(r2.origen.StockActual, 2); assert.equal(r2.abiertos, 1);
+  assert.equal(inv.descargar({ ...copa, StockActual: 0 }, { StockActual: 0 }, 1), null);
+  assert.equal(inv.descargar({ ...copa, StockActual: 0 }, botella, 40), null);
+  const a = inv.abrirEnvase(copa, botella); assert.equal(a.prod.StockActual, 13); assert.equal(a.origen.StockActual, 2);
+  assert.equal(inv.abrirEnvase(copa, { StockActual: 0 }), null);
+  assert.equal(inv.descargar({ StockActual: 2 }, null, 3), null);
+});

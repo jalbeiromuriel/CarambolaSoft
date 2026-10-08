@@ -4,6 +4,7 @@ import Encabezado from '../components/Encabezado.jsx';
 import { categoriaDe, norm } from '../cuenta/catalogo.js';
 import * as inv from '../cuenta/inventario.js';
 import { getAll, put, leerMeta, escribirMeta } from '../db/repository.js';
+import { abrirEnvaseDb } from '../cuenta/inventarioDb.js';
 import './Panel.css';
 import './Inventario.css';
 
@@ -23,7 +24,14 @@ export default function Inventario() {
   const [aviso, setAviso] = useState('');
 
   const cargar = useCallback(async () => {
-    setProductos((await getAll('PRODUCTOS')).filter(esVendible));
+    let todos = (await getAll('PRODUCTOS')).filter(esVendible);
+    const sinCodigo = todos.filter((p) => !p.Codigo);
+    if (sinCodigo.length) {   // asigna P001, P002… a los productos que aún no tienen código
+      let n = Math.max(0, ...todos.map((p) => Number(String(p.Codigo ?? '').slice(1)) || 0));
+      for (const p of sinCodigo) await put('PRODUCTOS', { ...p, Codigo: 'P' + String(++n).padStart(3, '0') });
+      todos = (await getAll('PRODUCTOS')).filter(esVendible);
+    }
+    setProductos(todos);
     setCategorias(await getAll('CATEGORIAS'));
     setObjetivo((await leerMeta('negocio.margenObjetivo')) ?? inv.MARGEN_OBJETIVO);
   }, []);
@@ -55,27 +63,30 @@ export default function Inventario() {
           {['todos', ...nombresCat].map((c) => <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c === 'todos' ? 'Todos' : c}</button>)}
         </div>
         <table className="iv-t">
-          <thead><tr><th>Producto</th><th>Categoría</th><th className="n">Precio</th><th className="n">Costo</th><th className="n">Stock</th><th /></tr></thead>
+          <thead><tr><th>Código</th><th>Producto</th><th>Categoría</th><th className="n">Precio</th><th className="n">Costo</th><th className="n">Stock</th><th /></tr></thead>
           <tbody>
             {lista.map((p) => {
               const m = inv.margenPct(p.PrecioVenta, p.CostoCompra ?? 0), niv = inv.nivelMargen(m, objetivo), ps = inv.promoEstado(p.Promo);
-              const st = p.StockActual ?? 0, bajoMin = p.StockMinimo > 0 && st <= p.StockMinimo;
+              const origen = productos.find((x) => x.Id === p.Fraccion?.OrigenId), frac = inv.esFraccionado(p);
+              const st = frac ? inv.disponible(p, origen) : p.StockActual ?? 0, bajoMin = p.StockMinimo > 0 && st <= p.StockMinimo;
               return (
                 <tr key={p.Id}>
-                  <td><b>{p.Nombre}</b>{p.Promo && <span className={'iv-pr ' + (ps === 'ACTIVA' ? 'on' : '')}>{ps === 'ACTIVA' ? '🟢' : '🏷️'} PROMO{p.Promo.HoraIni ? ` ${p.Promo.HoraIni}-${p.Promo.HoraFin}` : ''}</span>}</td>
+                  <td className="cod">{p.Codigo}</td>
+                  <td><b>{p.Nombre}</b>{inv.esFraccionado(p) && <span className="iv-env">🔗 {p.Fraccion.Rinde}/env</span>}{p.Promo && <span className={'iv-pr ' + (ps === 'ACTIVA' ? 'on' : '')}>{ps === 'ACTIVA' ? '🟢' : '🏷️'} PROMO{p.Promo.HoraIni ? ` ${p.Promo.HoraIni}-${p.Promo.HoraFin}` : ''}</span>}</td>
                   <td><span className="iv-cat">{categoriaDe(p, categorias).nombre}</span></td>
                   <td className="n"><b>{fmt(p.PrecioVenta)}</b></td>
                   <td className="n mut">{fmt(p.CostoCompra ?? 0)}<span className={'iv-m ' + niv}>{p.CostoCompra > 0 ? Math.round(m) + '%' : ''}</span></td>
-                  <td className={'n ' + (st <= 0 ? 'sin' : bajoMin ? 'bajo' : 'ok')}>{st <= 0 ? 'Sin stock' : st + ' u'}{bajoMin && st > 0 ? ' ⚠' : ''}</td>
+                  <td className={'n ' + (st <= 0 ? 'sin' : bajoMin ? 'bajo' : 'ok')}>{st <= 0 ? (frac ? inv.textoStock(p, origen) : 'Sin stock') : inv.textoStock(p, origen)}{bajoMin && st > 0 ? ' ⚠' : ''}</td>
                   <td><div className="iv-acc">
                     <button onClick={() => setModal({ tipo: 'editar', prod: p })}>Editar</button>
+                    {frac && <button className="ab" title={`Abrir un envase de ${origen?.Nombre ?? ''}`} onClick={async () => { const ok = await abrirEnvaseDb(p); decir(ok ? `🍾 Abierto: +${p.Fraccion.Rinde} ${p.Nombre}` : `⚠ No hay envases de ${origen?.Nombre ?? 'origen'}`); cargar(); }}>🍾 Abrir</button>}
                     <button className="bl" title="Simulador de precio" onClick={() => setModal({ tipo: 'sim', prod: p })}>🧮</button>
                     <button className="na" onClick={() => setModal({ tipo: 'promo', prod: p })}>Promo</button>
                   </div></td>
                 </tr>
               );
             })}
-            {lista.length === 0 && <tr><td colSpan="6" className="vacio">Sin productos.</td></tr>}
+            {lista.length === 0 && <tr><td colSpan="7" className="vacio">Sin productos.</td></tr>}
           </tbody>
         </table>
         <p className="iv-nota">Margen = (precio − costo) ÷ precio · <i className="ok">≥ {objetivo}%</i> <i className="medio">{objetivo - 10}–{objetivo - 1}%</i> <i className="bajo">&lt; {objetivo - 10}%</i></p>
@@ -87,7 +98,7 @@ export default function Inventario() {
       {modal?.tipo === 'margenes' && <Margenes productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
         cambiarObjetivo={async (v) => { await escribirMeta('negocio.margenObjetivo', v); setObjetivo(v); }}
         aplicar={async (p, precio) => { await put('PRODUCTOS', { ...p, PrecioVenta: precio }); await cargar(); decir(`${p.Nombre}: nuevo precio ${fmt(precio)} ✓`); }} />}
-      {modal?.tipo === 'editar' && <Editar p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)}
+      {modal?.tipo === 'editar' && <Editar p={modal.prod} productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
         guardar={async (datos) => { await put('PRODUCTOS', { ...(modal.prod ?? { Activo: true }), ...datos }); await cargar(); setModal(null); decir('Guardado ✓'); }} />}
       {aviso && <div className="iv-toast">{aviso}</div>}
     </>
@@ -190,7 +201,7 @@ function Reabastecer({ productos, objetivo, cerrar, listo }) {
     <Modal titulo="📦 Reabastecer" cerrar={cerrar}>
       <label>Producto</label>
       <select value={id} onChange={(e) => { setId(e.target.value); const x = productos.find((y) => y.Id === e.target.value); setCosto(x?.CostoCompra ?? 0); }}>
-        <option value="">— Elige —</option>{[...productos].sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es')).map((x) => <option key={x.Id} value={x.Id}>{x.Nombre} · stock {x.StockActual ?? 0}</option>)}
+        <option value="">— Elige —</option>{[...productos].filter((x) => !inv.esFraccionado(x)).sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es')).map((x) => <option key={x.Id} value={x.Id}>{x.Nombre} · stock {x.StockActual ?? 0}</option>)}
       </select>
       <label>Cantidad que llega</label>
       <input className="iv-in" inputMode="numeric" placeholder="0" value={cant || ''} onChange={(e) => setCant(num(e.target.value))} />
@@ -228,11 +239,12 @@ function Margenes({ productos, objetivo, cerrar, cambiarObjetivo, aplicar }) {
   );
 }
 
-function Editar({ p, objetivo, cerrar, guardar }) {
-  const [d, setD] = useState({ Nombre: p?.Nombre ?? '', CategoriaConsumo: p?.CategoriaConsumo ?? 'BEBIDAS_ALCOHOLICAS', PrecioVenta: p?.PrecioVenta ?? 0, CostoCompra: p?.CostoCompra ?? 0, StockActual: p?.StockActual ?? 0, StockMinimo: p?.StockMinimo ?? 0 });
+function Editar({ p, productos, objetivo, cerrar, guardar }) {
+  const [d, setD] = useState({ Nombre: p?.Nombre ?? '', CategoriaConsumo: p?.CategoriaConsumo ?? 'BEBIDAS_ALCOHOLICAS', PrecioVenta: p?.PrecioVenta ?? 0, CostoCompra: p?.CostoCompra ?? 0, StockActual: p?.StockActual ?? 0, StockMinimo: p?.StockMinimo ?? 0, OrigenId: p?.Fraccion?.OrigenId ?? '', Rinde: p?.Fraccion?.Rinde ?? 0 });
   const set = (k, v) => setD({ ...d, [k]: v });
   const m = d.PrecioVenta > 0 && d.CostoCompra > 0 ? inv.margenPct(d.PrecioVenta, d.CostoCompra) : null;
-  const ok = d.Nombre.trim() && d.PrecioVenta > 0;
+  const ok = d.Nombre.trim() && d.PrecioVenta > 0 && (!d.OrigenId || d.Rinde > 0);
+  const armar = () => { const { OrigenId, Rinde, ...base } = d; return { ...base, Nombre: d.Nombre.trim(), Fraccion: OrigenId ? { OrigenId, Rinde } : null }; };
   return (
     <Modal titulo={p ? 'Editar producto' : 'Nuevo producto'} cerrar={cerrar}>
       <label>Nombre</label><input className="iv-in" value={d.Nombre} onChange={(e) => set('Nombre', e.target.value)} />
@@ -242,7 +254,15 @@ function Editar({ p, objetivo, cerrar, guardar }) {
       {m !== null && <div className={'iv-al ' + (m < objetivo ? 'r' : 'v')}>Margen {Math.round(m)}%{m < objetivo ? ` — bajo el objetivo de ${objetivo}%. Precio sugerido: ${fmt(inv.precioSugerido(d.CostoCompra, objetivo))}` : ''}</div>}
       <div className="iv-dos"><div><label>Stock actual</label><input className="iv-in" inputMode="numeric" value={d.StockActual || ''} onChange={(e) => set('StockActual', num(e.target.value))} /></div>
         <div><label>Stock mínimo (alerta)</label><input className="iv-in" inputMode="numeric" value={d.StockMinimo || ''} onChange={(e) => set('StockMinimo', num(e.target.value))} /></div></div>
-      <div className="pn-acc"><button className="no" onClick={cerrar}>Cancelar</button><button className="si" disabled={!ok} onClick={() => guardar({ ...d, Nombre: d.Nombre.trim() })}>✓ Guardar</button></div>
+      <div className="iv-fr">
+        <div className="t">🔗 FRACCIONADO (opcional)</div>
+        <p className="iv-hint" style={{ marginTop: 0 }}>Ej: la copa sale de una botella, el cigarrillo de un paquete. Al agotarse las sueltas, el sistema abre un envase nuevo solo.</p>
+        <label>Producto origen (envase)</label>
+        <select value={d.OrigenId} onChange={(e) => set('OrigenId', e.target.value)}><option value="">— No es fraccionado —</option>
+          {productos.filter((x) => x.Id !== p?.Id && !inv.esFraccionado(x)).sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es')).map((x) => <option key={x.Id} value={x.Id}>{x.Nombre}</option>)}</select>
+        {d.OrigenId && <><label>Rendimiento (unidades por envase)</label><input className="iv-in" inputMode="numeric" placeholder="Ej: 12 copas por botella" value={d.Rinde || ''} onChange={(e) => set('Rinde', num(e.target.value))} /></>}
+      </div>
+      <div className="pn-acc"><button className="no" onClick={cerrar}>Cancelar</button><button className="si" disabled={!ok} onClick={() => guardar(armar())}>✓ Guardar</button></div>
     </Modal>
   );
 }

@@ -5,7 +5,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { put, get, getAll, porIndice } from '../db/repository.js';
 import Encabezado from '../components/Encabezado.jsx';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
-import { precioVigente } from '../cuenta/inventario.js';
+import { precioVigente, disponible } from '../cuenta/inventario.js';
+import { descontarStock, devolverStock } from '../cuenta/inventarioDb.js';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
 import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, hms } from '../cuenta/tiempo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
@@ -123,7 +124,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   // ── Pedidos (espejo local del trigger: el stock baja al entregar)
   async function agregar(prod) {
     const controla = prod.ControlaStock !== false;
-    if (controla && (prod.StockActual ?? 0) <= 0) { decir(`Sin stock: ${prod.Nombre}`); return; }
+    if (controla && disponible(prod, productos.find((x) => x.Id === prod.Fraccion?.OrigenId)) <= 0) { decir(`Sin stock: ${prod.Nombre}`); return; }
     const existente = entregados.find((p) => p.ProductoId === prod.Id);
     if (existente) {
       await put('PEDIDOS_CUENTAS', { ...existente, Cantidad: existente.Cantidad + 1 });
@@ -136,7 +137,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         EstadoPedido: 'ENTREGADO', FechaHora: new Date().toISOString(),
       });
     }
-    if (controla) await put('PRODUCTOS', { ...prod, StockActual: prod.StockActual - 1 });
+    if (controla) { const ab = await descontarStock(prod, 1); if (ab) decir(`🍾 Abierto un envase de ${productos.find((x) => x.Id === prod.Fraccion.OrigenId)?.Nombre ?? 'origen'}`); }
     await cargar();
   }
 
@@ -146,7 +147,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     await put('PEDIDOS_CUENTAS', pedido.Cantidad > 1
       ? { ...pedido, Cantidad: pedido.Cantidad - 1 }
       : { ...pedido, EstadoPedido: 'CANCELADO' });
-    if (prod && prod.ControlaStock !== false) await put('PRODUCTOS', { ...prod, StockActual: prod.StockActual + 1 });
+    if (prod && prod.ControlaStock !== false) await devolverStock(prod, 1);
     await cargar();
   }
 
@@ -329,7 +330,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             </div>}
             {lista.map((p) => {
               const cat = categoriaDe(p, categorias);
-              const stock = p.StockActual ?? 0;
+              const stock = disponible(p, productos.find((x) => x.Id === p.Fraccion?.OrigenId));
               const cant = cantidadEn(p.Id);
               return (
                 <div key={p.Id} className={`ms-p ${stock <= 0 ? 'out' : ''}`} style={{ '--c': cat.color }}
