@@ -1,7 +1,6 @@
 /* Panel principal (réplica mejorada del POS). Todo cuelga de .pn para no tocar otras pantallas. */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 .pn{--card:#121826;--line:#232b3d;--tx:#e8ecf5;--mut:#7d879c;--oro:#e8c06a;--oro2:#b98d2f;--ver:#4ade80;--rojo:#fb7185;
-  font-family:Inter,system-ui,sans-serif;color:var(--tx);margin:-24px;min-height:100vh;text-align:left}
+  font-family:'Inter Variable',Inter,system-ui,sans-serif;color:var(--tx);margin:-24px;min-height:100vh;text-align:left}
 .pn *{font-family:inherit}
 .pn-top{display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--oro2)}
 .pn-t1{font-family:Georgia,serif !important;color:var(--oro);font-size:18px;letter-spacing:1px}

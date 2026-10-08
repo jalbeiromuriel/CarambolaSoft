@@ -341,3 +341,6 @@
   .ct-tactico { display: none !important; }
   .ct-marcador .ct-paper, .ct-host .ct-paper { display: block !important; }
 }
+
+/* El Contador conserva su tipografía condensada de marcador; el resto del sistema usa Inter */
+[class^="ct-"],[class*=" ct-"]{font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;}
