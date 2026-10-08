@@ -103,3 +103,10 @@
 .pn-modal.vr-libre{width:min(380px,100%)}
 .pn-acc .si:disabled{opacity:.4;cursor:not-allowed}
 .vr-cli{float:right;font-family:Inter,sans-serif;font-size:13px;color:var(--tx)}.vr-cli button{margin-left:8px;border:1px solid #4ade8055;background:transparent;color:var(--ver);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px}
+
+/* Barra de secciones */
+.pn-top{flex-wrap:wrap}
+.pn-nav{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pn-nav button{padding:9px 14px;border:1px solid var(--line);border-radius:9px;font-size:13px;color:#cbd0dc;background:#0b0f19;cursor:pointer;min-height:40px}
+.pn-nav button.on{border-color:var(--oro);color:var(--oro);background:#e8c06a14;font-weight:700}
+.pn-nav button.off{opacity:.45;border-style:dashed;cursor:not-allowed}
