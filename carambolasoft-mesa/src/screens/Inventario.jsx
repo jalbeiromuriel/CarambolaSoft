@@ -1,4 +1,5 @@
 // src/screens/Inventario.jsx — Inventario (solo Admin): productos, reabastecer, márgenes, simulador de precio y promociones.
+import { createPortal } from 'react-dom';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Encabezado from '../components/Encabezado.jsx';
 import { categoriaDe, norm, deCategoria, EMOJIS_CAT, COLORES_CAT, CONSUMOS } from '../cuenta/catalogo.js';
@@ -63,6 +64,7 @@ export default function Inventario() {
           <button className="iv-b o" onClick={() => setModal({ tipo: 'cats' })}>⚙ Categorías</button>
           <button className="iv-b ve" onClick={() => setModal({ tipo: 'reab' })}>📦 Reabastecer</button>
           {nOff > 0 && <button className={'iv-b ' + (verOff ? 'o' : '')} onClick={() => setVerOff(!verOff)}>{verOff ? '← Ver activos' : `Ver desactivados (${nOff})`}</button>}
+          <button className="iv-b" onClick={() => setModal({ tipo: 'audpromo' })}>🏷️ Auditoría promos</button>
           <button className="iv-b ro" onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes ({bajos.length} bajo {objetivo}%)</button>
         </div>
         <div className="iv-cats">
@@ -105,6 +107,7 @@ export default function Inventario() {
       {modal?.tipo === 'cats' && <Categorias categorias={categorias} productos={productos} cerrar={() => setModal(null)} cambio={async (msg) => { await cargar(); if (msg) decir(msg); }} />}
       {modal?.tipo === 'sim' && <Simulador p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} aplicar={(precio) => guardar(modal.prod, { PrecioVenta: precio }, `${modal.prod.Nombre}: nuevo precio ${fmt(precio)} ✓`)} />}
       {modal?.tipo === 'promo' && <Promo p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} guardar={(promo) => guardar(modal.prod, { Promo: promo }, promo ? 'Promoción aplicada ✓' : 'Promoción eliminada')} />}
+      {modal?.tipo === 'audpromo' && <AuditoriaPromos productos={productos} categorias={categorias} cerrar={() => setModal(null)} />}
       {modal?.tipo === 'reab' && <Reabastecer productos={productos} objetivo={objetivo} cerrar={() => setModal(null)} listo={async (msg) => { await cargar(); setModal(null); decir(msg); }} />}
       {modal?.tipo === 'margenes' && <Margenes productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
         cambiarObjetivo={async (v) => { await escribirMeta('negocio.margenObjetivo', v); setObjetivo(v); }}
@@ -354,5 +357,42 @@ function Desactivar({ p, productos, cerrar, listo }) {
       {p.StockActual > 0 && <div className="iv-al r">Aún tiene {p.StockActual} en stock.</div>}
       <div className="pn-acc"><button className="no" onClick={cerrar}>Cancelar</button><button className="si" onClick={listo}>Desactivar</button></div>
     </Modal>
+  );
+}
+
+const ESTADO_TXT = { ACTIVA: 'Activa', FUERA_HORARIO: 'Fuera de horario', VENCIDA: 'Vencida', FUTURA: 'Por iniciar' };
+/** Informe imprimible tipo factura (sin colores de relleno). Imprimir → Guardar como PDF. */
+function AuditoriaPromos({ productos, categorias, cerrar }) {
+  const ahora = new Date();
+  const filas = productos.filter((p) => p.Promo).map((p) => ({ p, est: inv.promoEstado(p.Promo, ahora) }))
+    .sort((a, b) => a.p.Nombre.localeCompare(b.p.Nombre, 'es'));
+  const activas = filas.filter((f) => f.est === 'ACTIVA' || f.est === 'FUERA_HORARIO').length;
+  const vencidas = filas.filter((f) => f.est === 'VENCIDA').length;
+  return createPortal(
+    <div className="pn-velo iv-aud-velo" onClick={(e) => e.target === e.currentTarget && cerrar()}>
+      <div className="iv-aud">
+        <div className="iv-aud-acc"><button onClick={() => window.print()}>🖨 Imprimir / PDF</button><button onClick={cerrar}>Cerrar</button></div>
+        <header><h2>MERO PARCHE</h2><div>Licores &amp; Billar · Medellín</div></header>
+        <h3>AUDITORÍA DE PROMOCIONES</h3>
+        <div className="iv-aud-meta">Fecha: {ahora.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })} · {ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</div>
+        <table>
+          <thead><tr><th>Producto</th><th>Categoría</th><th className="r">Precio normal</th><th className="r">Precio promo</th><th className="r">Desc.</th><th>Período</th><th>Horario</th><th>Estado</th></tr></thead>
+          <tbody>
+            {filas.map(({ p, est }) => (
+              <tr key={p.Id}>
+                <td>{p.Nombre}</td><td>{categoriaDe(p, categorias).nombre}</td>
+                <td className="r">{fmt(p.PrecioVenta)}</td><td className="r">{fmt(p.Promo.Precio)}</td>
+                <td className="r">{inv.descuentoPct(p.PrecioVenta, p.Promo.Precio)}%</td>
+                <td>{fmtFecha(p.Promo.Ini)} – {fmtFecha(p.Promo.Fin)}</td>
+                <td>{p.Promo.HoraIni ? `${p.Promo.HoraIni}–${p.Promo.HoraFin}` : 'Todo el día'}</td>
+                <td>{ESTADO_TXT[est]}</td>
+              </tr>
+            ))}
+            {filas.length === 0 && <tr><td colSpan="8" className="c">No hay productos con promoción.</td></tr>}
+          </tbody>
+        </table>
+        <footer>Total con promoción: {filas.length} · Vigentes: {activas} · Vencidas: {vencidas}</footer>
+      </div>
+    </div>, document.body
   );
 }
