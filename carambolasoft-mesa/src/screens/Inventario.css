@@ -48,3 +48,9 @@
 .cg-emo{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:6px}.cg-emo button{aspect-ratio:1;border:1px solid var(--line);border-radius:10px;background:#0e1422;font-size:20px;cursor:pointer}.cg-emo button.on{border-color:var(--oro);background:#e8c06a22;box-shadow:0 0 0 2px #e8c06a44}
 .cg-col{display:flex;gap:10px;flex-wrap:wrap}.cg-col button{width:34px;height:34px;border-radius:50%;border:2px solid transparent;background:var(--c);cursor:pointer}.cg-col button.on{border-color:#fff;box-shadow:0 0 0 3px #ffffff33}
 .cg-seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.cg-seg button{padding:10px 6px;border:1px solid var(--line);border-radius:10px;background:#0e1422;color:#aab;font-size:12.5px;cursor:pointer}.cg-seg button.on{border-color:var(--oro);color:var(--oro);background:#e8c06a14;font-weight:600}
+
+/* ── Etiquetas de promo y desactivados */
+.iv-pr.vencida{background:#64748b26;color:#94a3b8}.iv-pr.futura{background:#38bdf822;color:#7dd3fc}.iv-pr.fuera{background:#fb923c22;color:var(--na)}
+.iv-t tr.off td{opacity:.5}.iv-t tr.off td:last-child{opacity:1}
+.iv-acc .x{border-color:#fb718566;color:var(--rojo)}.iv-acc .re{border-color:#4ade8088;color:var(--ver)}
+.iv-lis{margin:6px 0 0;padding-left:18px;font-size:13px;color:#cbd0dc;line-height:1.7}
