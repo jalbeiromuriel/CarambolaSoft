@@ -5,6 +5,7 @@ import { put, getAll } from '../db/repository.js';
 import SelectorCliente, { sumarVisita } from './SelectorCliente.jsx';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre } from '../cuenta/catalogo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
+import { datosFactura } from '../cuenta/fiadosDb.js';
 import { useSesion } from './Sesion.jsx';
 import { PRODUCTO_LIBRE_ID } from '../cuenta/garita.js';
 
@@ -91,7 +92,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
       if (l.prod && l.prod.ControlaStock !== false) await put('PRODUCTOS', { ...l.prod, StockActual: l.prod.StockActual - l.cant });
     }
     await put('FACTURAS', {
-      CuentaId: cuenta.Id, TurnoCajaId: null, SubtotalTiempo: 0,
+      ...(await datosFactura()), CuentaId: cuenta.Id, TurnoCajaId: null, SubtotalTiempo: 0,
       SubtotalLicor: suma((l) => cat(l) === 'BEBIDAS_ALCOHOLICAS'), SubtotalSnacks: suma((l) => cat(l) === 'SNACKS'),
       SubtotalOtros: suma((l) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS'].includes(cat(l))),
       TotalPagar: total, TotalPendienteFiado: 0, UsuarioId: usuario?.Id ?? null, MetodoPago: plan.met1, MetodoPagoSecundario: null,

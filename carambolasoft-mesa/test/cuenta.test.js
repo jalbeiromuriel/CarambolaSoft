@@ -160,3 +160,22 @@ test('auth: inactividad avisa 30 s antes y cierra a los 10 min', () => {
   assert.equal(estadoInactividad(t, t + INACTIVIDAD_MS - 20000), 'aviso');
   assert.equal(estadoInactividad(t, t + INACTIVIDAD_MS), 'cerrar');
 });
+
+import { repartirAbono, antiguedad, siguienteNumero, etiquetaFactura } from '../src/cuenta/fiados.js';
+test('fiados: el abono salda primero la factura más antigua', () => {
+  const fs = [{ Id: 'b', FechaHora: '2026-10-05T10:00:00Z', saldo: 18000 }, { Id: 'a', FechaHora: '2026-10-01T10:00:00Z', saldo: 20000 }];
+  const r = repartirAbono(fs, 25000);
+  assert.deepEqual(r.aplicaciones, [{ facturaId: 'a', aplicado: 20000, saldo: 0 }, { facturaId: 'b', aplicado: 5000, saldo: 13000 }]);
+  assert.equal(r.sobrante, 0);
+  assert.equal(repartirAbono(fs, 50000).sobrante, 12000);
+  assert.deepEqual(repartirAbono(fs, 15000).aplicaciones, [{ facturaId: 'a', aplicado: 15000, saldo: 5000 }]);
+});
+test('fiados: antigüedad y numeración', () => {
+  const ahora = Date.parse('2026-10-20T12:00:00Z');
+  assert.equal(antiguedad('2026-10-20T08:00:00Z', ahora).clase, 'v');
+  assert.equal(antiguedad('2026-10-11T08:00:00Z', ahora).clase, 'a');
+  assert.equal(antiguedad('2026-10-01T08:00:00Z', ahora).texto, 'hace 19 días');
+  assert.equal(antiguedad('2026-10-01T08:00:00Z', ahora).clase, 'r');
+  assert.equal(siguienteNumero([{ Numero: 'F-0003' }, { Numero: 'F-0007' }, {}]), 8);
+  assert.equal(etiquetaFactura(8), 'F-0008');
+});
