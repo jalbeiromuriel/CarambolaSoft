@@ -233,3 +233,29 @@ test('fraccionados: abre envase solo cuando faltan sueltas', () => {
   assert.equal(inv.abrirEnvase(copa, { StockActual: 0 }), null);
   assert.equal(inv.descargar({ StockActual: 2 }, null, 3), null);
 });
+
+test('recargo sobre costo vs margen sobre precio', () => {
+  assert.equal(Math.round(inv.margenPct(6200, 3000)), 52);
+  assert.equal(Math.round(inv.recargoPct(6200, 3000)), 107);
+  assert.equal(Math.round(inv.margenPct(8680, 3000)), 65);
+});
+
+test('margen 40 % sobre costo 3000 da 5000 (caso de la Patrona)', () => {
+  assert.equal(inv.precioParaMargen(3000, 40), 5000);
+  assert.equal(Math.round(inv.margenPct(5000, 3000)), 40);
+});
+
+test('precio sugerido sube a múltiplos de $100', () => {
+  assert.equal(inv.precioParaMargen(2367, 40), 4000);   // 3.945 → 4.000
+  assert.equal(inv.precioParaMargen(3400, 40), 5700);   // 5.667 → 5.700
+  assert.equal(inv.precioParaMargen(3000, 40), 5000);   // exacto, no cambia
+});
+
+test('redondeo por franjas: $50 <1.000 · $100 <20.000 · $500 <100.000 · $1.000 desde ahí', () => {
+  assert.equal(inv.precioParaMargen(460, 40), 800);       // 766,7 → 800
+  assert.equal(inv.precioParaMargen(700, 40), 1200);      // cigarrillo: 1.166,7 → 1.200
+  assert.equal(inv.precioParaMargen(25000, 40), 42000);   // 41.666,7 → 42.000
+  assert.equal(inv.precioParaMargen(42000, 40), 70000);   // exacto
+  assert.equal(inv.precioParaMargen(62500, 40), 105000);  // 104.166,7 → 105.000
+  assert.equal(inv.pasoRedondeo(999), 50); assert.equal(inv.pasoRedondeo(1000), 100); assert.equal(inv.pasoRedondeo(20000), 500); assert.equal(inv.pasoRedondeo(100000), 1000);
+});

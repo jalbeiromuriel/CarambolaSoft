@@ -2,19 +2,25 @@
 export const MARGEN_OBJETIVO = 40;       // % por defecto, editable en Márgenes
 export const INCREMENTO_MAX = 500;       // el simulador sube hasta +500 % sobre el precio actual
 export const INCREMENTO_INICIAL = 40;    // la barra arranca en +40 %
+export const ATAJOS_MARGEN = [30, 35, 40, 45, 50, 60, 70];
 export const ATAJOS_INCREMENTO = [10, 25, 40, 50, 150, 300, 500];
 
-const redondea50 = (n) => Math.ceil(n / 50) * 50;   // precios "de tienda": múltiplos de $50
+// Redondeo del precio sugerido según su tamaño (nunca se come más del 2-3 % del precio). Límites editables aquí.
+export const FRANJAS_REDONDEO = [[1000, 50], [20000, 100], [100000, 500], [Infinity, 1000]];   // [hasta (excl.), múltiplo]
+export const pasoRedondeo = (n) => FRANJAS_REDONDEO.find(([tope]) => n < tope)[1];
+const redondea = (n) => { const paso = pasoRedondeo(n); return Math.ceil(n / paso - 1e-9) * paso; };
 
 /** Margen % = (precio − costo) ÷ precio. Sin precio → 0. */
 export const margenPct = (precio, costo) => (precio > 0 ? ((precio - costo) / precio) * 100 : 0);
+/** Recargo sobre el costo (markup) % = (precio − costo) ÷ costo. */
+export const recargoPct = (precio, costo) => (costo > 0 ? ((precio - costo) / costo) * 100 : 0);
 export const gananciaUnidad = (precio, costo) => precio - costo;
 
 /** Precio que deja el margen pedido: costo ÷ (1 − m). Redondeado hacia arriba a $50. */
 export function precioParaMargen(costo, margen) {
   const m = Number(margen);
   if (!(m >= 0 && m < 95) || !(costo > 0)) return null;
-  return redondea50(costo / (1 - m / 100));
+  return redondea(costo / (1 - m / 100));
 }
 export const precioSugerido = (costo, objetivo = MARGEN_OBJETIVO) => precioParaMargen(costo, objetivo);
 
