@@ -1,7 +1,8 @@
 // src/screens/Inventario.jsx — Inventario (solo Admin): productos, reabastecer, márgenes, simulador de precio y promociones.
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Encabezado from '../components/Encabezado.jsx';
-import { categoriaDe, norm } from '../cuenta/catalogo.js';
+import { categoriaDe, norm, deCategoria, EMOJIS_CAT, COLORES_CAT, CONSUMOS } from '../cuenta/catalogo.js';
+import { asegurarCategorias, guardarCategoria, desactivarCategoria } from '../cuenta/categoriasDb.js';
 import * as inv from '../cuenta/inventario.js';
 import { getAll, put, leerMeta, escribirMeta } from '../db/repository.js';
 import { abrirEnvaseDb } from '../cuenta/inventarioDb.js';
@@ -32,7 +33,7 @@ export default function Inventario() {
       todos = (await getAll('PRODUCTOS')).filter(esVendible);
     }
     setProductos(todos);
-    setCategorias(await getAll('CATEGORIAS'));
+    setCategorias((await asegurarCategorias()).filter((c) => c.Activo !== false));
     setObjetivo((await leerMeta('negocio.margenObjetivo')) ?? inv.MARGEN_OBJETIVO);
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
@@ -56,6 +57,7 @@ export default function Inventario() {
         <div className="iv-bar">
           <input className="iv-q" placeholder="🔍 Buscar producto…" value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="iv-b g" onClick={() => setModal({ tipo: 'editar', prod: null })}>+ Nuevo</button>
+          <button className="iv-b o" onClick={() => setModal({ tipo: 'cats' })}>⚙ Categorías</button>
           <button className="iv-b ve" onClick={() => setModal({ tipo: 'reab' })}>📦 Reabastecer</button>
           <button className="iv-b ro" onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes ({bajos.length} bajo {objetivo}%)</button>
         </div>
@@ -92,13 +94,14 @@ export default function Inventario() {
         <p className="iv-nota">Margen = (precio − costo) ÷ precio · <i className="ok">≥ {objetivo}%</i> <i className="medio">{objetivo - 10}–{objetivo - 1}%</i> <i className="bajo">&lt; {objetivo - 10}%</i></p>
       </div>
 
+      {modal?.tipo === 'cats' && <Categorias categorias={categorias} productos={productos} cerrar={() => setModal(null)} cambio={async (msg) => { await cargar(); if (msg) decir(msg); }} />}
       {modal?.tipo === 'sim' && <Simulador p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} aplicar={(precio) => guardar(modal.prod, { PrecioVenta: precio }, `${modal.prod.Nombre}: nuevo precio ${fmt(precio)} ✓`)} />}
       {modal?.tipo === 'promo' && <Promo p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} guardar={(promo) => guardar(modal.prod, { Promo: promo }, promo ? 'Promoción aplicada ✓' : 'Promoción eliminada')} />}
       {modal?.tipo === 'reab' && <Reabastecer productos={productos} objetivo={objetivo} cerrar={() => setModal(null)} listo={async (msg) => { await cargar(); setModal(null); decir(msg); }} />}
       {modal?.tipo === 'margenes' && <Margenes productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
         cambiarObjetivo={async (v) => { await escribirMeta('negocio.margenObjetivo', v); setObjetivo(v); }}
         aplicar={async (p, precio) => { await put('PRODUCTOS', { ...p, PrecioVenta: precio }); await cargar(); decir(`${p.Nombre}: nuevo precio ${fmt(precio)} ✓`); }} />}
-      {modal?.tipo === 'editar' && <Editar p={modal.prod} productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
+      {modal?.tipo === 'editar' && <Editar p={modal.prod} productos={productos} categorias={categorias} objetivo={objetivo} cerrar={() => setModal(null)}
         guardar={async (datos) => { await put('PRODUCTOS', { ...(modal.prod ?? { Activo: true }), ...datos }); await cargar(); setModal(null); decir('Guardado ✓'); }} />}
       {aviso && <div className="iv-toast">{aviso}</div>}
     </>
@@ -249,16 +252,16 @@ function Margenes({ productos, objetivo, cerrar, cambiarObjetivo, aplicar }) {
   );
 }
 
-function Editar({ p, productos, objetivo, cerrar, guardar }) {
-  const [d, setD] = useState({ Nombre: p?.Nombre ?? '', CategoriaConsumo: p?.CategoriaConsumo ?? 'BEBIDAS_ALCOHOLICAS', PrecioVenta: p?.PrecioVenta ?? 0, CostoCompra: p?.CostoCompra ?? 0, StockActual: p?.StockActual ?? 0, StockMinimo: p?.StockMinimo ?? 0, OrigenId: p?.Fraccion?.OrigenId ?? '', Rinde: p?.Fraccion?.Rinde ?? 0 });
+function Editar({ p, productos, categorias, objetivo, cerrar, guardar }) {
+  const [d, setD] = useState({ Nombre: p?.Nombre ?? '', CategoriaId: p?.CategoriaId ?? categorias.find((c) => c.Nombre === 'Licores')?.Id ?? categorias[0]?.Id ?? '', PrecioVenta: p?.PrecioVenta ?? 0, CostoCompra: p?.CostoCompra ?? 0, StockActual: p?.StockActual ?? 0, StockMinimo: p?.StockMinimo ?? 0, OrigenId: p?.Fraccion?.OrigenId ?? '', Rinde: p?.Fraccion?.Rinde ?? 0 });
   const set = (k, v) => setD({ ...d, [k]: v });
   const m = d.PrecioVenta > 0 && d.CostoCompra > 0 ? inv.margenPct(d.PrecioVenta, d.CostoCompra) : null;
   const ok = d.Nombre.trim() && d.PrecioVenta > 0 && (!d.OrigenId || d.Rinde > 0);
-  const armar = () => { const { OrigenId, Rinde, ...base } = d; return { ...base, Nombre: d.Nombre.trim(), Fraccion: OrigenId ? { OrigenId, Rinde } : null }; };
+  const armar = () => { const { OrigenId, Rinde, ...base } = d; const cat = categorias.find((c) => c.Id === d.CategoriaId); return { ...base, CategoriaConsumo: cat?.Consumo ?? p?.CategoriaConsumo ?? 'OTROS', Nombre: d.Nombre.trim(), Fraccion: OrigenId ? { OrigenId, Rinde } : null }; };
   return (
     <Modal titulo={p ? 'Editar producto' : 'Nuevo producto'} cerrar={cerrar}>
       <label>Nombre</label><input className="iv-in" value={d.Nombre} onChange={(e) => set('Nombre', e.target.value)} />
-      <label>Categoría</label><select value={d.CategoriaConsumo} onChange={(e) => set('CategoriaConsumo', e.target.value)}>{ENUMS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+      <label>Categoría</label><select value={d.CategoriaId} onChange={(e) => set('CategoriaId', e.target.value)}>{categorias.map((c) => <option key={c.Id} value={c.Id}>{deCategoria(c).emoji} {c.Nombre}</option>)}</select>
       <div className="iv-dos"><div><label>Precio de venta</label><input className="iv-in" inputMode="numeric" value={d.PrecioVenta || ''} onChange={(e) => set('PrecioVenta', num(e.target.value))} /></div>
         <div><label>Costo</label><input className="iv-in" inputMode="numeric" value={d.CostoCompra || ''} onChange={(e) => set('CostoCompra', num(e.target.value))} /></div></div>
       {m !== null && <div className={'iv-al ' + (m < objetivo ? 'r' : 'v')}>Margen {Math.round(m)}%{m < objetivo ? ` — bajo el objetivo de ${objetivo}%. Precio sugerido: ${fmt(inv.precioSugerido(d.CostoCompra, objetivo))}` : ''}</div>}
@@ -273,6 +276,38 @@ function Editar({ p, productos, objetivo, cerrar, guardar }) {
         {d.OrigenId && <><label>Rendimiento (unidades por envase)</label><input className="iv-in" inputMode="numeric" placeholder="Ej: 12 copas por botella" value={d.Rinde || ''} onChange={(e) => set('Rinde', num(e.target.value))} /></>}
       </div>
       <div className="pn-acc"><button className="no" onClick={cerrar}>Cancelar</button><button className="si" disabled={!ok} onClick={() => guardar(armar())}>✓ Guardar</button></div>
+    </Modal>
+  );
+}
+
+function Categorias({ categorias, productos, cerrar, cambio }) {
+  const [edit, setEdit] = useState(null);      // null = lista · {} = nueva · {…cat} = editar
+  const [d, setD] = useState({ Nombre: '', Emoji: '📦', Color: '#94a3b8', Consumo: 'OTROS' });
+  const [err, setErr] = useState('');
+  const abrir = (c) => { setErr(''); setD(c ? { Nombre: c.Nombre, Emoji: deCategoria(c).emoji, Color: deCategoria(c).color, Consumo: c.Consumo ?? 'OTROS' } : { Nombre: '', Emoji: '📦', Color: '#94a3b8', Consumo: 'OTROS' }); setEdit(c ?? {}); };
+  const nProd = (c) => productos.filter((p) => p.CategoriaId === c.Id).length;
+  if (edit) return (
+    <Modal titulo={edit.Id ? '✏️ Editar categoría' : '+ Nueva categoría'} cerrar={cerrar}>
+      <label>Nombre</label><input className="iv-in" autoFocus placeholder="Ej: Heladería, Cafetería…" value={d.Nombre} onChange={(e) => setD({ ...d, Nombre: e.target.value })} />
+      <label>Icono</label><div className="iv-emo">{EMOJIS_CAT.map((e) => <button key={e} className={d.Emoji === e ? 'on' : ''} onClick={() => setD({ ...d, Emoji: e })}>{e}</button>)}</div>
+      <label>Color de franja</label><div className="iv-emo">{COLORES_CAT.map((c) => <button key={c} className={'col ' + (d.Color === c ? 'on' : '')} style={{ background: c }} onClick={() => setD({ ...d, Color: c })} />)}</div>
+      <label>Se factura como</label>
+      <select value={d.Consumo} onChange={(e) => setD({ ...d, Consumo: e.target.value })}>{CONSUMOS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+      <p className="iv-hint">Define en qué grupo sale en la factura y el cierre (licores, snacks, bebidas…).</p>
+      {err && <div className="iv-al r">{err}</div>}
+      <div className="pn-acc"><button className="no" onClick={() => { setErr(''); setEdit(null); }}>Cancelar</button>
+        <button className="si" onClick={async () => { const r = await guardarCategoria(categorias, d, edit.Id ?? null); if (r.error) setErr(r.error); else { setErr(''); setEdit(null); cambio(`✓ Categoría "${d.Nombre.trim()}" guardada`); } }}>{edit.Id ? 'Guardar' : 'Crear'}</button></div>
+    </Modal>
+  );
+  return (
+    <Modal titulo="⚙ Categorías" cerrar={cerrar}>
+      <div className="iv-cl">{[...categorias].sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es')).map((c) => { const k = deCategoria(c), n = nProd(c); return (
+        <div key={c.Id} style={{ borderLeft: `4px solid ${k.color}` }}><span>{k.emoji} {c.Nombre} <i>· {n} producto{n === 1 ? '' : 's'}</i></span>
+          <span><button title="Editar" onClick={() => abrir(c)}>✏️</button>
+            <button title={n ? 'Tiene productos: no se puede borrar' : 'Borrar'} className={n ? 'off' : ''} onClick={async () => { if (n) { setErr(`"${c.Nombre}" tiene ${n} producto(s). Muévelos a otra categoría primero.`); return; } if (window.confirm(`¿Borrar la categoría ${c.Nombre}?`)) { const r = await desactivarCategoria(c); if (r.error) setErr(r.error); else cambio(`Categoría "${c.Nombre}" borrada`); } }}>🗑️</button></span></div>); })}</div>
+      {err && <div className="iv-al r">{err}</div>}
+      <button className="iv-b g" style={{ width: '100%', marginTop: 12 }} onClick={() => abrir(null)}>+ Nueva categoría</button>
+      <div className="pn-acc"><button className="si" onClick={cerrar}>Cerrar</button></div>
     </Modal>
   );
 }
