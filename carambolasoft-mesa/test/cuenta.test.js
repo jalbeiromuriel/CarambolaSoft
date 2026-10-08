@@ -244,3 +244,9 @@ test('margen 40 % sobre costo 3000 da 5000 (caso de la Patrona)', () => {
   assert.equal(inv.precioParaMargen(3000, 40), 5000);
   assert.equal(Math.round(inv.margenPct(5000, 3000)), 40);
 });
+
+test('precio sugerido sube a múltiplos de $100', () => {
+  assert.equal(inv.precioParaMargen(2367, 40), 4000);   // 3.945 → 4.000
+  assert.equal(inv.precioParaMargen(3400, 40), 5700);   // 5.667 → 5.700
+  assert.equal(inv.precioParaMargen(3000, 40), 5000);   // exacto, no cambia
+});

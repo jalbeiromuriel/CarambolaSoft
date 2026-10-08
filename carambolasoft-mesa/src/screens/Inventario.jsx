@@ -144,7 +144,7 @@ function Simulador({ p, objetivo, cerrar, aplicar }) {
         <small>PRECIO DE VENTA RESULTANTE</small>
         <b>{fmt(precio)}</b>
         <span>{precio === actual ? 'Es tu precio actual: no cambia.' : `Hoy se vende a ${fmt(actual)} → quedaría en ${fmt(precio)} (${inv.incrementoDe(actual, precio) >= 0 ? '+' : ''}${inv.incrementoDe(actual, precio)}%).`}</span>
-        <span>Costo {fmt(costo)} con margen del {Math.round(s.margen)}% ⇒ vendes a {fmt(precio)} (se redondea hacia arriba a $50).</span>
+        <span>Costo {fmt(costo)} con margen del {Math.round(s.margen)}% ⇒ vendes a {fmt(precio)} (se redondea hacia arriba a $100).</span>
       </div>
       <div className="iv-kp">
         <div className="hi"><small>Margen · escríbelo</small>

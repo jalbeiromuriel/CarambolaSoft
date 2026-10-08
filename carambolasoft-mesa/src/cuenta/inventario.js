@@ -5,7 +5,8 @@ export const INCREMENTO_INICIAL = 40;    // la barra arranca en +40 %
 export const ATAJOS_MARGEN = [30, 35, 40, 45, 50, 60, 70];
 export const ATAJOS_INCREMENTO = [10, 25, 40, 50, 150, 300, 500];
 
-const redondea50 = (n) => Math.ceil(n / 50) * 50;   // precios "de tienda": múltiplos de $50
+export const REDONDEO = 100;   // los precios sugeridos suben a múltiplos de $100 (ya casi no hay monedas de $50)
+const redondea = (n) => Math.ceil(n / REDONDEO) * REDONDEO;
 
 /** Margen % = (precio − costo) ÷ precio. Sin precio → 0. */
 export const margenPct = (precio, costo) => (precio > 0 ? ((precio - costo) / precio) * 100 : 0);
@@ -17,7 +18,7 @@ export const gananciaUnidad = (precio, costo) => precio - costo;
 export function precioParaMargen(costo, margen) {
   const m = Number(margen);
   if (!(m >= 0 && m < 95) || !(costo > 0)) return null;
-  return redondea50(costo / (1 - m / 100));
+  return redondea(costo / (1 - m / 100));
 }
 export const precioSugerido = (costo, objetivo = MARGEN_OBJETIVO) => precioParaMargen(costo, objetivo);
 
