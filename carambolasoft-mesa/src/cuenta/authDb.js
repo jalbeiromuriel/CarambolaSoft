@@ -1,5 +1,5 @@
 // src/cuenta/authDb.js — Usuarios y PIN en IndexedDB (USUARIOS). El hash nunca sale en claro; la tabla aún no se sincroniza.
-import { put, get, getAll } from '../db/repository.js';
+import { put, get, getAll, borrarLocal } from '../db/repository.js';
 import { hashPin, nuevaSal, codigoRescate, normCodigo, pinValido, estaBloqueado, conFallo, conAcierto, intentosRestantes, esAdmin, adminsActivos } from './auth.js';
 
 export const listarUsuarios = async () => (await getAll('USUARIOS')).sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es'));
@@ -30,7 +30,7 @@ export async function verificarLogin(id, pin) {
   const u = await get('USUARIOS', id);
   if (!u || u.Activo === false) return { error: 'Usuario no disponible.' };
   if (estaBloqueado(u)) return { error: 'Bloqueado por intentos fallidos.', bloqueado: u };
-  if ((await hashPin(pin, u.Salt)) === u.PinHash) return { usuario: await put('USUARIOS', conAcierto(u)) };
+  if ((await hashPin(pin, u.Salt)) === u.PinHash) return { usuario: await put('USUARIOS', { ...conAcierto(u), UltimoIngreso: new Date().toISOString() }) };
   const n = await put('USUARIOS', conFallo(u));
   return estaBloqueado(n) ? { error: 'Bloqueado por intentos fallidos.', bloqueado: n } : { error: 'PIN incorrecto.', restantes: intentosRestantes(n) };
 }
@@ -69,4 +69,33 @@ export async function nuevoCodigoRescate(id) {
   const u = await get('USUARIOS', id); const r = await rescateNuevo();
   await put('USUARIOS', { ...u, ...r.campos });
   return r.codigo;
+}
+
+/** Edita nombre, nota y rol. Admin→Empleado exige que quede otro Admin; Empleado→Admin genera su código de rescate. */
+export async function editarUsuario(id, { nombre, rol, nota }) {
+  if (!nombre?.trim()) throw new Error('Falta el nombre.');
+  const todos = await listarUsuarios();
+  const u = todos.find((x) => x.Id === id);
+  let extra = {}; let codigo = null;
+  if (esAdmin(u.Rol) && !esAdmin(rol)) {
+    if (adminsActivos(todos).filter((a) => a.Id !== id).length === 0) throw new Error('Debe quedar al menos un Admin.');
+    extra = { RescateHash: null, RescateSalt: null };
+  } else if (!esAdmin(u.Rol) && esAdmin(rol)) {
+    const r = await rescateNuevo(); extra = r.campos; codigo = r.codigo;
+  }
+  const guardado = await put('USUARIOS', { ...u, Nombre: nombre.trim(), Rol: rol, Nota: (nota ?? '').trim(), ...extra });
+  return { usuario: guardado, codigo };
+}
+
+/** Eliminar de verdad solo si nunca cobró ni autorizó nada (si no, se desactiva para no perder quién cobró). */
+export async function tieneMovimientos(id) {
+  const facturas = await getAll('FACTURAS');
+  return facturas.some((f) => f.UsuarioId === id || f.AutorizoId === id);
+}
+export async function eliminarUsuario(id) {
+  const todos = await listarUsuarios();
+  const u = todos.find((x) => x.Id === id);
+  if (await tieneMovimientos(id)) throw new Error('Tiene facturas a su nombre: desactívalo en vez de eliminarlo.');
+  if (u && esAdmin(u.Rol) && adminsActivos(todos).filter((a) => a.Id !== id).length === 0) throw new Error('No puedes eliminar al único Admin.');
+  await borrarLocal('USUARIOS', [id]);
 }

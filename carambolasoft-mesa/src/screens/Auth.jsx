@@ -1,6 +1,7 @@
 // src/screens/Auth.jsx — Primer uso (crear Admin), ingreso con PIN, cambio obligatorio y autorización de Admin.
 import { useState, useEffect } from 'react';
 import LogoBola9 from '../components/LogoBola9.jsx';
+import Avatar from '../components/Avatar.jsx';
 import PinPad from '../components/PinPad.jsx';
 import { crearUsuario, verificarLogin, cambiarPin, rescatar, autorizaAdmin } from '../cuenta/authDb.js';
 import { pinValido, esAdmin, estaBloqueado, msBloqueo } from '../cuenta/auth.js';
@@ -94,7 +95,7 @@ export function Login({ usuarios, entrar }) {
         <div className="au-quien">
           {activos.map((u) => (
             <button key={u.Id} className={sel?.Id === u.Id ? 'on' : ''} onClick={() => { setSel(u); setPin(''); setError(''); setOlvide(false); setBloq(estaBloqueado(u) ? u : null); }}>
-              <span>{esAdmin(u.Rol) ? '👑' : '🧑'}</span>{u.Nombre}<small>{esAdmin(u.Rol) ? 'Admin' : 'Empleado'}</small>
+              <Avatar nombre={u.Nombre} rol={u.Rol} grande />{u.Nombre}<small>{esAdmin(u.Rol) ? 'Admin' : 'Empleado'}</small>
             </button>
           ))}
         </div>
