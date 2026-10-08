@@ -50,3 +50,12 @@ export const conAcierto = (u) => ({ ...u, Intentos: 0, BloqueadoHasta: null });
 export const intentosRestantes = (u) => MAX_INTENTOS - (u.Intentos ?? 0);
 
 export const adminsActivos = (usuarios) => usuarios.filter((u) => u.Activo !== false && esAdmin(u.Rol));
+
+// Cierre automático de sesión por inactividad (la tablet de la barra no debe quedar abierta con un Admin).
+export const INACTIVIDAD_MS = 10 * 60000;
+export const AVISO_INACTIVIDAD_MS = 30000;
+/** Estado según el último movimiento: 'activa' | 'aviso' | 'cerrar'. */
+export function estadoInactividad(ultimo, ahora = Date.now(), limite = INACTIVIDAD_MS) {
+  const quieto = ahora - ultimo;
+  return quieto >= limite ? 'cerrar' : quieto >= limite - AVISO_INACTIVIDAD_MS ? 'aviso' : 'activa';
+}
