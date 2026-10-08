@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { put, get, getAll, porIndice } from '../db/repository.js';
 import Encabezado from '../components/Encabezado.jsx';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
+import { precioVigente } from '../cuenta/inventario.js';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
 import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, hms } from '../cuenta/tiempo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
@@ -129,7 +130,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     } else {
       await put('PEDIDOS_CUENTAS', {
         CuentaId: cuenta.Id, ProductoId: prod.Id, Cantidad: 1,
-        PrecioUnitarioHist: prod.PrecioVenta,        // precio congelado al pedir
+        PrecioUnitarioHist: precioVigente(prod),     // precio congelado al pedir (promo si está activa)
         CostoCompraHist: prod.CostoCompra ?? 0,      // P&L histórico real
         CategoriaConsumo: prod.CategoriaConsumo ?? 'OTROS',
         EstadoPedido: 'ENTREGADO', FechaHora: new Date().toISOString(),
@@ -335,7 +336,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                   onClick={() => agregar(p)} role="button">
                   <span className="e">{cat.emoji}</span>
                   <div className="t"><b>{p.Nombre}</b>
-                    <i>{fmt(p.PrecioVenta)}</i>
+                    <i>{fmt(precioVigente(p))}</i>
                     <span className={`st ${stock <= 3 ? 'lo' : ''}`}>{stock <= 0 ? 'Agotado' : stock <= 3 ? `⚠ ${stock}` : stock}</span>
                   </div>
                   <span className={`h ${p.Favorito ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); favorito(p); }}>♥</span>
