@@ -150,7 +150,7 @@ body { background: var(--fondo); }
     linear-gradient(90deg, rgba(34,211,238,.05) 1px, transparent 1px),
     var(--fondo);
   background-size: 44px 44px;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: var(--sans);
   color: #e2e8f0;
   padding: 24px;
 }

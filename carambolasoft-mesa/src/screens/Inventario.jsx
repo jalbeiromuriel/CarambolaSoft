@@ -281,33 +281,43 @@ function Editar({ p, productos, categorias, objetivo, cerrar, guardar }) {
 }
 
 function Categorias({ categorias, productos, cerrar, cambio }) {
+  const VACIA = { Nombre: '', Emoji: '📦', Color: '#94a3b8', Consumo: 'OTROS' };
   const [edit, setEdit] = useState(null);      // null = lista · {} = nueva · {…cat} = editar
-  const [d, setD] = useState({ Nombre: '', Emoji: '📦', Color: '#94a3b8', Consumo: 'OTROS' });
+  const [d, setD] = useState(VACIA);
   const [err, setErr] = useState('');
-  const abrir = (c) => { setErr(''); setD(c ? { Nombre: c.Nombre, Emoji: deCategoria(c).emoji, Color: deCategoria(c).color, Consumo: c.Consumo ?? 'OTROS' } : { Nombre: '', Emoji: '📦', Color: '#94a3b8', Consumo: 'OTROS' }); setEdit(c ?? {}); };
+  const abrir = (c) => { setErr(''); setD(c ? { Nombre: c.Nombre, Emoji: deCategoria(c).emoji, Color: deCategoria(c).color, Consumo: c.Consumo ?? 'OTROS' } : VACIA); setEdit(c ?? {}); };
   const nProd = (c) => productos.filter((p) => p.CategoriaId === c.Id).length;
   if (edit) return (
-    <Modal titulo={edit.Id ? '✏️ Editar categoría' : '+ Nueva categoría'} cerrar={cerrar}>
+    <Modal titulo={edit.Id ? 'Editar categoría' : 'Nueva categoría'} cerrar={cerrar} ancho={560}>
+      <div className="cg-prev" style={{ '--c': d.Color }}><span className="cg-ic">{d.Emoji}</span><div><b>{d.Nombre.trim() || 'Nombre de la categoría'}</b><small>Así se verá en la mesa</small></div></div>
       <label>Nombre</label><input className="iv-in" autoFocus placeholder="Ej: Heladería, Cafetería…" value={d.Nombre} onChange={(e) => setD({ ...d, Nombre: e.target.value })} />
-      <label>Icono</label><div className="iv-emo">{EMOJIS_CAT.map((e) => <button key={e} className={d.Emoji === e ? 'on' : ''} onClick={() => setD({ ...d, Emoji: e })}>{e}</button>)}</div>
-      <label>Color de franja</label><div className="iv-emo">{COLORES_CAT.map((c) => <button key={c} className={'col ' + (d.Color === c ? 'on' : '')} style={{ background: c }} onClick={() => setD({ ...d, Color: c })} />)}</div>
+      <label>Icono</label><div className="cg-emo">{EMOJIS_CAT.map((e) => <button key={e} className={d.Emoji === e ? 'on' : ''} onClick={() => setD({ ...d, Emoji: e })}>{e}</button>)}</div>
+      <label>Color</label><div className="cg-col">{COLORES_CAT.map((c) => <button key={c} className={d.Color === c ? 'on' : ''} style={{ '--c': c }} onClick={() => setD({ ...d, Color: c })} aria-label={c} />)}</div>
       <label>Se factura como</label>
-      <select value={d.Consumo} onChange={(e) => setD({ ...d, Consumo: e.target.value })}>{CONSUMOS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
-      <p className="iv-hint">Define en qué grupo sale en la factura y el cierre (licores, snacks, bebidas…).</p>
+      <div className="cg-seg">{CONSUMOS.map(([v, t]) => <button key={v} className={d.Consumo === v ? 'on' : ''} onClick={() => setD({ ...d, Consumo: v })}>{t}</button>)}</div>
+      <p className="iv-hint" style={{ marginTop: 8 }}>Decide en qué grupo sale en la factura y en el cierre del día.</p>
       {err && <div className="iv-al r">{err}</div>}
       <div className="pn-acc"><button className="no" onClick={() => { setErr(''); setEdit(null); }}>Cancelar</button>
-        <button className="si" onClick={async () => { const r = await guardarCategoria(categorias, d, edit.Id ?? null); if (r.error) setErr(r.error); else { setErr(''); setEdit(null); cambio(`✓ Categoría "${d.Nombre.trim()}" guardada`); } }}>{edit.Id ? 'Guardar' : 'Crear'}</button></div>
+        <button className="si" onClick={async () => { const r = await guardarCategoria(categorias, d, edit.Id ?? null); if (r.error) setErr(r.error); else { setErr(''); setEdit(null); cambio(`✓ Categoría "${d.Nombre.trim()}" guardada`); } }}>{edit.Id ? 'Guardar cambios' : 'Crear categoría'}</button></div>
     </Modal>
   );
   return (
-    <Modal titulo="⚙ Categorías" cerrar={cerrar}>
-      <div className="iv-cl">{[...categorias].sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es')).map((c) => { const k = deCategoria(c), n = nProd(c); return (
-        <div key={c.Id} style={{ borderLeft: `4px solid ${k.color}` }}><span>{k.emoji} {c.Nombre} <i>· {n} producto{n === 1 ? '' : 's'}</i></span>
-          <span><button title="Editar" onClick={() => abrir(c)}>✏️</button>
-            <button title={n ? 'Tiene productos: no se puede borrar' : 'Borrar'} className={n ? 'off' : ''} onClick={async () => { if (n) { setErr(`"${c.Nombre}" tiene ${n} producto(s). Muévelos a otra categoría primero.`); return; } if (window.confirm(`¿Borrar la categoría ${c.Nombre}?`)) { const r = await desactivarCategoria(c); if (r.error) setErr(r.error); else cambio(`Categoría "${c.Nombre}" borrada`); } }}>🗑️</button></span></div>); })}</div>
+    <Modal titulo="Categorías" cerrar={cerrar} ancho={720}>
+      <p className="iv-hint" style={{ margin: '-6px 0 14px' }}>Agrupan los productos en la mesa, la venta rápida y el inventario.</p>
+      <div className="cg-grid">
+        {[...categorias].sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es')).map((c) => { const k = deCategoria(c), n = nProd(c); return (
+          <div key={c.Id} className="cg-card" style={{ '--c': k.color }}>
+            <span className="cg-ic">{k.emoji}</span>
+            <div className="cg-t"><b>{c.Nombre}</b><small>{n === 0 ? 'Sin productos' : `${n} producto${n === 1 ? '' : 's'}`}</small></div>
+            <div className="cg-b">
+              <button title="Editar" onClick={() => abrir(c)}>✏️</button>
+              <button title={n ? 'Tiene productos: no se puede borrar' : 'Borrar'} className={n ? 'off' : ''} onClick={async () => { if (n) { setErr(`"${c.Nombre}" tiene ${n} producto(s). Muévelos a otra categoría primero.`); return; } if (window.confirm(`¿Borrar la categoría ${c.Nombre}?`)) { const r = await desactivarCategoria(c); if (r.error) setErr(r.error); else { setErr(''); cambio(`Categoría "${c.Nombre}" borrada`); } } }}>🗑️</button>
+            </div>
+          </div>); })}
+      </div>
+      <button className="cg-nueva" onClick={() => abrir(null)}><span>＋</span>Nueva categoría</button>
       {err && <div className="iv-al r">{err}</div>}
-      <button className="iv-b g" style={{ width: '100%', marginTop: 12 }} onClick={() => abrir(null)}>+ Nueva categoría</button>
-      <div className="pn-acc"><button className="si" onClick={cerrar}>Cerrar</button></div>
+      <div className="pn-acc"><button className="si" onClick={cerrar}>Listo</button></div>
     </Modal>
   );
 }
