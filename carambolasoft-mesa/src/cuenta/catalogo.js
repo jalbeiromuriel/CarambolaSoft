@@ -24,10 +24,15 @@ const PALABRAS = [
 /** { clave, nombre, emoji, color } de un producto; el nombre de CATEGORIAS manda, si no el enum. */
 export function categoriaDe(prod, categorias = []) {
   const cat = categorias.find((c) => c.Id === prod.CategoriaId);
-  const nombre = cat?.Nombre ?? null;
-  let clave = nombre ? PALABRAS.find(([p]) => norm(nombre).includes(p))?.[1] : null;
-  clave = clave ?? POR_ENUM[prod.CategoriaConsumo] ?? 'otros';
-  return { clave, nombre: nombre ?? NOMBRES[clave], ...GRUPOS[clave] };
+  if (cat) return deCategoria(cat);
+  const clave = POR_ENUM[prod.CategoriaConsumo] ?? 'otros';
+  return { clave, nombre: NOMBRES[clave], ...GRUPOS[clave] };
+}
+/** Una fila de CATEGORIAS → { clave, nombre, emoji, color }. Emoji/Color propios mandan; si no, los del grupo por nombre. */
+export function deCategoria(cat) {
+  const grupo = PALABRAS.find(([p]) => norm(cat.Nombre).includes(p))?.[1];
+  const base = GRUPOS[grupo ?? 'otros'];
+  return { clave: grupo ?? cat.Id, nombre: cat.Nombre, emoji: cat.Emoji ?? base.emoji, color: cat.Color ?? base.color };
 }
 const NOMBRES = {
   licores: 'Licores', snacks: 'Snacks', frias: 'Bebidas frías', calientes: 'Bebidas calientes',
@@ -37,6 +42,8 @@ const DEL_POS = ['licores', 'snacks', 'frias', 'calientes', 'cigarrillos', 'jueg
 
 /** Chips de categoría: las 7 del POS siempre + cualquier otra que traigan los productos. */
 export function categoriasVisibles(productos, categorias = []) {
+  const activas = categorias.filter((c) => c.Activo !== false);
+  if (activas.length) return activas.map(deCategoria).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   const lista = DEL_POS.map((clave) => ({ clave, nombre: NOMBRES[clave], ...GRUPOS[clave] }));
   for (const p of productos) {
     const c = categoriaDe(p, categorias);
@@ -44,6 +51,14 @@ export function categoriasVisibles(productos, categorias = []) {
   }
   return lista;
 }
+/** Categorías base que se crean la primera vez: nombre, emoji, color y a qué categoría de factura (enum) pertenecen. */
+export const CATEGORIAS_BASE = DEL_POS.map((clave) => ({ Nombre: NOMBRES[clave], Emoji: GRUPOS[clave].emoji, Color: GRUPOS[clave].color,
+  Consumo: { licores: 'BEBIDAS_ALCOHOLICAS', snacks: 'SNACKS', frias: 'BEBIDAS_NO_ALCOHOLICAS', calientes: 'BEBIDAS_NO_ALCOHOLICAS', granizados: 'BEBIDAS_NO_ALCOHOLICAS' }[clave] ?? 'OTROS', _clave: clave }));
+export const CONSUMOS = [['BEBIDAS_ALCOHOLICAS', 'Licor'], ['SNACKS', 'Snacks'], ['BEBIDAS_NO_ALCOHOLICAS', 'Bebida sin alcohol'], ['OTROS', 'Otros']];
+export const EMOJIS_CAT = ['🍺', '🥤', '🍿', '🚬', '🎲', '🧊', '☕', '🍔', '🌭', '🍦', '🍫', '🍬', '🥃', '🍷', '🧃', '🥜', '🔥', '⚡', '📦', '🎯', '🎱', '🃏'];
+export const COLORES_CAT = ['#e879f9', '#fbbf24', '#38bdf8', '#fb923c', '#9ca3af', '#fb7185', '#67e8f9', '#4ade80', '#a78bfa', '#f87171'];
+/** ¿Ya existe una categoría con ese nombre (sin tildes ni mayúsculas)? */
+export const nombreRepetido = (categorias, nombre, idActual = null) => categorias.find((c) => c.Activo !== false && c.Id !== idActual && norm(c.Nombre) === norm(nombre));
 export const colorTiempo = GRUPOS.tiempo.color;
 
 export function filtrar(productos, q) {
