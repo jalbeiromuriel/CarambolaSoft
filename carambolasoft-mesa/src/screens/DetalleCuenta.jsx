@@ -489,7 +489,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                 <div className="cb-lab">Dos métodos</div>
                 <div className="cb-mx">
                   <div className="c a"><div className="t">MÉTODO 1</div>
-                    <input className="v" inputMode="numeric" placeholder="$ —" value={cobro.monto1 ? '$' + cobro.monto1.toLocaleString('es-CO') : ''}
+                    <input className="v" inputMode="numeric" placeholder="✎ Escribe el valor" autoFocus value={cobro.monto1 ? '$' + cobro.monto1.toLocaleString('es-CO') : ''}
                       onChange={(e) => setCobro({ ...cobro, monto1: soloDigitos(e.target.value) })} />
                     <div className="mm">{METODOS.map((m) => (
                       <button key={m.v} disabled={m.v === 'FIADO' && !pagador.ClienteId} className={cobro.metodo1 === m.v ? 'on' : ''}
