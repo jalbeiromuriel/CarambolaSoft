@@ -1,4 +1,5 @@
 // src/screens/Inventario.jsx — Inventario (solo Admin): productos, reabastecer, márgenes, simulador de precio y promociones.
+import { createPortal } from 'react-dom';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Encabezado from '../components/Encabezado.jsx';
 import { categoriaDe, norm, deCategoria, EMOJIS_CAT, COLORES_CAT, CONSUMOS } from '../cuenta/catalogo.js';
@@ -13,10 +14,13 @@ const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const num = (v) => Number(String(v).replace(/\D/g, '')) || 0;
 const hoyIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const ENUMS = [['BEBIDAS_ALCOHOLICAS', 'Licores'], ['SNACKS', 'Snacks'], ['BEBIDAS_NO_ALCOHOLICAS', 'Bebidas'], ['OTROS', 'Otros']];
-const esVendible = (p) => p.ControlaStock !== false && p.Activo !== false;
+const esVendible = (p) => p.ControlaStock !== false;   // fuera: garita y venta libre (no son del inventario)
 
 export default function Inventario() {
-  const [productos, setProductos] = useState([]);
+  const [todosProd, setTodosProd] = useState([]);   // incluye desactivados
+  const [verOff, setVerOff] = useState(false);
+  const productos = useMemo(() => todosProd.filter((p) => p.Activo !== false), [todosProd]);   // todo el cálculo usa solo los activos
+  const nOff = todosProd.length - productos.length;
   const [categorias, setCategorias] = useState([]);
   const [objetivo, setObjetivo] = useState(inv.MARGEN_OBJETIVO);
   const [q, setQ] = useState('');
@@ -32,7 +36,7 @@ export default function Inventario() {
       for (const p of sinCodigo) await put('PRODUCTOS', { ...p, Codigo: 'P' + String(++n).padStart(3, '0') });
       todos = (await getAll('PRODUCTOS')).filter(esVendible);
     }
-    setProductos(todos);
+    setTodosProd(todos);
     setCategorias((await asegurarCategorias()).filter((c) => c.Activo !== false));
     setObjetivo((await leerMeta('negocio.margenObjetivo')) ?? inv.MARGEN_OBJETIVO);
   }, []);
@@ -41,10 +45,10 @@ export default function Inventario() {
 
   const lista = useMemo(() => {
     const t = norm(q);
-    return productos
+    return (verOff ? todosProd.filter((p) => p.Activo === false) : productos)
       .filter((p) => (cat === 'todos' || categoriaDe(p, categorias).nombre === cat) && (!t || norm(p.Nombre).includes(t)))
       .sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es'));
-  }, [productos, categorias, q, cat]);
+  }, [productos, todosProd, verOff, categorias, q, cat]);
   const nombresCat = useMemo(() => [...new Set(productos.map((p) => categoriaDe(p, categorias).nombre))], [productos, categorias]);
   const bajos = useMemo(() => inv.productosBajoMargen(productos, objetivo), [productos, objetivo]);
 
@@ -59,6 +63,8 @@ export default function Inventario() {
           <button className="iv-b g" onClick={() => setModal({ tipo: 'editar', prod: null })}>+ Nuevo</button>
           <button className="iv-b o" onClick={() => setModal({ tipo: 'cats' })}>⚙ Categorías</button>
           <button className="iv-b ve" onClick={() => setModal({ tipo: 'reab' })}>📦 Reabastecer</button>
+          {nOff > 0 && <button className={'iv-b ' + (verOff ? 'o' : '')} onClick={() => setVerOff(!verOff)}>{verOff ? '← Ver activos' : `Ver desactivados (${nOff})`}</button>}
+          <button className="iv-b" onClick={() => setModal({ tipo: 'audpromo' })}>🏷️ Auditoría promos</button>
           <button className="iv-b ro" onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes ({bajos.length} bajo {objetivo}%)</button>
         </div>
         <div className="iv-cats">
@@ -72,18 +78,21 @@ export default function Inventario() {
               const origen = productos.find((x) => x.Id === p.Fraccion?.OrigenId), frac = inv.esFraccionado(p);
               const st = frac ? inv.disponible(p, origen) : p.StockActual ?? 0, bajoMin = p.StockMinimo > 0 && st <= p.StockMinimo;
               return (
-                <tr key={p.Id}>
+                <tr key={p.Id} className={p.Activo === false ? 'off' : ''}>
                   <td className="cod">{p.Codigo}</td>
-                  <td><b>{p.Nombre}</b>{inv.esFraccionado(p) && <span className="iv-env">🔗 {p.Fraccion.Rinde}/env</span>}{p.Promo && <span className={'iv-pr ' + (ps === 'ACTIVA' ? 'on' : '')}>{ps === 'ACTIVA' ? '🟢' : '🏷️'} PROMO{p.Promo.HoraIni ? ` ${p.Promo.HoraIni}-${p.Promo.HoraFin}` : ''}</span>}</td>
+                  <td><b>{p.Nombre}</b>{inv.esFraccionado(p) && <span className="iv-env">🔗 {p.Fraccion.Rinde}/env</span>}{p.Promo && <PromoTag promo={p.Promo} estado={ps} />}</td>
                   <td><span className="iv-cat">{categoriaDe(p, categorias).nombre}</span></td>
                   <td className="n"><b>{fmt(p.PrecioVenta)}</b></td>
                   <td className="n mut">{fmt(p.CostoCompra ?? 0)}<span className={'iv-m ' + niv} title={p.CostoCompra > 0 ? `Margen sobre el precio. Recargo sobre el costo: +${Math.round(inv.recargoPct(p.PrecioVenta, p.CostoCompra))}%` : ''}>{p.CostoCompra > 0 ? Math.round(m) + '%' : ''}</span></td>
                   <td className={'n ' + (st <= 0 ? 'sin' : bajoMin ? 'bajo' : 'ok')}>{st <= 0 ? (frac ? inv.textoStock(p, origen) : 'Sin stock') : inv.textoStock(p, origen)}{bajoMin && st > 0 ? ' ⚠' : ''}</td>
                   <td><div className="iv-acc">
-                    <button onClick={() => setModal({ tipo: 'editar', prod: p })}>Editar</button>
+                    {p.Activo === false
+                      ? <button className="re" onClick={() => guardar(p, { Activo: true }, `${p.Nombre} reactivado ✓`)}>↺ Reactivar</button>
+                      : <button onClick={() => setModal({ tipo: 'editar', prod: p })}>Editar</button>}
                     {frac && <button className="ab" title={`Abrir un envase de ${origen?.Nombre ?? ''}`} onClick={async () => { const ok = await abrirEnvaseDb(p); decir(ok ? `🍾 Abierto: +${p.Fraccion.Rinde} ${p.Nombre}` : `⚠ No hay envases de ${origen?.Nombre ?? 'origen'}`); cargar(); }}>🍾 Abrir</button>}
                     <button className="bl" title="Simulador de precio" onClick={() => setModal({ tipo: 'sim', prod: p })}>🧮</button>
-                    <button className="na" onClick={() => setModal({ tipo: 'promo', prod: p })}>Promo</button>
+                    {p.Activo !== false && <button className="na" onClick={() => setModal({ tipo: 'promo', prod: p })}>Promo</button>}
+                    {p.Activo !== false && <button className="x" title="Desactivar producto" onClick={() => setModal({ tipo: 'off', prod: p })}>✕</button>}
                   </div></td>
                 </tr>
               );
@@ -94,9 +103,11 @@ export default function Inventario() {
         <p className="iv-nota">Margen = (precio − costo) ÷ precio · <i className="ok">≥ {objetivo}%</i> <i className="medio">{objetivo - 10}–{objetivo - 1}%</i> <i className="bajo">&lt; {objetivo - 10}%</i></p>
       </div>
 
+      {modal?.tipo === 'off' && <Desactivar p={modal.prod} productos={productos} cerrar={() => setModal(null)} listo={() => guardar(modal.prod, { Activo: false }, `${modal.prod.Nombre} desactivado`)} />}
       {modal?.tipo === 'cats' && <Categorias categorias={categorias} productos={productos} cerrar={() => setModal(null)} cambio={async (msg) => { await cargar(); if (msg) decir(msg); }} />}
       {modal?.tipo === 'sim' && <Simulador p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} aplicar={(precio) => guardar(modal.prod, { PrecioVenta: precio }, `${modal.prod.Nombre}: nuevo precio ${fmt(precio)} ✓`)} />}
       {modal?.tipo === 'promo' && <Promo p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} guardar={(promo) => guardar(modal.prod, { Promo: promo }, promo ? 'Promoción aplicada ✓' : 'Promoción eliminada')} />}
+      {modal?.tipo === 'audpromo' && <AuditoriaPromos productos={productos} categorias={categorias} cerrar={() => setModal(null)} />}
       {modal?.tipo === 'reab' && <Reabastecer productos={productos} objetivo={objetivo} cerrar={() => setModal(null)} listo={async (msg) => { await cargar(); setModal(null); decir(msg); }} />}
       {modal?.tipo === 'margenes' && <Margenes productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
         cambiarObjetivo={async (v) => { await escribirMeta('negocio.margenObjetivo', v); setObjetivo(v); }}
@@ -319,5 +330,69 @@ function Categorias({ categorias, productos, cerrar, cambio }) {
       {err && <div className="iv-al r">{err}</div>}
       <div className="pn-acc"><button className="si" onClick={cerrar}>Listo</button></div>
     </Modal>
+  );
+}
+
+const fmtFecha = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+function PromoTag({ promo, estado }) {
+  const hora = promo.HoraIni ? ` ${promo.HoraIni}-${promo.HoraFin}` : '';
+  const [cls, txt] = estado === 'ACTIVA' ? ['on', `🟢 PROMO${hora}`]
+    : estado === 'VENCIDA' ? ['vencida', 'Promo vencida']
+    : estado === 'FUTURA' ? ['futura', `Promo desde ${fmtFecha(promo.Ini)}`]
+    : ['fuera', `🏷️ PROMO${hora}`];   // vigente por fechas pero hoy fuera de su franja horaria
+  return <span className={'iv-pr ' + cls}>{txt}</span>;
+}
+
+function Desactivar({ p, productos, cerrar, listo }) {
+  const hijos = productos.filter((x) => x.Fraccion?.OrigenId === p.Id);
+  return (
+    <Modal titulo="Desactivar producto" cerrar={cerrar} rojo>
+      <p className="iv-hint" style={{ marginTop: 0 }}>¿Desactivar <b>{p.Nombre}</b>?</p>
+      <ul className="iv-lis">
+        <li>Deja de salir en la mesa, la venta rápida, el Inventario y los Márgenes.</li>
+        <li>Las ventas y facturas anteriores no cambian.</li>
+        <li>Lo puedes reactivar cuando quieras en <b>Ver desactivados</b>.</li>
+      </ul>
+      {hijos.length > 0 && <div className="iv-al r">⚠ Es el envase de: <b>{hijos.map((h) => h.Nombre).join(', ')}</b>. Esos productos no podrán abrir envase mientras esté desactivado.</div>}
+      {p.StockActual > 0 && <div className="iv-al r">Aún tiene {p.StockActual} en stock.</div>}
+      <div className="pn-acc"><button className="no" onClick={cerrar}>Cancelar</button><button className="si" onClick={listo}>Desactivar</button></div>
+    </Modal>
+  );
+}
+
+const ESTADO_TXT = { ACTIVA: 'Activa', FUERA_HORARIO: 'Fuera de horario', VENCIDA: 'Vencida', FUTURA: 'Por iniciar' };
+/** Informe imprimible tipo factura (sin colores de relleno). Imprimir → Guardar como PDF. */
+function AuditoriaPromos({ productos, categorias, cerrar }) {
+  const ahora = new Date();
+  const filas = productos.filter((p) => p.Promo).map((p) => ({ p, est: inv.promoEstado(p.Promo, ahora) }))
+    .sort((a, b) => a.p.Nombre.localeCompare(b.p.Nombre, 'es'));
+  const activas = filas.filter((f) => f.est === 'ACTIVA' || f.est === 'FUERA_HORARIO').length;
+  const vencidas = filas.filter((f) => f.est === 'VENCIDA').length;
+  return createPortal(
+    <div className="pn-velo iv-aud-velo" onClick={(e) => e.target === e.currentTarget && cerrar()}>
+      <div className="iv-aud">
+        <div className="iv-aud-acc"><button onClick={() => window.print()}>🖨 Imprimir / PDF</button><button onClick={cerrar}>Cerrar</button></div>
+        <header><h2>MERO PARCHE</h2><div>Licores &amp; Billar · Medellín</div></header>
+        <h3>AUDITORÍA DE PROMOCIONES</h3>
+        <div className="iv-aud-meta">Fecha: {ahora.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })} · {ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</div>
+        <table>
+          <thead><tr><th>Producto</th><th>Categoría</th><th className="r">Precio normal</th><th className="r">Precio promo</th><th className="r">Desc.</th><th>Período</th><th>Horario</th><th>Estado</th></tr></thead>
+          <tbody>
+            {filas.map(({ p, est }) => (
+              <tr key={p.Id}>
+                <td>{p.Nombre}</td><td>{categoriaDe(p, categorias).nombre}</td>
+                <td className="r">{fmt(p.PrecioVenta)}</td><td className="r">{fmt(p.Promo.Precio)}</td>
+                <td className="r">{inv.descuentoPct(p.PrecioVenta, p.Promo.Precio)}%</td>
+                <td>{fmtFecha(p.Promo.Ini)} – {fmtFecha(p.Promo.Fin)}</td>
+                <td>{p.Promo.HoraIni ? `${p.Promo.HoraIni}–${p.Promo.HoraFin}` : 'Todo el día'}</td>
+                <td>{ESTADO_TXT[est]}</td>
+              </tr>
+            ))}
+            {filas.length === 0 && <tr><td colSpan="8" className="c">No hay productos con promoción.</td></tr>}
+          </tbody>
+        </table>
+        <footer>Total con promoción: {filas.length} · Vigentes: {activas} · Vencidas: {vencidas}</footer>
+      </div>
+    </div>, document.body
   );
 }
