@@ -2,7 +2,8 @@
 // El carrito vive en memoria; al cobrar se escribe cuenta VENTA_RAPIDA (liquidada) + pedidos + factura + stock.
 import { useState, useEffect, useMemo } from 'react';
 import { put, getAll } from '../db/repository.js';
-import { categoriaDe, categoriasVisibles, filtrar, masVendidos } from '../cuenta/catalogo.js';
+import SelectorCliente, { sumarVisita } from './SelectorCliente.jsx';
+import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre } from '../cuenta/catalogo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { PRODUCTO_LIBRE_ID } from '../cuenta/garita.js';
 
@@ -21,12 +22,16 @@ export default function VentaRapida({ cerrar, alCobrar }) {
   const [metodo, setMetodo] = useState('EFECTIVO');
   const [pago, setPago] = useState(0);
   const [libre, setLibre] = useState(null);     // { nombre, precio } — formulario "+ Libre"
+  const [cliente, setCliente] = useState(null);   // opcional: da historial (Lo de siempre) y ⭐ visitas
+  const [elegir, setElegir] = useState(null);     // { sel, creando, error }
+  const [cuentas, setCuentas] = useState([]);
   const [aviso, setAviso] = useState('');
 
   useEffect(() => { (async () => {
     setProductos((await getAll('PRODUCTOS')).filter((p) => p.Activo !== false));
     setCategorias(await getAll('CATEGORIAS'));
     setPedidos(await getAll('PEDIDOS_CUENTAS'));
+    setCuentas(await getAll('CUENTAS'));
   })(); }, []);
 
   const total = carro.reduce((t, l) => t + l.precio * l.cant, 0);
@@ -36,6 +41,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
 
   let lista = visibles;
   if (filtro === 'vendidos') lista = masVendidos(pedidos).map((id) => visibles.find((p) => p.Id === id)).filter(Boolean);
+  else if (filtro === 'siempre') lista = loDeSiempre(pedidos, cuentas, cliente?.Id, null).map((id) => visibles.find((p) => p.Id === id)).filter(Boolean);
   else if (filtro === 'fav') lista = visibles.filter((p) => p.Favorito);
   else if (filtro !== 'todos') lista = visibles.filter((p) => categoriaDe(p, categorias).clave === filtro);
   lista = filtrar(lista, q);
@@ -69,7 +75,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
     if (plan.error) { decir(plan.error); return; }
     const ahora = new Date().toISOString();
     const cuenta = await put('CUENTAS', {
-      TipoCuenta: 'VENTA_RAPIDA', MesaId: null, GrupoMesaId: null, ClienteId: null, NombreLibre: 'Venta rápida',
+      TipoCuenta: 'VENTA_RAPIDA', MesaId: null, GrupoMesaId: null, ClienteId: cliente?.Id ?? null, NombreLibre: cliente ? (cliente.Apodo || cliente.Nombre) : 'Venta rápida',
       HoraApertura: ahora, HoraCierre: ahora, TarifaPorHora: null, Estado: 'LIQUIDADA',
     });
     const suma = (f) => carro.filter(f).reduce((t, l) => t + l.precio * l.cant, 0);
@@ -89,13 +95,19 @@ export default function VentaRapida({ cerrar, alCobrar }) {
       TotalPagar: total, TotalPendienteFiado: 0, MetodoPago: plan.met1, MetodoPagoSecundario: null,
       MontoPrimario: null, MontoSecundario: null, EstadoPago: 'PAGADO',
     });
+    await sumarVisita(cliente);
     alCobrar?.(total);
   }
 
   return (
     <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && cerrar()}>
       <div className="pn-modal vr">
-        <h3>⚡ Venta rápida</h3>
+        <h3>⚡ Venta rápida
+          <span className="vr-cli">
+            {cliente ? <>👤 {cliente.Apodo || cliente.Nombre} · ⭐ {cliente.Visitas ?? 0} <button onClick={() => { setCliente(null); if (filtro === 'siempre') setFiltro('todos'); }}>✕</button></>
+              : <button onClick={() => setElegir({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>+ Cliente</button>}
+          </span>
+        </h3>
         <div className="vr-grid">
           <div>
             <div className="vr-busca">
@@ -107,10 +119,11 @@ export default function VentaRapida({ cerrar, alCobrar }) {
               <button className={filtro === 'todos' ? 'on' : ''} onClick={() => setFiltro('todos')}>Todos</button>
               <button className={`sp ${filtro === 'vendidos' ? 'on' : ''}`} onClick={() => setFiltro('vendidos')}>⭐ Más vendidos</button>
               <button className={filtro === 'fav' ? 'on' : ''} onClick={() => setFiltro('fav')}>❤️ Favoritos</button>
+              <button className={`ls ${filtro === 'siempre' ? 'on' : ''}`} onClick={() => setFiltro('siempre')}>🔄 Lo de siempre</button>
               {claves.map((c) => <button key={c.clave} className={filtro === c.clave ? 'on' : ''} onClick={() => setFiltro(c.clave)}>{c.nombre}</button>)}
             </div>
             <div className="ms-prods vr-prods">
-              {lista.length === 0 && <div className="ms-vacio">Sin productos.</div>}
+              {lista.length === 0 && <div className="ms-vacio">{filtro === 'siempre' ? (cliente ? 'Este cliente aún no tiene historial.' : 'Elige un cliente (+ Cliente) para ver lo de siempre.') : 'Sin productos.'}</div>}
               {lista.map((p) => {
                 const cat = categoriaDe(p, categorias); const n = enCarro(p); const out = p.ControlaStock !== false && (p.StockActual ?? 0) <= 0;
                 return (
@@ -155,6 +168,22 @@ export default function VentaRapida({ cerrar, alCobrar }) {
           </div>
         </div>
       </div>
+
+      {elegir && (
+        <div className="pn-velo alto" onClick={(e) => e.target === e.currentTarget && setElegir(null)}>
+          <div className="pn-modal">
+            <h3>Cliente de la venta</h3>
+            <SelectorCliente soloCliente valor={elegir.sel} onChange={(sel) => setElegir((v) => ({ ...v, sel }))}
+              onModoNuevo={(creando) => setElegir((v) => ({ ...v, creando }))}
+              error={elegir.error} setError={(error) => setElegir((v) => ({ ...v, error }))} />
+            {!elegir.creando && elegir.error && <div className="pn-err">{elegir.error}</div>}
+            {!elegir.creando && <div className="pn-acc">
+              <button className="no" onClick={() => setElegir(null)}>CANCELAR</button>
+              <button className="si" onClick={() => elegir.sel.cliente ? (setCliente(elegir.sel.cliente), setElegir(null)) : setElegir({ ...elegir, error: 'Elige un cliente o crea uno nuevo.' })}>ELEGIR</button>
+            </div>}
+          </div>
+        </div>
+      )}
 
       {libre && (
         <div className="pn-velo alto" onClick={(e) => e.target === e.currentTarget && setLibre(null)}>
