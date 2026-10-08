@@ -5,8 +5,10 @@ export const INCREMENTO_INICIAL = 40;    // la barra arranca en +40 %
 export const ATAJOS_MARGEN = [30, 35, 40, 45, 50, 60, 70];
 export const ATAJOS_INCREMENTO = [10, 25, 40, 50, 150, 300, 500];
 
-export const REDONDEO = 100;   // los precios sugeridos suben a múltiplos de $100 (ya casi no hay monedas de $50)
-const redondea = (n) => Math.ceil(n / REDONDEO) * REDONDEO;
+// Redondeo del precio sugerido según su tamaño (nunca se come más del 2-3 % del precio). Límites editables aquí.
+export const FRANJAS_REDONDEO = [[1000, 50], [20000, 100], [100000, 500], [Infinity, 1000]];   // [hasta (excl.), múltiplo]
+export const pasoRedondeo = (n) => FRANJAS_REDONDEO.find(([tope]) => n < tope)[1];
+const redondea = (n) => { const paso = pasoRedondeo(n); return Math.ceil(n / paso - 1e-9) * paso; };
 
 /** Margen % = (precio − costo) ÷ precio. Sin precio → 0. */
 export const margenPct = (precio, costo) => (precio > 0 ? ((precio - costo) / precio) * 100 : 0);

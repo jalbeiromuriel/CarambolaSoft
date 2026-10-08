@@ -250,3 +250,12 @@ test('precio sugerido sube a múltiplos de $100', () => {
   assert.equal(inv.precioParaMargen(3400, 40), 5700);   // 5.667 → 5.700
   assert.equal(inv.precioParaMargen(3000, 40), 5000);   // exacto, no cambia
 });
+
+test('redondeo por franjas: $50 <1.000 · $100 <20.000 · $500 <100.000 · $1.000 desde ahí', () => {
+  assert.equal(inv.precioParaMargen(460, 40), 800);       // 766,7 → 800
+  assert.equal(inv.precioParaMargen(700, 40), 1200);      // cigarrillo: 1.166,7 → 1.200
+  assert.equal(inv.precioParaMargen(25000, 40), 42000);   // 41.666,7 → 42.000
+  assert.equal(inv.precioParaMargen(42000, 40), 70000);   // exacto
+  assert.equal(inv.precioParaMargen(62500, 40), 105000);  // 104.166,7 → 105.000
+  assert.equal(inv.pasoRedondeo(999), 50); assert.equal(inv.pasoRedondeo(1000), 100); assert.equal(inv.pasoRedondeo(20000), 500); assert.equal(inv.pasoRedondeo(100000), 1000);
+});
