@@ -11,6 +11,7 @@ import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
 import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js';
+import { datosFactura } from '../cuenta/fiadosDb.js';
 import { useSesion } from '../components/Sesion.jsx';
 import { PinAdmin } from './Auth.jsx';
 import { esAdmin } from '../cuenta/auth.js';
@@ -202,7 +203,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     const { mixto } = cobro;
     const suma = (f) => entregados.filter(f).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
     await put('FACTURAS', {
-      CuentaId: cuenta.Id, TurnoCajaId: cuenta.TurnoCajaId ?? null, SubtotalTiempo: subTiempo,
+      ...(await datosFactura()), CuentaId: cuenta.Id, TurnoCajaId: cuenta.TurnoCajaId ?? null, SubtotalTiempo: subTiempo,
       SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'),
       SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
       SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO'].includes(p.CategoriaConsumo)),

@@ -12,6 +12,7 @@ import DetalleCuenta from './screens/DetalleCuenta.jsx';
 import Contador from './screens/Contador/Contador.jsx';
 import { SesionContext } from './components/Sesion.jsx';
 import { PrimerUso, Login, CambioObligatorio } from './screens/Auth.jsx';
+import Clientes from './screens/Clientes.jsx';
 import Usuarios from './screens/Usuarios.jsx';
 import { listarUsuarios } from './cuenta/authDb.js';
 import { get as getReg } from './db/repository.js';
@@ -108,6 +109,7 @@ return (
       {ruta.pantalla === 'cuenta' && (
         <DetalleCuenta cuentaId={ruta.cuentaId} volver={() => setRuta({ pantalla: 'tablero' })} />
       )}
+      {ruta.pantalla === 'clientes' && <Clientes />}
       {ruta.pantalla === 'adm' && esAdmin(usuario.Rol) && <Usuarios />}
       {ruta.pantalla === 'contador' && (
         <Contador irACuenta={(cuentaId) => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'cuenta', cuentaId }); }} salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />
