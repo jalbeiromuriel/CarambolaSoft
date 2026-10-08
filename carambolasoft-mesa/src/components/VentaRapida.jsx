@@ -1,6 +1,7 @@
 // src/components/VentaRapida.jsx — Venta rápida: pide y paga en un solo paso, sin abrir mesa ni cuenta abierta.
 // El carrito vive en memoria; al cobrar se escribe cuenta VENTA_RAPIDA (liquidada) + pedidos + factura + stock.
-import { precioVigente } from '../cuenta/inventario.js';
+import { precioVigente, disponible } from '../cuenta/inventario.js';
+import { descontarStock } from '../cuenta/inventarioDb.js';
 import { useState, useEffect, useMemo } from 'react';
 import { put, getAll } from '../db/repository.js';
 import SelectorCliente, { sumarVisita } from './SelectorCliente.jsx';
@@ -50,18 +51,19 @@ export default function VentaRapida({ cerrar, alCobrar }) {
   else if (filtro !== 'todos') lista = visibles.filter((p) => categoriaDe(p, categorias).clave === filtro);
   lista = filtrar(lista, q);
 
+  const disponibleDe = (p) => disponible(p, productos.find((x) => x.Id === p.Fraccion?.OrigenId));
   const enCarro = (p) => carro.find((l) => l.prod?.Id === p.Id)?.cant ?? 0;
   const decir = (t) => { setAviso(t); setTimeout(() => setAviso(''), 2500); };
 
   function agregar(p) {
-    if (p.ControlaStock !== false && enCarro(p) >= (p.StockActual ?? 0)) { decir(`Sin stock: ${p.Nombre}`); return; }
+    if (p.ControlaStock !== false && enCarro(p) >= disponibleDe(p)) { decir(`Sin stock: ${p.Nombre}`); return; }
     setCarro((c) => c.some((l) => l.prod?.Id === p.Id)
       ? c.map((l) => (l.prod?.Id === p.Id ? { ...l, cant: l.cant + 1 } : l))
       : [...c, { key: p.Id, prod: p, nombre: p.Nombre, precio: precioVigente(p), cant: 1 }]);
   }
   const cambiar = (key, d) => setCarro((c) => c.flatMap((l) => {
     if (l.key !== key) return [l];
-    if (d > 0 && l.prod && l.prod.ControlaStock !== false && l.cant >= (l.prod.StockActual ?? 0)) return [l];
+    if (d > 0 && l.prod && l.prod.ControlaStock !== false && l.cant >= disponibleDe(l.prod)) return [l];
     return l.cant + d <= 0 ? [] : [{ ...l, cant: l.cant + d }];
   }));
   function agregarLibre() {
@@ -90,7 +92,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
         PrecioUnitarioHist: l.precio, CostoCompraHist: l.prod?.CostoCompra ?? 0, CategoriaConsumo: cat(l),
         EstadoPedido: 'ENTREGADO', FechaHora: ahora, ...(l.prod ? {} : { Detalle: l.nombre }),
       });
-      if (l.prod && l.prod.ControlaStock !== false) await put('PRODUCTOS', { ...l.prod, StockActual: l.prod.StockActual - l.cant });
+      if (l.prod && l.prod.ControlaStock !== false) await descontarStock(l.prod, l.cant);
     }
     await put('FACTURAS', {
       ...(await datosFactura()), CuentaId: cuenta.Id, TurnoCajaId: null, SubtotalTiempo: 0,
@@ -129,7 +131,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
             <div className="ms-prods vr-prods">
               {lista.length === 0 && <div className="ms-vacio">{filtro === 'siempre' ? (cliente ? 'Este cliente aún no tiene historial.' : 'Elige un cliente (+ Cliente) para ver lo de siempre.') : 'Sin productos.'}</div>}
               {lista.map((p) => {
-                const cat = categoriaDe(p, categorias); const n = enCarro(p); const out = p.ControlaStock !== false && (p.StockActual ?? 0) <= 0;
+                const cat = categoriaDe(p, categorias); const n = enCarro(p); const out = p.ControlaStock !== false && disponibleDe(p) <= 0;
                 return (
                   <div key={p.Id} className={`ms-p ${out ? 'out' : ''}`} style={{ '--c': cat.color }} role="button" onClick={() => !out && agregar(p)}>
                     <span className="e">{cat.emoji}</span>

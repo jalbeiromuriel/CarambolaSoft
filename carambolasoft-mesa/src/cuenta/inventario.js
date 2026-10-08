@@ -74,3 +74,24 @@ export function validarPromo(promo) {
   return null;
 }
 export const descuentoPct = (normal, promo) => (normal > 0 ? Math.round((1 - promo / normal) * 100) : 0);
+
+// ── Fraccionados: copa/cigarrillo suelto que sale de un envase (botella/paquete). StockActual = unidades sueltas.
+export const esFraccionado = (p) => !!p?.Fraccion?.OrigenId && p.Fraccion.Rinde > 0;
+export const envasesDe = (p, origen) => (esFraccionado(p) && origen ? origen.StockActual ?? 0 : 0);
+/** Unidades que se pueden vender: sueltas + envases cerrados × rendimiento. */
+export const disponible = (p, origen) => (p.StockActual ?? 0) + envasesDe(p, origen) * (p.Fraccion?.Rinde ?? 0);
+/** Descarga q unidades abriendo envases cuando faltan sueltas. null si no alcanza. */
+export function descargar(p, origen, q) {
+  if (!esFraccionado(p)) return (p.StockActual ?? 0) >= q ? { prod: { ...p, StockActual: p.StockActual - q }, origen: null, abiertos: 0 } : null;
+  if (disponible(p, origen) < q) return null;
+  let sueltas = p.StockActual ?? 0, env = origen.StockActual ?? 0, abiertos = 0;
+  while (sueltas < q) { env -= 1; sueltas += p.Fraccion.Rinde; abiertos += 1; }
+  return { prod: { ...p, StockActual: sueltas - q }, origen: abiertos ? { ...origen, StockActual: env } : null, abiertos };
+}
+/** Abre un envase a mano (+Rinde sueltas, −1 envase). */
+export function abrirEnvase(p, origen) {
+  if (!esFraccionado(p) || !origen || (origen.StockActual ?? 0) <= 0) return null;
+  return { prod: { ...p, StockActual: (p.StockActual ?? 0) + p.Fraccion.Rinde }, origen: { ...origen, StockActual: origen.StockActual - 1 } };
+}
+/** Texto de stock: "11 sueltas · 3 env." o "14 u". */
+export const textoStock = (p, origen) => (esFraccionado(p) ? `${p.StockActual ?? 0} sueltas · ${envasesDe(p, origen)} env.` : `${p.StockActual ?? 0} u`);
