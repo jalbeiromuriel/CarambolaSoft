@@ -3,6 +3,7 @@
 import LogoBola9 from './LogoBola9.jsx';
 import { SECCIONES } from '../cuenta/menu.js';
 import { seccionVisible, esAdmin } from '../cuenta/auth.js';
+import Avatar from './Avatar.jsx';
 import { useSesion } from './Sesion.jsx';
 
 export default function Encabezado({ activo = 'panel', irPanel }) {
@@ -23,7 +24,7 @@ export default function Encabezado({ activo = 'panel', irPanel }) {
         ))}
         {usuario && (
           <button className={`pn-who ${esAdmin(rol) ? '' : 'emp'}`} onClick={cerrarSesion} title="Cambiar de usuario">
-            {esAdmin(rol) ? '👑' : '🧑'} {usuario.Nombre} · Salir
+            <Avatar nombre={usuario.Nombre} rol={rol} />{usuario.Nombre} · Salir
           </button>
         )}
       </nav>
