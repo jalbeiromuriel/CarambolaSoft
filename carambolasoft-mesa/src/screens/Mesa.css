@@ -108,3 +108,14 @@
 .ga-lista .cb-chk{margin:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#0e1422;justify-content:flex-start}
 .ga-lista .cb-chk.on{border-color:#e46a8a;color:#fff}.ga-lista em{margin-left:auto;font-style:normal;color:#e46a8a;font-weight:700}
 .ga-tot{margin-top:12px;text-align:right;color:var(--mut)}.ga-tot b{color:#e46a8a;font-size:20px;margin-left:8px}
+
+/* Cobrar toda la mesa */
+.cb-quien{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}.cb-quien button{border:1px solid var(--line);border-radius:99px;padding:7px 14px;background:#0e1422;color:#aab;cursor:pointer;font-size:12px}.cb-quien button.on{border-color:var(--oro);color:var(--oro);background:#e8c06a12;font-weight:700}
+.cb-quien.lista{display:grid;gap:4px;margin:6px 0 10px}.cb-quien.lista div{display:flex;justify-content:space-between;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:#0e1422;font-size:13px}.cb-quien.lista b{color:var(--oro)}
+
+/* Campo de valor (pago mixto): bien visible */
+.cb-mx .v:not(.ver){background:#e8c06a1a;border:2px solid var(--oro);border-radius:10px;padding:10px 12px;font-size:26px;box-shadow:0 0 0 0 #e8c06a66;animation:cbPulso 1.6s ease-out infinite}
+.cb-mx .v:not(.ver):focus{background:#e8c06a2e;box-shadow:0 0 14px #e8c06a99;animation:none}
+.cb-mx .v:not(.ver)::placeholder{color:#e8c06a99;font-size:15px;font-weight:600}
+.cb-mx .v.ver{border:1px dashed #4ade8066;border-radius:10px;padding:10px 12px;font-size:26px}
+@keyframes cbPulso{70%{box-shadow:0 0 0 8px #e8c06a00}100%{box-shadow:0 0 0 0 #e8c06a00}}
