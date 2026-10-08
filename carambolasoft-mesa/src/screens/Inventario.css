@@ -75,5 +75,6 @@
   .iv-aud-velo{position:static !important;display:block !important;background:none !important;overflow:visible !important;backdrop-filter:none !important}
   .iv-aud{width:100%;margin:0;padding:0;border-radius:0}
   .iv-aud-acc{display:none}
-  @page{size:A4 landscape;margin:12mm}
+  @page{size:letter portrait;margin:12mm}
+  .iv-aud table{font-size:10.5px}.iv-aud th,.iv-aud td{padding:4px 4px}
 }
