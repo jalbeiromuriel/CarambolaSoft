@@ -11,6 +11,9 @@ import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
 import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js';
+import { useSesion } from '../components/Sesion.jsx';
+import { PinAdmin } from './Auth.jsx';
+import { esAdmin } from '../cuenta/auth.js';
 import './Panel.css';
 import './Mesa.css';
 
@@ -34,6 +37,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [reloj, setReloj] = useState(null);
   const [avisoSel, setAvisoSel] = useState(null); // { ids:Set } — modal de cobro de la hora
   const [descartado, setDescartado] = useState(0); // Cobros del aviso que se dejó para después
+  const { usuario } = useSesion();
+  const [pidePin, setPidePin] = useState(null); // { luego } — un Admin autoriza (fiar siendo Empleado)
   const [aviso, setAviso] = useState('');
   const [ahora, setAhora] = useState(Date.now());
   const avisoT = useRef(null);
@@ -201,7 +206,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'),
       SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
       SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO'].includes(p.CategoriaConsumo)),
-      TotalPagar: total, TotalPendienteFiado: pendienteFiado,
+      TotalPagar: total, TotalPendienteFiado: pendienteFiado, UsuarioId: usuario?.Id ?? null, AutorizoId: cobro.autorizoId ?? null,
       MetodoPago: met1, MetodoPagoSecundario: met2,
       MontoPrimario: mixto ? m1 : null, MontoSecundario: mixto ? m2 : null,
       EstadoPago: pendienteFiado > 0 ? 'FIADO' : 'PAGADO',
@@ -218,6 +223,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     setActivaId(quedan[0].Id); decir('Cobrado ✓'); await cargar();
   }
 
+  const puedeFiar = esAdmin(usuario?.Rol) || cobro?.fiadoOk;
+  function elegir(campo, v) {
+    const aplicar = (extra = {}) => setCobro((c) => ({ ...c, [campo]: v, ...extra }));
+    if (v === 'FIADO' && !puedeFiar) setPidePin({ luego: () => aplicar({ fiadoOk: true }) });
+    else aplicar();
+  }
   const devuelta = cobro && !cobro.mixto && cobro.metodo === 'EFECTIVO' && cobro.pago >= total ? cobro.pago - total : null;
   const soloDigitos = (v) => Number(String(v).replace(/\D/g, '')) || 0;
   const nombreDe = (v) => METODOS.find((m) => m.v === v)?.t;
@@ -421,8 +432,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                     const bloqueado = m.v === 'FIADO' && !cuenta.ClienteId;
                     return (
                       <button key={m.v} className={`${m.v === 'FIADO' ? 'fi' : ''} ${cobro.metodo === m.v ? 'on' : ''}`} disabled={bloqueado}
-                        title={bloqueado ? 'Vincula un cliente para fiar' : ''} onClick={() => setCobro({ ...cobro, metodo: m.v })}>
-                        {m.t}{bloqueado ? ' 🔒' : ''}
+                        title={bloqueado ? 'Vincula un cliente para fiar' : ''} onClick={() => elegir('metodo', m.v)}>
+                        {m.t}{bloqueado || (m.v === 'FIADO' && !puedeFiar) ? ' 🔒' : ''}
                       </button>
                     );
                   })}
@@ -463,12 +474,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                       onChange={(e) => setCobro({ ...cobro, monto1: soloDigitos(e.target.value) })} />
                     <div className="mm">{METODOS.map((m) => (
                       <button key={m.v} disabled={m.v === 'FIADO' && !cuenta.ClienteId} className={cobro.metodo1 === m.v ? 'on' : ''}
-                        onClick={() => setCobro({ ...cobro, metodo1: m.v })}>{m.t}</button>))}</div></div>
+                        onClick={() => elegir('metodo1', m.v)}>{m.t}</button>))}</div></div>
                   <div className="c"><div className="t">MÉTODO 2 · EL RESTO</div>
                     <div className="v ver">{cobro.monto1 > 0 && cobro.monto1 < total ? fmt(total - cobro.monto1) : '$ —'}</div>
                     <div className="mm">{METODOS.map((m) => (
                       <button key={m.v} disabled={m.v === 'FIADO' && !cuenta.ClienteId} className={cobro.metodo2 === m.v ? 'on' : ''}
-                        onClick={() => setCobro({ ...cobro, metodo2: m.v })}>{m.t}</button>))}</div></div>
+                        onClick={() => elegir('metodo2', m.v)}>{m.t}</button>))}</div></div>
                 </div>
               </>
             )}
@@ -517,6 +528,10 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           </div>
         </div>
       )}
+
+      {pidePin && <PinAdmin motivo="Un Empleado no puede fiar. Un Admin digita su PIN para autorizar este fiado."
+        cancelar={() => setPidePin(null)}
+        ok={(a) => { pidePin.luego(); setCobro((c) => ({ ...c, autorizoId: a.Id })); setPidePin(null); }} />}
 
       {aviso && <div className="ms-aviso">{aviso}</div>}
     </div>

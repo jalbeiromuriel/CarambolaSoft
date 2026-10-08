@@ -1,0 +1,21 @@
+.au{display:grid;place-items:center;min-height:100vh}
+.au-wrap{width:min(420px,100%);text-align:center;display:grid;gap:12px;justify-items:center;padding:20px}
+.au-card{width:100%;background:#0b0f19;border:1px solid var(--oro);box-shadow:0 0 30px #e8c06a33;border-radius:16px;padding:22px;text-align:left}
+.au-card h3,.au-modal h3{margin:0 0 12px;font-family:Georgia,serif !important;font-weight:400;font-size:20px;color:var(--oro)}
+.au-card label{display:block;color:var(--mut);letter-spacing:2px;font-size:11px;margin:12px 0 6px;text-transform:uppercase}
+.au-card input,.au-modal input{width:100%;padding:13px;font-size:17px;color:#fff;background:#121826;border:1px solid var(--line);border-radius:10px;outline:none;box-sizing:border-box}
+.au-nota{color:var(--mut);font-size:12px;line-height:1.6;margin:12px 0 0}.au-nota b{color:var(--oro)}
+.au-link{margin-top:10px;background:none;border:0;color:var(--mut);text-decoration:underline;cursor:pointer;font-size:12px;width:100%}
+.au-quien{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+.au-quien button{padding:12px 8px;border:1px solid var(--line);border-radius:12px;background:#121826;color:var(--tx);cursor:pointer;display:grid;gap:2px;justify-items:center;font-size:14px}
+.au-quien button span{font-size:22px}.au-quien small{color:var(--mut);font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.au-quien button.on{border-color:var(--oro);background:#e8c06a14;color:var(--oro)}
+.au-dots{display:flex;gap:14px;justify-content:center;margin:6px 0 14px}
+.au-dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--oro2)}.au-dots i.on{background:var(--oro)}
+.au-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:280px;margin:0 auto}
+.au-keys button{padding:15px 0;font-size:21px;border:1px solid var(--line);border-radius:12px;background:#121826;color:var(--tx);cursor:pointer;min-height:54px}
+.au-keys button:active{transform:scale(.96)}.au-keys button.ok{background:linear-gradient(#f0cf85,#c9a24a);color:#1a1405;border:0;font-weight:800}
+.au-keys button:disabled{opacity:.35;cursor:not-allowed}
+.au-cod{font-family:ui-monospace,monospace !important;font-size:28px;letter-spacing:3px;color:var(--ver);text-align:center;padding:16px;border:1px dashed var(--ver);border-radius:12px;background:#4ade8010}
+.au-modal{width:min(360px,100%)}
+@media print{.au-card .pn-acc,.au-nota~*{display:none}}

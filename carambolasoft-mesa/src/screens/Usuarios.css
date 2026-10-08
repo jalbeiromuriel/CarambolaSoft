@@ -1,0 +1,7 @@
+.us-alerta{border:1px solid #fbbf2477;background:#fbbf2412;color:#fbbf24;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px}
+.us-lista{display:grid;gap:8px}
+.us-fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.us-fila.off{opacity:.5}.us-fila .e{font-size:24px}.us-fila .n{flex:1;min-width:140px}.us-fila .n small{display:block;color:var(--mut);font-size:11px}
+.us-fila button{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#0e1422;color:var(--tx);cursor:pointer;font-size:12px}
+.us-fila button.r{border-color:#fb718566;color:var(--rojo)}
+.au-card .pn-acc,.pn-modal .au-card{box-shadow:none}

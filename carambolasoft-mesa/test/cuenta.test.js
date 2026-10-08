@@ -126,3 +126,29 @@ test('garita: llegados recién no se marcan; mmss; grupo por reloj', () => {
   assert.equal(mmss(30 * 60000 + 52000), '30:52');
   assert.equal(grupoG({ Id: 'a', GaritaRelojId: 'g' }), 'g');
 });
+
+// ── Usuarios y PIN
+import { hashPin, pinValido, conFallo, conAcierto, estaBloqueado, codigoRescate, normCodigo, seccionVisible, esAdmin, MAX_INTENTOS } from '../src/cuenta/auth.js';
+test('auth: PIN válido y hash con sal', async () => {
+  assert.ok(pinValido('1234') && pinValido('123456'));
+  assert.ok(!pinValido('12') && !pinValido('12a4') && !pinValido('1234567'));
+  assert.notEqual(await hashPin('1234', 'a'), await hashPin('1234', 'b'));
+  assert.equal(await hashPin('1234', 'a'), await hashPin('1234', 'a'));
+});
+test('auth: 5 fallos bloquean y un acierto limpia', () => {
+  let u = { Intentos: 0 }; const t = Date.parse('2026-10-07T22:00:00Z');
+  for (let i = 0; i < MAX_INTENTOS - 1; i++) u = conFallo(u, t);
+  assert.equal(estaBloqueado(u, t), false);
+  u = conFallo(u, t);
+  assert.equal(estaBloqueado(u, t + 60000), true);
+  assert.equal(estaBloqueado(u, t + 6 * 60000), false);
+  assert.equal(conAcierto(u).Intentos, 0);
+});
+test('auth: rescate y secciones por rol', () => {
+  assert.match(codigoRescate(), /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  assert.equal(normCodigo('abcd-efgh-jklm'), 'ABCDEFGHJKLM');
+  assert.ok(seccionVisible('caja', 'ADMIN') && seccionVisible('adm', 'PATRONA'));
+  assert.ok(seccionVisible('panel', 'EMPLEADO') && seccionVisible('clientes', 'EMPLEADO'));
+  assert.ok(!seccionVisible('caja', 'EMPLEADO') && !seccionVisible('adm', 'EMPLEADO'));
+  assert.ok(esAdmin('PATRONA') && !esAdmin('EMPLEADO'));
+});

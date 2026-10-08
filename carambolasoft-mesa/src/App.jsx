@@ -5,10 +5,16 @@
 import { useState, useEffect } from 'react';
 import { openDb } from './db/schema.js';
 import { getAll, get } from './db/repository.js';
+import { esAdmin } from './cuenta/auth.js';
 import { PRODUCTO_GARITA_ID, PRODUCTO_LIBRE_ID } from './cuenta/garita.js';
 import Panel from './screens/Panel.jsx';
 import DetalleCuenta from './screens/DetalleCuenta.jsx';
 import Contador from './screens/Contador/Contador.jsx';
+import { SesionContext } from './components/Sesion.jsx';
+import { PrimerUso, Login, CambioObligatorio } from './screens/Auth.jsx';
+import Usuarios from './screens/Usuarios.jsx';
+import { listarUsuarios } from './cuenta/authDb.js';
+import { get as getReg } from './db/repository.js';
 import AlertaGarita from './components/AlertaGarita.jsx';
 import IndicadorSync from './components/IndicadorSync.jsx';
 // ------------------------------------------------------------
@@ -66,12 +72,33 @@ function escribir(db, tabla, registros) {
 export default function App() {
   const [ruta, setRuta] = useState({ pantalla: window.location.hash === '#contador' ? 'contador' : 'tablero' });
   const [listo, setListo] = useState(false);
+  const [usuarios, setUsuarios] = useState([]);
+  const [usuario, setUsuario] = useState(null);   // usuario en turno (se recuerda mientras la pestaña esté abierta)
 
-  useEffect(() => { sembrar().then(() => setListo(true)); }, []);
+  const recargarUsuarios = async () => setUsuarios(await listarUsuarios());
+  const entrar = (u) => { try { sessionStorage.setItem('cs.usuario', u.Id); } catch { /* sin storage: pedirá PIN al recargar */ } setUsuario(u); recargarUsuarios(); };
+  const cerrarSesion = () => { try { sessionStorage.removeItem('cs.usuario'); } catch { /* nada */ } setUsuario(null); setRuta({ pantalla: 'tablero' }); recargarUsuarios(); };
+
+  useEffect(() => {
+    (async () => {
+      await sembrar();
+      await recargarUsuarios();
+      try {
+        const id = sessionStorage.getItem('cs.usuario');
+        const u = id ? await getReg('USUARIOS', id) : null;
+        if (u && u.Activo !== false && !u.DebeCambiarPin) setUsuario(u);
+      } catch { /* sin storage */ }
+      setListo(true);
+    })();
+  }, []);
 
   if (!listo) return null;
+  if (usuarios.length === 0) return <><style>{ESTILOS}</style><PrimerUso listo={entrar} /></>;
+  if (!usuario) return <><style>{ESTILOS}</style><Login usuarios={usuarios} entrar={(u) => (u.DebeCambiarPin ? setUsuario({ ...u, _cambiar: true }) : entrar(u))} /></>;
+  if (usuario._cambiar) return <><style>{ESTILOS}</style><CambioObligatorio usuario={usuario} listo={entrar} /></>;
 
 return (
+    <SesionContext.Provider value={{ usuario, cerrarSesion, irA: (id) => setRuta(id === 'panel' ? { pantalla: 'tablero' } : { pantalla: id }) }}>
     <div className="tablero">
       <style>{ESTILOS}</style>
       {ruta.pantalla === 'tablero' && (
@@ -80,12 +107,14 @@ return (
       {ruta.pantalla === 'cuenta' && (
         <DetalleCuenta cuentaId={ruta.cuentaId} volver={() => setRuta({ pantalla: 'tablero' })} />
       )}
+      {ruta.pantalla === 'adm' && esAdmin(usuario.Rol) && <Usuarios />}
       {ruta.pantalla === 'contador' && (
         <Contador irACuenta={(cuentaId) => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'cuenta', cuentaId }); }} salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />
       )}
       <AlertaGarita visible={ruta.pantalla !== 'cuenta'} irACuenta={(cuentaId) => setRuta({ pantalla: 'cuenta', cuentaId })} />
       <IndicadorSync />
     </div>
+    </SesionContext.Provider>
   );
 }
 
