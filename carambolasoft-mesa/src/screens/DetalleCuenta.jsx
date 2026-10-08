@@ -33,6 +33,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [filtro, setFiltro] = useState('todos');
   const [q, setQ] = useState('');
   const [cobro, setCobro] = useState(null);
+  const [cierre, setCierre] = useState(false); // "Cerrar mesa" con cuentas sin cobrar
   const [nueva, setNueva] = useState(null);   // { sel, creando, error }
   const [vincular, setVincular] = useState(null); // { sel, creando, error } — ligar un cliente a la cuenta abierta
   const [reloj, setReloj] = useState(null);
@@ -95,6 +96,13 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const subTiempo = cobroTiempo(cuenta, ahora);
   const total = subTiempo + consumoDe(cuenta);
   const totalMesa = grupo.reduce((t, c) => t + totalDe(c), 0);
+  // Lo que se está cobrando: la cuenta activa, o toda la mesa cuando paga una sola persona
+  const cuentasCobro = cobro?.mesa ? grupo.filter((c) => totalDe(c) > 0) : [cuenta];
+  const pagador = (cobro?.mesa && grupo.find((c) => c.Id === cobro.pagadorId)) || cuenta;
+  const pedidosCobro = cuentasCobro.flatMap(entregadosDe);
+  const subTiempoC = cuentasCobro.reduce((t, c) => t + cobroTiempo(c, ahora), 0);
+  const totalC = cuentasCobro.reduce((t, c) => t + totalDe(c), 0);
+  const resumenC = resumenPorCategoria(pedidosCobro, productos, categorias);
   const esBillar = cuenta.TipoCuenta === 'BILLAR';
   const resumen = resumenPorCategoria(entregados, productos, categorias);
 
@@ -173,8 +181,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   }
 
   async function cerrarMesa() {
-    const conConsumo = grupo.filter((c) => totalDe(c) > 0);
-    if (conConsumo.length) { decir(`Falta cobrar: ${conConsumo.map((c) => c.NombreLibre).join(', ')}`); return; }
+    if (grupo.some((c) => totalDe(c) > 0)) { setCierre(true); return; } // quedan cuentas por cobrar: ofrece cobrar toda la mesa
     if (cuenta.GaritaRelojId) await cerrarReloj(cuenta.GaritaRelojId);
     for (const c of grupo) await put('CUENTAS', { ...c, Estado: 'CANCELADA', HoraCierre: new Date().toISOString() });
     if (cuenta.MesaId) {
@@ -197,29 +204,32 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const abrirCobro = () => setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0 });
 
   async function confirmarCobro() {
-    const plan = planCobro({ ...cobro, total, tieneCliente: !!cuenta.ClienteId });
+    const plan = planCobro({ ...cobro, total: totalC, tieneCliente: !!pagador.ClienteId });
     if (plan.error) { decir(plan.error); return; }
     const { met1, met2, m1, m2, pendienteFiado } = plan;
     const { mixto } = cobro;
-    const suma = (f) => entregados.filter(f).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
+    const suma = (f) => pedidosCobro.filter(f).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
     await put('FACTURAS', {
-      ...(await datosFactura()), CuentaId: cuenta.Id, TurnoCajaId: cuenta.TurnoCajaId ?? null, SubtotalTiempo: subTiempo,
+      ...(await datosFactura()), CuentaId: pagador.Id, TurnoCajaId: pagador.TurnoCajaId ?? null, SubtotalTiempo: subTiempoC,
+      ...(cobro.mesa ? { CuentasIncluidas: cuentasCobro.map((c) => c.Id) } : {}),
       SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'),
       SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
       SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO'].includes(p.CategoriaConsumo)),
-      TotalPagar: total, TotalPendienteFiado: pendienteFiado, UsuarioId: usuario?.Id ?? null, AutorizoId: cobro.autorizoId ?? null,
+      TotalPagar: totalC, TotalPendienteFiado: pendienteFiado, UsuarioId: usuario?.Id ?? null, AutorizoId: cobro.autorizoId ?? null,
       MetodoPago: met1, MetodoPagoSecundario: met2,
       MontoPrimario: mixto ? m1 : null, MontoSecundario: mixto ? m2 : null,
       EstadoPago: pendienteFiado > 0 ? 'FIADO' : 'PAGADO',
     });
-    // Al cobrar, un chico en curso se termina
-    await put('CUENTAS', { ...terminarChico(cuenta), Estado: 'LIQUIDADA', HoraCierre: new Date().toISOString() });
-    if (cuenta.MesaId) {
+    // Al cobrar, un chico en curso se termina; en "toda la mesa" se liquidan todas las cuentas cobradas
+    const ahoraIso = new Date().toISOString();
+    for (const c of cuentasCobro) await put('CUENTAS', { ...terminarChico(c), Estado: 'LIQUIDADA', HoraCierre: ahoraIso, ...(c.Id !== pagador.Id ? { PagadaPorCuentaId: pagador.Id } : {}) });
+    if (cobro.mesa) for (const c of grupo.filter((x) => !cuentasCobro.some((y) => y.Id === x.Id))) await put('CUENTAS', { ...c, Estado: 'CANCELADA', HoraCierre: ahoraIso });
+    const quedan = cobro.mesa ? [] : grupo.filter((c) => c.Id !== cuenta.Id);
+    if (quedan.length === 0 && cuenta.MesaId) {
       const mesa = await get('MESAS_BILLAR', cuenta.MesaId);
       if (mesa) await put('MESAS_BILLAR', { ...mesa, Estado: 'DISPONIBLE' });
     }
     setCobro(null);
-    const quedan = grupo.filter((c) => c.Id !== cuenta.Id);
     if (quedan.length === 0) { if (cuenta.GaritaRelojId) await cerrarReloj(cuenta.GaritaRelojId); volver(); return; }
     setActivaId(quedan[0].Id); decir('Cobrado ✓'); await cargar();
   }
@@ -230,7 +240,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     if (v === 'FIADO' && !puedeFiar) setPidePin({ luego: () => aplicar({ fiadoOk: true }) });
     else aplicar();
   }
-  const devuelta = cobro && !cobro.mixto && cobro.metodo === 'EFECTIVO' && cobro.pago >= total ? cobro.pago - total : null;
+  const devuelta = cobro && !cobro.mixto && cobro.metodo === 'EFECTIVO' && cobro.pago >= totalC ? cobro.pago - totalC : null;
   const soloDigitos = (v) => Number(String(v).replace(/\D/g, '')) || 0;
   const nombreDe = (v) => METODOS.find((m) => m.v === v)?.t;
   const ordenados = [...entregados].sort((a, b) => (b.FechaHora ?? '').localeCompare(a.FechaHora ?? ''));
@@ -417,12 +427,20 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       {cobro && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setCobro(null)}>
           <div className="pn-modal cb">
-            <h3>Cobrar · {cuenta.NombreLibre}</h3>
-            <div className="cb-tot">{fmt(total)}</div>
+            <h3>{cobro.mesa ? `Cobrar toda la mesa · ${dueno}` : `Cobrar · ${cuenta.NombreLibre}`}</h3>
+            {cobro.mesa && (
+              <>
+                <div className="cb-lab">¿Quién paga? ({cuentasCobro.length} {cuentasCobro.length === 1 ? 'cuenta' : 'cuentas'} · una sola factura)</div>
+                <div className="cb-quien">{grupo.map((c) => (
+                  <button key={c.Id} className={pagador.Id === c.Id ? 'on' : ''} onClick={() => setCobro({ ...cobro, pagadorId: c.Id, ...(c.ClienteId ? {} : { metodo: cobro.metodo === 'FIADO' ? 'EFECTIVO' : cobro.metodo, metodo1: cobro.metodo1 === 'FIADO' ? 'EFECTIVO' : cobro.metodo1, metodo2: cobro.metodo2 === 'FIADO' ? 'NEQUI' : cobro.metodo2 }) })}>
+                    {c.ClienteId ? '⭐ ' : ''}{c.NombreLibre}</button>))}</div>
+              </>
+            )}
+            <div className="cb-tot">{fmt(totalC)}</div>
             <div className="cb-tl">TOTAL A COBRAR</div>
             <div className="cb-cats">
-              {subTiempo > 0 && <span>🎱 Tiempo {fmt(subTiempo)}</span>}
-              {resumen.map((r) => <span key={r.clave}>{r.emoji} {r.nombre} {fmt(r.total)}</span>)}
+              {subTiempoC > 0 && <span>🎱 Tiempo {fmt(subTiempoC)}</span>}
+              {resumenC.map((r) => <span key={r.clave}>{r.emoji} {r.nombre} {fmt(r.totalC)}</span>)}
             </div>
 
             {!cobro.mixto && (
@@ -430,7 +448,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                 <div className="cb-lab">Método de pago</div>
                 <div className="cb-met">
                   {METODOS.map((m) => {
-                    const bloqueado = m.v === 'FIADO' && !cuenta.ClienteId;
+                    const bloqueado = m.v === 'FIADO' && !pagador.ClienteId;
                     return (
                       <button key={m.v} className={`${m.v === 'FIADO' ? 'fi' : ''} ${cobro.metodo === m.v ? 'on' : ''}`} disabled={bloqueado}
                         title={bloqueado ? 'Vincula un cliente para fiar' : ''} onClick={() => elegir('metodo', m.v)}>
@@ -442,13 +460,13 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               </>
             )}
 
-            {!cuenta.ClienteId && (
+            {!pagador.ClienteId && (
               <div className="cb-alerta">
-                🚫 {cuenta.NombreLibre} no es cliente registrado: el fiado no está disponible.
+                🚫 {pagador.NombreLibre} no es cliente registrado: el fiado no está disponible.
                 <button onClick={() => setVincular({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>Vincular cliente</button>
               </div>
             )}
-            {cuenta.ClienteId && cliente && (
+            {pagador.ClienteId && cliente && (
               <div className="cb-cli">A nombre de <b>{cliente.Nombre}{cliente.Apodo ? ` · “${cliente.Apodo}”` : ''}</b>{deuda > 0 && <span>Debe <b>{fmt(deuda)}</b></span>}</div>
             )}
 
@@ -460,9 +478,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                     <input inputMode="numeric" placeholder="$ —" value={cobro.pago ? '$' + cobro.pago.toLocaleString('es-CO') : ''}
                       onChange={(e) => setCobro({ ...cobro, pago: soloDigitos(e.target.value) })} /></div>
                   <div className="d"><small>DEVOLVER</small>
-                    <div className="n">{devuelta !== null ? fmt(devuelta) : cobro.pago > 0 ? 'Falta ' + fmt(total - cobro.pago) : '—'}</div></div>
+                    <div className="n">{devuelta !== null ? fmt(devuelta) : cobro.pago > 0 ? 'Falta ' + fmt(totalC - cobro.pago) : '—'}</div></div>
                 </div>
-                <div className="cb-tc">Total cuenta <b>{fmt(total)}</b></div>
+                <div className="cb-tc">Total cuenta <b>{fmt(totalC)}</b></div>
               </>
             )}
 
@@ -474,12 +492,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                     <input className="v" inputMode="numeric" placeholder="$ —" value={cobro.monto1 ? '$' + cobro.monto1.toLocaleString('es-CO') : ''}
                       onChange={(e) => setCobro({ ...cobro, monto1: soloDigitos(e.target.value) })} />
                     <div className="mm">{METODOS.map((m) => (
-                      <button key={m.v} disabled={m.v === 'FIADO' && !cuenta.ClienteId} className={cobro.metodo1 === m.v ? 'on' : ''}
+                      <button key={m.v} disabled={m.v === 'FIADO' && !pagador.ClienteId} className={cobro.metodo1 === m.v ? 'on' : ''}
                         onClick={() => elegir('metodo1', m.v)}>{m.t}</button>))}</div></div>
                   <div className="c"><div className="t">MÉTODO 2 · EL RESTO</div>
-                    <div className="v ver">{cobro.monto1 > 0 && cobro.monto1 < total ? fmt(total - cobro.monto1) : '$ —'}</div>
+                    <div className="v ver">{cobro.monto1 > 0 && cobro.monto1 < totalC ? fmt(totalC - cobro.monto1) : '$ —'}</div>
                     <div className="mm">{METODOS.map((m) => (
-                      <button key={m.v} disabled={m.v === 'FIADO' && !cuenta.ClienteId} className={cobro.metodo2 === m.v ? 'on' : ''}
+                      <button key={m.v} disabled={m.v === 'FIADO' && !pagador.ClienteId} className={cobro.metodo2 === m.v ? 'on' : ''}
                         onClick={() => elegir('metodo2', m.v)}>{m.t}</button>))}</div></div>
                 </div>
               </>
@@ -526,6 +544,19 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                 setAvisoSel(null); decir('Hora cobrada ✓'); await cargar();
               }}>COBRAR {avisoSel.ids.size} {avisoSel.ids.size === 1 ? 'PERSONA' : 'PERSONAS'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {cierre && (
+        <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setCierre(false)}>
+          <div className="pn-modal">
+            <h3>{esGarita ? 'Terminar garita' : 'Cerrar mesa'} · faltan cuentas por cobrar</h3>
+            <div className="cb-quien lista">{grupo.filter((c) => totalDe(c) > 0).map((c) => <div key={c.Id}><span>👤 {c.NombreLibre}</span><b>{fmt(totalDe(c))}</b></div>)}</div>
+            <div className="cb-tot">{fmt(totalMesa)}</div><div className="cb-tl">TOTAL DE LA MESA</div>
+            <p className="au-nota">¿Paga una sola persona? Cobra <b>toda la mesa</b> de una vez. O cobra cada cuenta por separado con el botón Cobrar.</p>
+            <div className="pn-acc"><button className="no" onClick={() => setCierre(false)}>VOLVER</button>
+              <button className="si" onClick={() => { setCierre(false); setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0, mesa: true, pagadorId: cuenta.Id }); }}>💳 COBRAR TODA LA MESA</button></div>
           </div>
         </div>
       )}
