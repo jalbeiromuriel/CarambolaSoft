@@ -92,7 +92,7 @@ export default function Inventario() {
         <p className="iv-nota">Margen = (precio − costo) ÷ precio · <i className="ok">≥ {objetivo}%</i> <i className="medio">{objetivo - 10}–{objetivo - 1}%</i> <i className="bajo">&lt; {objetivo - 10}%</i></p>
       </div>
 
-      {modal?.tipo === 'sim' && <Simulador p={modal.prod} cerrar={() => setModal(null)} aplicar={(precio) => guardar(modal.prod, { PrecioVenta: precio }, `${modal.prod.Nombre}: nuevo precio ${fmt(precio)} ✓`)} />}
+      {modal?.tipo === 'sim' && <Simulador p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} aplicar={(precio) => guardar(modal.prod, { PrecioVenta: precio }, `${modal.prod.Nombre}: nuevo precio ${fmt(precio)} ✓`)} />}
       {modal?.tipo === 'promo' && <Promo p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} guardar={(promo) => guardar(modal.prod, { Promo: promo }, promo ? 'Promoción aplicada ✓' : 'Promoción eliminada')} />}
       {modal?.tipo === 'reab' && <Reabastecer productos={productos} objetivo={objetivo} cerrar={() => setModal(null)} listo={async (msg) => { await cargar(); setModal(null); decir(msg); }} />}
       {modal?.tipo === 'margenes' && <Margenes productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
@@ -115,12 +115,14 @@ function Modal({ titulo, cerrar, children, ancho = 520, rojo }) {
   );
 }
 
-function Simulador({ p, cerrar, aplicar }) {
+function Simulador({ p, objetivo, cerrar, aplicar }) {
   const costo = p.CostoCompra ?? 0, actual = p.PrecioVenta;
-  const [pct, setPct] = useState(inv.INCREMENTO_INICIAL);
-  const [precio, setPrecio] = useState(inv.precioConIncremento(actual, inv.INCREMENTO_INICIAL));
+  // Arranca con el margen objetivo (40 %): el precio que lo da es el punto de partida
+  const inicial = inv.precioParaMargen(costo, objetivo) ?? actual;
+  const [pct, setPct] = useState(Math.min(inv.INCREMENTO_MAX, Math.max(0, inv.incrementoDe(actual, inicial))));
+  const [precio, setPrecio] = useState(inicial);
   const [uni, setUni] = useState(0);
-  const [mg, setMg] = useState(String(Math.round(inv.margenPct(inv.precioConIncremento(actual, inv.INCREMENTO_INICIAL), costo))));
+  const [mg, setMg] = useState(String(Math.round(inv.margenPct(inicial, costo))));
   const s = inv.simular({ costo, precio, unidades: uni });
   const fijar = (nuevo, origen) => { setPrecio(nuevo); setPct(Math.min(inv.INCREMENTO_MAX, Math.max(0, inv.incrementoDe(actual, nuevo)))); if (origen !== 'mg') setMg(String(Math.round(inv.margenPct(nuevo, costo)))); };
   return (
@@ -131,13 +133,19 @@ function Simulador({ p, cerrar, aplicar }) {
         <div><label>Unidades/mes</label><input className="iv-hi" inputMode="numeric" value={uni || ''} placeholder="0" onChange={(e) => setUni(num(e.target.value))} /></div>
       </div>
       <div className="iv-rngf">
-        <span>Nuevo precio</span>
+        <span>Subir precio actual</span>
         <div><input type="range" min="0" max={inv.INCREMENTO_MAX} value={pct} onChange={(e) => fijar(inv.precioConIncremento(actual, Number(e.target.value)))} />
           <div className="iv-tk"><span>+0%</span><span>+100%</span><span>+250%</span><span>+500%</span></div></div>
         <input className="iv-hi iv-np" inputMode="numeric" value={precio ? '$' + precio.toLocaleString('es-CO') : ''} placeholder="$ precio"
           onChange={(e) => { const v = num(e.target.value); setPrecio(v); setPct(Math.min(inv.INCREMENTO_MAX, Math.max(0, inv.incrementoDe(actual, v)))); setMg(String(Math.round(inv.margenPct(v, costo)))); }} />
       </div>
-      <div className="iv-chips">{inv.ATAJOS_INCREMENTO.map((a) => <button key={a} className={pct === a ? 'on' : ''} onClick={() => fijar(inv.precioConIncremento(actual, a))}>+{a}%</button>)}</div>
+      <div className="iv-chips"><em>Margen:</em>{inv.ATAJOS_MARGEN.map((a) => <button key={a} className={Number(mg) === a ? 'on' : ''} onClick={() => { const nuevo = inv.precioParaMargen(costo, a); if (nuevo) { fijar(nuevo, 'mg'); setMg(String(a)); } }}>{a}%</button>)}</div>
+      <div className={'iv-res ' + (precio === actual ? '' : precio > actual ? 'sube' : 'baja')}>
+        <small>PRECIO DE VENTA RESULTANTE</small>
+        <b>{fmt(precio)}</b>
+        <span>{precio === actual ? 'Es tu precio actual: no cambia.' : `Hoy se vende a ${fmt(actual)} → quedaría en ${fmt(precio)} (${inv.incrementoDe(actual, precio) >= 0 ? '+' : ''}${inv.incrementoDe(actual, precio)}%).`}</span>
+        <span>Costo {fmt(costo)} con margen del {Math.round(s.margen)}% ⇒ vendes a {fmt(precio)} (se redondea hacia arriba a $50).</span>
+      </div>
       <div className="iv-kp">
         <div className="hi"><small>Margen · escríbelo</small>
           <input inputMode="numeric" value={mg} onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); setMg(v); const nuevo = inv.precioParaMargen(costo, Number(v)); if (nuevo) fijar(nuevo, 'mg'); }} /><b> %</b></div>

@@ -239,3 +239,8 @@ test('recargo sobre costo vs margen sobre precio', () => {
   assert.equal(Math.round(inv.recargoPct(6200, 3000)), 107);
   assert.equal(Math.round(inv.margenPct(8680, 3000)), 65);
 });
+
+test('margen 40 % sobre costo 3000 da 5000 (caso de la Patrona)', () => {
+  assert.equal(inv.precioParaMargen(3000, 40), 5000);
+  assert.equal(Math.round(inv.margenPct(5000, 3000)), 40);
+});

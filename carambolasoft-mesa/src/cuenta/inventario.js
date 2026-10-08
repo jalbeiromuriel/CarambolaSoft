@@ -2,6 +2,7 @@
 export const MARGEN_OBJETIVO = 40;       // % por defecto, editable en Márgenes
 export const INCREMENTO_MAX = 500;       // el simulador sube hasta +500 % sobre el precio actual
 export const INCREMENTO_INICIAL = 40;    // la barra arranca en +40 %
+export const ATAJOS_MARGEN = [30, 35, 40, 45, 50, 60, 70];
 export const ATAJOS_INCREMENTO = [10, 25, 40, 50, 150, 300, 500];
 
 const redondea50 = (n) => Math.ceil(n / 50) * 50;   // precios "de tienda": múltiplos de $50
