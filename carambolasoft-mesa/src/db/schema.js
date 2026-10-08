@@ -6,7 +6,7 @@
 // ============================================================
 
 export const DB_NAME = 'ElParcheDeJony';   // nombre técnico — NO renombrar sin migración
-export const DB_VERSION = 3;                // v3: GARITAS_RELOJ
+export const DB_VERSION = 4;                // v4: USUARIOS
 
 // Espejo 1:1 de las 19 tablas SQL (keyPath = Id, GUID generado en cliente)
 export const STORES = [
@@ -30,6 +30,7 @@ export const STORES = [
   'ABONOS_FIADO',
   'CIERRE_DIA',
   'GARITAS_RELOJ',
+  'USUARIOS',
 ];
 
 // Cola de sincronización: registro de operaciones pendientes de subir
@@ -51,6 +52,7 @@ const INDEXES = {
   MAQUINAS_MOVIMIENTOS: [['porMaquina', 'MaquinaId']],
   CLIENTES:         [['porNombre', 'Nombre']],
   JUGADORES:        [['porUsername', 'Username']],
+  USUARIOS:         [['porNombre', 'Nombre']],
 };
 
 let _dbPromise = null;

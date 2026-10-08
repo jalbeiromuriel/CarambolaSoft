@@ -5,6 +5,7 @@ import { put, getAll } from '../db/repository.js';
 import SelectorCliente, { sumarVisita } from './SelectorCliente.jsx';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre } from '../cuenta/catalogo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
+import { useSesion } from './Sesion.jsx';
 import { PRODUCTO_LIBRE_ID } from '../cuenta/garita.js';
 
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
@@ -25,6 +26,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
   const [cliente, setCliente] = useState(null);   // opcional: da historial (Lo de siempre) y ⭐ visitas
   const [elegir, setElegir] = useState(null);     // { sel, creando, error }
   const [cuentas, setCuentas] = useState([]);
+  const { usuario } = useSesion();
   const [aviso, setAviso] = useState('');
 
   useEffect(() => { (async () => {
@@ -92,7 +94,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
       CuentaId: cuenta.Id, TurnoCajaId: null, SubtotalTiempo: 0,
       SubtotalLicor: suma((l) => cat(l) === 'BEBIDAS_ALCOHOLICAS'), SubtotalSnacks: suma((l) => cat(l) === 'SNACKS'),
       SubtotalOtros: suma((l) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS'].includes(cat(l))),
-      TotalPagar: total, TotalPendienteFiado: 0, MetodoPago: plan.met1, MetodoPagoSecundario: null,
+      TotalPagar: total, TotalPendienteFiado: 0, UsuarioId: usuario?.Id ?? null, MetodoPago: plan.met1, MetodoPagoSecundario: null,
       MontoPrimario: null, MontoSecundario: null, EstadoPago: 'PAGADO',
     });
     await sumarVisita(cliente);

@@ -110,3 +110,5 @@
 .pn-nav button{padding:9px 14px;border:1px solid var(--line);border-radius:9px;font-size:13px;color:#cbd0dc;background:#0b0f19;cursor:pointer;min-height:40px}
 .pn-nav button.on{border-color:var(--oro);color:var(--oro);background:#e8c06a14;font-weight:700}
 .pn-nav button.off{opacity:.45;border-style:dashed;cursor:not-allowed}
+.pn-nav button.pn-who{border-color:#4ade8077;color:var(--ver);background:#4ade8010;border-radius:99px;margin-left:8px}
+.pn-nav button.pn-who.emp{border-color:#38bdf877;color:#38bdf8;background:#38bdf810}
