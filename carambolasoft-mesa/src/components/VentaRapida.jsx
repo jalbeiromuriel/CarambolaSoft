@@ -1,5 +1,6 @@
 // src/components/VentaRapida.jsx — Venta rápida: pide y paga en un solo paso, sin abrir mesa ni cuenta abierta.
 // El carrito vive en memoria; al cobrar se escribe cuenta VENTA_RAPIDA (liquidada) + pedidos + factura + stock.
+import { precioVigente } from '../cuenta/inventario.js';
 import { useState, useEffect, useMemo } from 'react';
 import { put, getAll } from '../db/repository.js';
 import SelectorCliente, { sumarVisita } from './SelectorCliente.jsx';
@@ -56,7 +57,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
     if (p.ControlaStock !== false && enCarro(p) >= (p.StockActual ?? 0)) { decir(`Sin stock: ${p.Nombre}`); return; }
     setCarro((c) => c.some((l) => l.prod?.Id === p.Id)
       ? c.map((l) => (l.prod?.Id === p.Id ? { ...l, cant: l.cant + 1 } : l))
-      : [...c, { key: p.Id, prod: p, nombre: p.Nombre, precio: p.PrecioVenta, cant: 1 }]);
+      : [...c, { key: p.Id, prod: p, nombre: p.Nombre, precio: precioVigente(p), cant: 1 }]);
   }
   const cambiar = (key, d) => setCarro((c) => c.flatMap((l) => {
     if (l.key !== key) return [l];
@@ -132,7 +133,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
                 return (
                   <div key={p.Id} className={`ms-p ${out ? 'out' : ''}`} style={{ '--c': cat.color }} role="button" onClick={() => !out && agregar(p)}>
                     <span className="e">{cat.emoji}</span>
-                    <div className="t"><b>{p.Nombre}</b><i>{fmt(p.PrecioVenta)}</i>{out && <span className="st lo">Agotado</span>}</div>
+                    <div className="t"><b>{p.Nombre}</b><i>{fmt(precioVigente(p))}</i>{out && <span className="st lo">Agotado</span>}</div>
                     {n > 0 && <span className="q vrq">{n}</span>}
                   </div>
                 );

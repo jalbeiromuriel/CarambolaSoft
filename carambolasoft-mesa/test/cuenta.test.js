@@ -179,3 +179,41 @@ test('fiados: antigüedad y numeración', () => {
   assert.equal(siguienteNumero([{ Numero: 'F-0003' }, { Numero: 'F-0007' }, {}]), 8);
   assert.equal(etiquetaFactura(8), 'F-0008');
 });
+
+// ── Inventario (Fase 3)
+import * as inv from '../src/cuenta/inventario.js';
+test('margen y precio para margen', () => {
+  assert.equal(Math.round(inv.margenPct(4000, 2367)), 41);
+  assert.equal(inv.precioParaMargen(3000, 40), 5000);
+  assert.equal(inv.precioParaMargen(0, 40), null);
+  assert.equal(inv.precioParaMargen(3000, 95), null);
+  assert.equal(inv.nivelMargen(41), 'ok'); assert.equal(inv.nivelMargen(33), 'medio'); assert.equal(inv.nivelMargen(25), 'bajo');
+});
+test('simulador: incremento hasta 500 %', () => {
+  assert.equal(inv.precioConIncremento(4000, 40), 5600);
+  assert.equal(inv.precioConIncremento(4000, 500), 24000);
+  assert.equal(inv.precioConIncremento(4000, 900), 24000);
+  assert.equal(inv.incrementoDe(4000, 5600), 40);
+  const s = inv.simular({ costo: 2367, precio: 5600, unidades: 30 });
+  assert.equal(s.gana, 3233); assert.equal(s.mes, 96990); assert.equal(Math.round(s.margen), 58);
+});
+test('reabastecer: alerta y sugerido', () => {
+  const r = inv.compararCompra({ precio: 5000, costoAntes: 3100, costoNuevo: 3400 });
+  assert.equal(r.bajo, true); assert.equal(r.sugerido, 5700); assert.equal(Math.round(r.despues.margen), 32);
+  assert.equal(inv.compararCompra({ precio: 5000, costoAntes: 3100, costoNuevo: 2900 }).bajo, false);
+});
+test('productos bajo margen: ordenados y sin garita', () => {
+  const l = inv.productosBajoMargen([{ PrecioVenta: 4000, CostoCompra: 2500 }, { PrecioVenta: 5000, CostoCompra: 4000 }, { PrecioVenta: 1000, CostoCompra: 0, ControlaStock: false }, { PrecioVenta: 5000, CostoCompra: 2500 }]);
+  assert.equal(l.length, 2); assert.equal(l[0].p.CostoCompra, 4000);
+});
+test('promo: fechas y franja horaria (cruza medianoche)', () => {
+  const p = { PrecioVenta: 4000, Promo: { Precio: 3000, Ini: '2026-10-01', Fin: '2026-10-31', HoraIni: '14:00', HoraFin: '17:00' } };
+  assert.equal(inv.precioVigente(p, new Date(2026, 9, 8, 15, 0)), 3000);
+  assert.equal(inv.precioVigente(p, new Date(2026, 9, 8, 18, 0)), 4000);
+  assert.equal(inv.promoEstado(p.Promo, new Date(2026, 10, 2, 15, 0)), 'VENCIDA');
+  assert.equal(inv.promoEstado(p.Promo, new Date(2026, 8, 20, 15, 0)), 'FUTURA');
+  const n = { Precio: 3000, Ini: '2026-10-01', Fin: '2026-10-31', HoraIni: '22:00', HoraFin: '02:00' };
+  assert.equal(inv.promoEstado(n, new Date(2026, 9, 8, 1, 0)), 'ACTIVA');
+  assert.equal(inv.validarPromo({ Precio: 0 }), 'Escribe el precio promocional');
+  assert.equal(inv.descuentoPct(4000, 3000), 25);
+});
