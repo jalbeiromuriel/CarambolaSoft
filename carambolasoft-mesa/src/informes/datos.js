@@ -1,4 +1,5 @@
 // src/informes/datos.js — Datos y textos de los informes (funciones puras, sin pantalla).
+import { formatearNumero } from '../cuenta/cuentasPago.js';
 import { partesFactura, resumenTurno, arqueo } from '../cuenta/caja.js';
 import { PRODUCTO_GARITA_ID } from '../cuenta/garita.js';
 
@@ -141,7 +142,7 @@ export function carteraFiados(lista, ahora = Date.now(), diasVieja = 15) {
 
 const lineasPago = (cuentas) => {
   const l = (Array.isArray(cuentas) ? cuentas : []).filter((c) => c?.numero);
-  return l.length ? ['', '*¿Dónde pagar?*', ...l.flatMap((c, i) => [...(i ? [''] : []), c.banco, c.numero, c.titular].filter((x) => x))] : [];
+  return l.length ? ['', '*¿Dónde pagar?*', ...l.flatMap((c, i) => [...(i ? [''] : []), c.banco, formatearNumero(c.tipo, c.numero), c.titular].filter((x) => x))] : [];
 };
 
 export function textoReciboFiado(d, cuentas) {

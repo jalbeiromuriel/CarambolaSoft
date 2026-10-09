@@ -31,3 +31,17 @@ export function conPrincipal(lista, idPrincipal) {
 }
 
 export const validarCuenta = (c) => (!String(c.numero ?? '').trim() ? 'Escribe el número.' : !String(c.titular ?? '').trim() ? 'Escribe el titular.' : !String(c.banco ?? '').trim() ? 'Escribe el banco o nombre.' : '');
+
+const soloNumero = (n) => /^[\d\s.-]+$/.test(String(n ?? ''));
+
+/** Cómo se VE el número (solo pantalla y recibos): bancos en grupos de 3; Nequi/Daviplata 3-3-4; llaves y alias tal cual. Lo guardado va sin formato. */
+export function formatearNumero(tipo, numero) {
+  const raw = String(numero ?? '').trim();
+  if (!soloNumero(raw) || tipo === 'BREB') return raw;
+  const d = raw.replace(/\D/g, '');
+  if ((tipo === 'NEQUI' || tipo === 'DAVIPLATA') && d.length === 10) return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`;
+  return d.replace(/(\d{3})(?=\d)/g, '$1 ');
+}
+
+/** Lo que se copia: solo dígitos si es un número; alias, correos y llaves tal cual. */
+export const numeroParaCopiar = (numero) => (soloNumero(numero) ? String(numero).replace(/\D/g, '') : String(numero ?? '').trim());
