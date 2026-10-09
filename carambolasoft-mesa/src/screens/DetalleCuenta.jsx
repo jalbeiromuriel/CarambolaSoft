@@ -13,10 +13,12 @@ import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
 import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js';
-import { datosFactura } from '../cuenta/fiadosDb.js';
+import { datosFactura, leerDatosPago } from '../cuenta/fiadosDb.js';
 import { useSesion } from '../components/Sesion.jsx';
 import { PinAdmin } from './Auth.jsx';
 import { esAdmin } from '../cuenta/auth.js';
+import { HojaReciboCuenta } from '../informes/Hoja.jsx';
+import { reciboCuenta, textoReciboCuenta } from '../informes/datos.js';
 import './Panel.css';
 import './Mesa.css';
 
@@ -35,6 +37,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [filtro, setFiltro] = useState('todos');
   const [q, setQ] = useState('');
   const [cobro, setCobro] = useState(null);
+  const [recibo, setRecibo] = useState(null);
   const [cierre, setCierre] = useState(false); // "Cerrar mesa" con cuentas sin cobrar
   const [nueva, setNueva] = useState(null);   // { sel, creando, error }
   const [vincular, setVincular] = useState(null); // { sel, creando, error } — ligar un cliente a la cuenta abierta
@@ -249,9 +252,16 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const dueno = grupo[0]?.NombreLibre ?? cuenta.NombreLibre; // la mesa lleva el nombre de su primera cuenta
   const titulo = esGarita ? `⏱ Garita · ${dueno}` : esBillar ? `Billar · ${dueno}` : `${dueno} · Licores`;
 
+  async function abrirRecibo() {
+    const d = reciboCuenta({ pedidos: pedidos.filter((p) => p.CuentaId === cuenta.Id), productos, tiempo: subTiempo });
+    setRecibo({ d, pago: await leerDatosPago() });
+  }
+
   return (
     <div className="pn ms">
       <Encabezado activo="panel" irPanel={volver} />
+      {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} pago={recibo.pago}
+        telefono={esAdmin(usuario?.Rol) ? cliente?.Telefono : null} texto={textoReciboCuenta(recibo.d, cuenta.NombreLibre, recibo.pago)} cerrar={() => setRecibo(null)} />}
 
       <div className="ms-sub">
         <button className="ms-volver" onClick={volver}>← Volver</button>
@@ -351,6 +361,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         <aside className="ms-card">
           <div className="ms-tm">
             <div><small>TOTAL MESA</small><div className="v">{fmt(totalMesa)}</div></div>
+            <button className="ms-sec" onClick={abrirRecibo}>🧾 Recibo</button>
             <button className="ms-oro" onClick={cerrarMesa}>{esGarita ? 'Terminar garita' : 'Cerrar mesa'}</button>
           </div>
           <div className="ms-nom">{cuenta.NombreLibre}</div>

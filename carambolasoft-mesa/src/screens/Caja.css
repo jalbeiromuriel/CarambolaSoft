@@ -39,3 +39,7 @@
 
 /* listas largas: scroll vertical dentro de la tarjeta */
 .cj-lista{max-height:calc(100vh - 250px);min-height:180px;overflow-y:auto;padding-right:6px;scrollbar-width:thin;scrollbar-color:#2a3350 transparent}
+.cj-der{display:flex;align-items:center;gap:8px}.cj-mini{border:1px solid var(--line);border-radius:8px;background:#0e1422;color:#cbd0dc;cursor:pointer;padding:5px 8px;font-size:13px}
+.cj-aviso{border:1px solid #38bdf866;background:#38bdf814;color:#7dd3fc;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px}
+.cj-acl{color:var(--oro) !important}
+.cj-mod textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:#0e1422;color:#e6e8ee;font-size:15px;outline:0;resize:vertical;font-family:inherit}
