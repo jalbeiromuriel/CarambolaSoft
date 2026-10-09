@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { METODOS_CAJA } from '../cuenta/caja.js';
 import { fmt, nombreMetodo, enlaceWhatsApp } from './datos.js';
 import { useEffect } from 'react';
+import { formatearNumero } from '../cuenta/cuentasPago.js';
 import './informes.css';
 
 const fechaLarga = (d = new Date()) => d.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -119,7 +120,7 @@ function CabTicket({ sub }) {
 function DondePagar({ cuentas }) {
   const l = (cuentas ?? []).filter((c) => c?.numero);
   return l.length
-    ? <div className="tk-pago"><b>¿DÓNDE PAGAR?</b>{l.map((c, i) => <div key={c.Id ?? i} className="tk-cta">{i > 0 && <hr />}<div>{c.banco}</div><div className="num">{c.numero}</div><div>{c.titular}</div></div>)}</div>
+    ? <div className="tk-pago"><b>¿DÓNDE PAGAR?</b>{l.map((c, i) => <div key={c.Id ?? i} className="tk-cta">{i > 0 && <hr />}<div>{c.banco}</div><div className="num">{formatearNumero(c.tipo, c.numero)}</div><div>{c.titular}</div></div>)}</div>
     : <div className="tk-pago vacio">Configura las cuentas en Panel → 💳 Cuenta para pagos → Administrar.</div>;
 }
 

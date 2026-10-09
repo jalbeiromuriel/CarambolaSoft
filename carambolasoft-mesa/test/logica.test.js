@@ -290,3 +290,15 @@ test('comprobante: métodos digitales y texto para la patrona', async () => {
   assert.match(t, /Abono de fiado/); assert.match(t, /Cliente: Chalo/); assert.match(t, /Valor: \$50\.000/); assert.match(t, /Nequi \+ Bancolombia/); assert.match(t, /Registró: Liliana/);
   assert.ok(!/Valor/.test(textoComprobante({ monto: 0, metodos: ['NEQUI'] })));
 });
+
+test('formatearNumero: grupos de 3, celular 3-3-4, llaves tal cual; copiar sin espacios', async () => {
+  const { formatearNumero, numeroParaCopiar } = await import('../src/cuenta/cuentasPago.js');
+  assert.equal(formatearNumero('BANCOLOMBIA', '61400033080'), '614 000 330 80');
+  assert.equal(formatearNumero('BANCOLOMBIA', '614 000330 80'), '614 000 330 80');
+  assert.equal(formatearNumero('NEQUI', '3001234567'), '300 123 4567');
+  assert.equal(formatearNumero('DAVIPLATA', '300 123 4567'), '300 123 4567');
+  assert.equal(formatearNumero('BREB', '3001234567'), '3001234567');
+  assert.equal(formatearNumero('BREB', '@meroparche'), '@meroparche');
+  assert.equal(formatearNumero('OTRA', 'a@b.co'), 'a@b.co');
+  assert.equal(numeroParaCopiar('614 000 330 80'), '61400033080'); assert.equal(numeroParaCopiar('@meroparche'), '@meroparche');
+});
