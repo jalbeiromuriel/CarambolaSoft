@@ -282,3 +282,11 @@ test('cuentasPago: migra la cuenta antigua, principal primero, ocultas fuera, un
   assert.match(pieDe('BREB'), /llave/);
   assert.equal(normalizarCuentas({ banco: 'Bancolombia · Ahorros', cuenta: '1' })[0].tipo, 'BANCOLOMBIA');
 });
+
+test('comprobante: métodos digitales y texto para la patrona', async () => {
+  const { esDigital, textoComprobante } = await import('../src/cuenta/comprobante.js');
+  assert.ok(['NEQUI', 'DAVIPLATA', 'TARJETA', 'TRANSFERENCIA'].every(esDigital)); assert.ok(!esDigital('EFECTIVO') && !esDigital('FIADO'));
+  const t = textoComprobante({ cliente: 'Chalo', monto: 50000, metodos: ['NEQUI', 'TARJETA'], usuario: 'Liliana', motivo: 'Abono de fiado', fecha: new Date('2026-10-09T15:00:00') });
+  assert.match(t, /Abono de fiado/); assert.match(t, /Cliente: Chalo/); assert.match(t, /Valor: \$50\.000/); assert.match(t, /Nequi \+ Bancolombia/); assert.match(t, /Registró: Liliana/);
+  assert.ok(!/Valor/.test(textoComprobante({ monto: 0, metodos: ['NEQUI'] })));
+});

@@ -2,7 +2,7 @@
 // Los datos viven en META 'negocio.cuentasPago' (solo este equipo); nunca van en el código.
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { leerCuentasPago, guardarCuentasPago } from '../cuenta/fiadosDb.js';
+import { leerCuentasPago, guardarCuentasPago, leerWhatsappPatrona, guardarWhatsappPatrona } from '../cuenta/fiadosDb.js';
 import { TIPOS_CUENTA, pieDe, cuentasActivas, cuentaNueva, conPrincipal, validarCuenta } from '../cuenta/cuentasPago.js';
 import './CuentaPagos.css';
 
@@ -11,9 +11,11 @@ const ORN = <svg viewBox="0 0 60 60" fill="none" stroke="currentColor" strokeWid
 export default function CuentaPagos({ admin, cerrar }) {
   const [lista, setLista] = useState(null);
   const [vista, setVista] = useState('tarjeta'); // 'tarjeta' | 'admin' | 'form'
+  const [wa, setWa] = useState('');
   const [i, setI] = useState(0); const [form, setForm] = useState(null); const [error, setError] = useState(''); const [copiado, setCopiado] = useState(false);
 
   useEffect(() => { leerCuentasPago().then((l) => { setLista(l); if (!cuentasActivas(l).length && admin) setVista('admin'); }); }, [admin]);
+  useEffect(() => { leerWhatsappPatrona().then(setWa); }, []);
   if (!lista) return null;
 
   const activas = cuentasActivas(lista);
@@ -83,6 +85,8 @@ export default function CuentaPagos({ admin, cerrar }) {
                 </div>
               </div>
             ))}
+            <label>WhatsApp de la patrona (para enviar comprobantes)</label>
+            <input inputMode="tel" value={wa} placeholder="3001234567" onChange={(e) => setWa(e.target.value.replace(/[^\d ]/g, ''))} onBlur={() => guardarWhatsappPatrona(wa)} />
             <p className="au-nota">Estos datos se guardan solo en este equipo; no se publican en el código. Ocultar no borra la cuenta.</p>
             <div className="pn-acc"><button className="no" onClick={() => setVista('tarjeta')}>VOLVER</button>
               <button className="si" onClick={() => { setForm(cuentaNueva()); setError(''); setVista('form'); }}>+ AGREGAR CUENTA</button></div>

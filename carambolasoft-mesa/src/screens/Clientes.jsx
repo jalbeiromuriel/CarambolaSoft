@@ -12,6 +12,8 @@ import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import { getAll } from '../db/repository.js';
 import { cargarFiados, registrarAbono, abonosDeCliente, leerCuentasPago } from '../cuenta/fiadosDb.js';
 import { HojaReciboFiado, HojaCartera, HojaCopiaFactura } from '../informes/Hoja.jsx';
+import BotonComprobante from '../components/BotonComprobante.jsx';
+import { esDigital, textoComprobante } from '../cuenta/comprobante.js';
 import CuentaPagos from '../components/CuentaPagos.jsx';
 import { cuentasActivas } from '../cuenta/cuentasPago.js';
 import { copiaFactura, textoCopiaFactura, reciboFiado, carteraFiados, textoReciboFiado, textoCartera } from '../informes/datos.js';
@@ -186,6 +188,7 @@ export default function Clientes() {
             <div className="cl-deuda"><small>DEUDA PENDIENTE</small><b>{fmt(abono.g.deuda)}</b>{abono.g.abonado > 0 && <span>ya abonó {fmt(abono.g.abonado)} antes</span>}</div>
             <div className="cb-lab">Método de pago</div>
             <div className="cb-met">{METODOS_ABONO.map((m) => <button key={m.v} className={abono.metodo === m.v ? 'on' : ''} onClick={() => setAbono({ ...abono, metodo: m.v })}>{m.t}</button>)}</div>
+            {esDigital(abono.metodo) && <BotonComprobante texto={textoComprobante({ cliente: abono.g.cliente.Nombre, monto: abono.monto, metodos: [abono.metodo], usuario: usuario?.Nombre, motivo: 'Abono de fiado' })} />}
             <div className="cb-lab">¿Cuánto paga el cliente? (puede ser un abono)</div>
             <input className="cl-monto" inputMode="numeric" autoFocus placeholder="$ —" value={abono.monto ? fmt(abono.monto) : ''} onChange={(e) => setAbono({ ...abono, monto: soloDigitos(e.target.value), error: '' })} />
             <div className="cl-q"><button onClick={() => setAbono({ ...abono, monto: abono.g.deuda })}>Todo {fmt(abono.g.deuda)}</button><button onClick={() => setAbono({ ...abono, monto: Math.round(abono.g.deuda / 2) })}>Mitad {fmt(Math.round(abono.g.deuda / 2))}</button></div>

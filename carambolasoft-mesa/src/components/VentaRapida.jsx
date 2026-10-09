@@ -9,6 +9,8 @@ import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre } fr
 import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { datosFactura } from '../cuenta/fiadosDb.js';
 import { useSesion } from './Sesion.jsx';
+import BotonComprobante from './BotonComprobante.jsx';
+import { esDigital, textoComprobante } from '../cuenta/comprobante.js';
 import { PRODUCTO_LIBRE_ID } from '../cuenta/garita.js';
 
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
@@ -157,6 +159,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
             <div className="cb-met">
               {SIN_FIADO.map((m) => <button key={m.v} className={metodo === m.v ? 'on' : ''} onClick={() => setMetodo(m.v)}>{m.t}</button>)}
             </div>
+            {esDigital(metodo) && <BotonComprobante texto={textoComprobante({ cliente: 'Venta rápida', monto: total, metodos: [metodo], usuario: usuario?.Nombre, motivo: 'Venta rápida' })} />}
             {metodo === 'EFECTIVO' && (
               <div className="cb-fila" style={{ marginTop: 10 }}>
                 <div className="p"><small>PAGO</small>
