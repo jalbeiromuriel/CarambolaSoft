@@ -186,3 +186,25 @@ test('caja: resumen del turno, efectivo esperado y arqueo', async () => {
   });
   assert.deepEqual(inv, { filas: [{ nombre: 'Águila', cant: 5 }], total: 5 });
 });
+
+test('informes: ganancia del día, sugerido de pedido y detalle de ventas', async () => {
+  const { informeDia, sugeridoPedido, detalleVentas, enlaceWhatsApp } = await import('../src/informes/datos.js');
+  const productos = [{ Id: 'a', Nombre: 'Águila', StockActual: 8, StockMinimo: 24 }, { Id: 'b', Nombre: 'Papas', StockActual: 7, StockMinimo: 5 }, { Id: 'c', Nombre: 'Maní', StockActual: 0, StockMinimo: 0 }];
+  const facturas = [{ Id: 'f1', CuentaId: 'c1', Numero: 'F-0001', FechaHora: '2026-10-08T20:00:00Z', TotalPagar: 30000, MetodoPago: 'EFECTIVO', SubtotalTiempo: 10000 }];
+  const pedidos = [
+    { CuentaId: 'c1', ProductoId: 'a', Cantidad: 4, EstadoPedido: 'ENTREGADO', PrecioUnitarioHist: 5000, CostoCompraHist: 3000 },
+    { CuentaId: 'c1', ProductoId: 'c', Cantidad: 2, EstadoPedido: 'ENTREGADO', PrecioUnitarioHist: 2000, CostoCompraHist: 900 },
+    { CuentaId: 'c1', ProductoId: 'a', Cantidad: 9, EstadoPedido: 'CANCELADO', PrecioUnitarioHist: 5000, CostoCompraHist: 3000 },
+    { CuentaId: 'zz', ProductoId: 'a', Cantidad: 9, EstadoPedido: 'ENTREGADO', PrecioUnitarioHist: 5000, CostoCompraHist: 3000 },
+  ];
+  const i = informeDia({ facturas, pedidos, productos });
+  assert.equal(i.ingresos, 34000);          // 20.000 + 4.000 + 10.000 de tiempo de mesa
+  assert.equal(i.costo, 13800);             // 12.000 + 1.800
+  assert.equal(i.ganancia, 20200);
+  const s = sugeridoPedido({ productos, vendidos: i.filas });
+  assert.deepEqual(s.map((x) => [x.nombre, x.sugerido]), [['Águila', 20], ['Maní', 2]]);   // 4+24−8 ; 2+0−0
+  const d = detalleVentas({ facturas, pedidos, productos, etiquetaDe: () => 'Mesa 1 · Ana' });
+  assert.equal(d[0].items.length, 3);       // tiempo + Águila + Maní
+  assert.equal(d[0].total, 30000);
+  assert.equal(enlaceWhatsApp('hola', '300 123 4567'), 'https://wa.me/573001234567?text=hola');
+});

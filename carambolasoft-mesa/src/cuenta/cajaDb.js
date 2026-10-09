@@ -11,12 +11,13 @@ export async function cargarTurno() {
     getAll('CLIENTES'), getAll('PEDIDOS_CUENTAS'), getAll('PRODUCTOS'), getAll('CIERRE_DIA'), getAll('USUARIOS'),
   ]);
   const t = { facturas: facturas.filter(abierto), abonos: abonos.filter(abierto), gastos: gastos.filter(abierto) };
+  const sellados = cierres.filter((c) => c.Confirmado);
   const abiertas = cuentas.filter((c) => c.Estado === 'ABIERTA');
   return {
-    ...t, cuentas, mesas, clientes, productos, usuarios, abiertas, abonosTodos: abonos, facturasTodas: facturas,
+    ...t, cuentas, mesas, clientes, productos, usuarios, abiertas, abonosTodos: abonos, facturasTodas: facturas, gastosTodos: gastos, pedidos,
     resumen: resumenTurno(t),
     vendido: inventarioVendido({ ...t, pedidos, productos }),
-    cierres: cierres.filter((c) => c.Confirmado).sort((a, b) => (b.FechaCierre ?? '').localeCompare(a.FechaCierre ?? '')),
+    cierres: sellados.sort((a, b) => (b.FechaCierre ?? '').localeCompare(a.FechaCierre ?? '')),
   };
 }
 
@@ -40,7 +41,7 @@ export async function cerrarCaja({ usuario, contado, nota }) {
   for (const g of t.gastos) await put('GASTOS_CAJA', { ...g, TurnoCajaId: turno.Id });
   const suma = (k) => t.facturas.reduce((s, f) => s + (f[k] ?? 0), 0);
   return put('CIERRE_DIA', {
-    TurnoCajaId: turno.Id, Fecha: ahora.slice(0, 10), FechaCierre: ahora, UsuarioId: usuario?.Id ?? null, UsuarioNombre: usuario?.Nombre ?? '',
+    TurnoCajaId: turno.Id, Numero: t.cierres.length + 1, Fecha: ahora.slice(0, 10), FechaCierre: ahora, UsuarioId: usuario?.Id ?? null, UsuarioNombre: usuario?.Nombre ?? '',
     TotalTiempo: suma('SubtotalTiempo'), TotalLicor: suma('SubtotalLicor'), TotalOtros: suma('SubtotalSnacks') + suma('SubtotalOtros'),
     TotalGeneral: r.totalVendido, TotalFiado: r.fiado, TotalGastos: r.totalGastos, TotalPremiosMaq: 0, TotalCobrosFiado: r.totalCobros,
     EfectivoEsperado: r.efectivoEsperado, EfectivoReportado: contado, Descuadre: ar.diferencia, Nota: nota?.trim() || '',

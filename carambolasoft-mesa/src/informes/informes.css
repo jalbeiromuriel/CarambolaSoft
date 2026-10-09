@@ -1,0 +1,21 @@
+/* Hojas de informes: papel blanco, sin rellenos, carta vertical */
+.inf-velo{overflow:auto;align-items:flex-start}
+.inf-hoja{background:#fff;color:#111;font-family:'Inter Variable',Inter,system-ui,sans-serif;font-size:12px;width:min(816px,96vw);margin:20px auto;padding:34px 40px;border-radius:6px;text-align:left}
+.inf-acc{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px;flex-wrap:wrap}.inf-acc button{border:1px solid #111;background:#fff;color:#111;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+.inf-hoja h1{font-size:22px;font-weight:800;letter-spacing:.12em;margin:0}.inf-hoja h2{font-size:13px;font-weight:700;margin:20px 0 6px;padding-bottom:5px;border-bottom:1px solid #111;letter-spacing:.04em}
+.inf-hoja .sub{font-size:11px;color:#444;margin-top:3px}.inf-hoja .r{text-align:right}.inf-hoja .der{text-align:right}
+.inf-cab{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid #111;padding-bottom:8px}.inf-cab b{font-size:15px}
+.inf-caja{border:2px solid #111;padding:10px 14px;text-align:center;margin:12px 0}.inf-caja small{display:block;letter-spacing:.2em;font-size:10px;text-transform:uppercase}.inf-caja b{display:block;font-size:30px;margin:2px 0}
+.inf-met{display:grid;grid-template-columns:1fr 1fr;gap:4px 22px}.inf-met div{display:flex;justify-content:space-between;border-bottom:1px dotted #999;padding:4px 0}
+.inf-hoja table{width:100%;border-collapse:collapse}.inf-hoja th{text-align:left;font-size:11px;padding:5px 4px;border-top:1px solid #111;border-bottom:1px solid #111}.inf-hoja th.r{text-align:right}
+.inf-hoja td{padding:5px 4px;border-bottom:1px dashed #999;font-size:11.5px}.inf-hoja td.c{text-align:center;padding:14px}.inf-hoja tr.tot td{border-top:2px solid #111;border-bottom:0;font-weight:800}
+.inf-bloque{border:1px solid #111;margin-bottom:10px;break-inside:avoid}.inf-bloque .h{display:flex;justify-content:space-between;gap:10px;padding:6px 10px;border-bottom:1px solid #111;font-weight:700}.inf-bloque .h small{display:block;font-weight:400;color:#444;font-size:10.5px}
+.inf-bloque table td{border-bottom:1px dotted #bbb}.inf-bloque th{border-top:0}
+.inf-pie{text-align:center;font-size:10px;color:#555;margin-top:20px}
+@media print{
+  #root{display:none !important}
+  .inf-hoja,.inf-hoja *{visibility:visible !important}
+  .inf-velo{position:static !important;display:block !important;background:none !important;overflow:visible !important;backdrop-filter:none !important}
+  .inf-hoja{width:100%;margin:0;padding:0;border-radius:0}.inf-acc{display:none}
+  @page{size:letter portrait;margin:12mm}
+}

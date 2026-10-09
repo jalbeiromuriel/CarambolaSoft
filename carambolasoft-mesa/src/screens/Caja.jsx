@@ -7,6 +7,8 @@ import { PinAdmin } from './Auth.jsx';
 import { METODOS } from '../cuenta/cobro.js';
 import { CATEGORIAS_GASTO, METODOS_CAJA, arqueo, movimientos } from '../cuenta/caja.js';
 import { cargarTurno, registrarGasto, cerrarCaja } from '../cuenta/cajaDb.js';
+import { HojaCierre, HojaInformeDia } from '../informes/Hoja.jsx';
+import { datosCierre, informeDia, sugeridoPedido, textoCierre, textoInformeDia } from '../informes/datos.js';
 import './Panel.css';
 import './Caja.css';
 
@@ -51,6 +53,11 @@ export default function Caja() {
   const movs = movimientos({ facturas: t.facturas, abonos: t.abonos, gastos: t.gastos, etiquetaDe: etiqueta });
   const aperturas = t.abiertas.map((c) => etiqueta({ CuentaId: c.Id }).replace(/^\S+\s/, '')).filter(Boolean);
   const hayAbiertas = t.abiertas.length > 0;
+  // datos de un cierre ya sellado (por TurnoCajaId) o del turno abierto
+  const datosDe = (c) => {
+    const por = (l) => (c ? l.filter((x) => x.TurnoCajaId === c.TurnoCajaId) : l.filter((x) => x.TurnoCajaId == null));
+    return datosCierre({ facturas: por(t.facturasTodas), abonos: por(t.abonosTodos), gastos: por(t.gastosTodos), pedidos: t.pedidos, productos: t.productos, etiquetaDe: etiqueta, cierre: c });
+  };
 
   return (
     <>
@@ -74,8 +81,8 @@ export default function Caja() {
             <div className="cj-btns">
               <button className="cj-cierre" disabled={hayAbiertas} onClick={() => setModal('cierre')} title={hayAbiertas ? 'Hay cuentas abiertas' : ''}>🔒 Cerrar caja</button>
               <button className="cj-b" onClick={() => setModal('gasto')}>💸 Gasto</button>
-              <button className="cj-b" disabled title="Próximo paso: informes PDF">📄 Informe</button>
-              <button className="cj-b ve" disabled title="Próximo paso: informes PDF">📊 Del día</button>
+              <button className="cj-b" onClick={() => setModal({ informe: null })} title="Cierre del turno: resumen, arqueo y detalle por mesa">📄 Informe</button>
+              <button className="cj-b ve" onClick={() => setModal('dia')} title="Productos vendidos, ganancia y sugerido de pedido">📊 Del día</button>
               <button className="cj-b" onClick={() => setModal('vendido')} title="Unidades vendidas del turno, para cuadrar la nevera">📋 Vendido</button>
             </div>
           </div>
@@ -98,7 +105,7 @@ export default function Caja() {
                 <div className="cj-lista">{t.cierres.map((c) => (
                   <div className="cj-mv" key={c.Id}>
                     <div>{dia(c.FechaCierre)} · {hora(c.FechaCierre)}<small>{c.UsuarioNombre || '—'} · {c.NVentas} ventas · {c.Descuadre === 0 ? 'Cuadró ✓' : `${c.Descuadre > 0 ? 'Sobrante' : 'Faltante'} ${fmt(Math.abs(c.Descuadre))}`}{c.Nota ? ` · ${c.Nota}` : ''}</small></div>
-                    <b>{fmt(c.TotalGeneral)}</b>
+                    <span className="cj-der"><b>{fmt(c.TotalGeneral)}</b><button className="cj-mini" title="Ver informe del cierre" onClick={() => setModal({ informe: c })}>📄</button></span>
                   </div>
                 ))}</div>
               </div>
@@ -112,6 +119,16 @@ export default function Caja() {
         try { await cerrarCaja({ usuario, contado, nota }); } catch (e) { decir(e.message); setModal(null); return; }
         const previo = t.vendido; await cargar(); setModal({ vendido: previo, cierre: true }); decir('Caja cerrada ✓');
       }} />}
+      {modal?.informe !== undefined && (() => {
+        const c = modal.informe;
+        const d = datosDe(c);
+        return <HojaCierre d={d} usuarioNombre={usuario?.Nombre} cerrar={() => setModal(null)} texto={textoCierre(d, new Date(c?.FechaCierre ?? Date.now()).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }))} />;
+      })()}
+      {modal === 'dia' && (() => {
+        const i = informeDia({ facturas: t.facturas, pedidos: t.pedidos, productos: t.productos });
+        const sug = sugeridoPedido({ productos: t.productos, vendidos: i.filas });
+        return <HojaInformeDia i={i} sugerido={sug} usuarioNombre={usuario?.Nombre} cerrar={() => setModal(null)} texto={textoInformeDia(i, new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }))} />;
+      })()}
       {modal === 'vendido' && <Vendido v={t.vendido} cerrar={() => setModal(null)} />}
       {modal?.vendido && <Vendido v={modal.vendido} cierre cerrar={() => setModal(null)} />}
       {aviso && <div className="iv-toast">{aviso}</div>}
