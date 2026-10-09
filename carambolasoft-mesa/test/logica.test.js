@@ -128,3 +128,29 @@ test('analisis: ventaja máxima, letalidad y sello', () => {
   assert.equal(selloEpico(r.premios, 'a'), 'Mero Patrón');
   assert.equal(selloEpico(r.premios, 'zz'), 'Jugador del Parche');
 });
+
+test('reposición: vendido + mínimo − stock, fraccionados cuentan en su envase', async () => {
+  const { reposicion } = await import('../src/cuenta/inventario.js');
+  const prods = [
+    { Id: 'a', Nombre: 'Águila', StockActual: 8, StockMinimo: 24, CostoCompra: 3000 },
+    { Id: 'b', Nombre: 'Papas', StockActual: 7, StockMinimo: 5, CostoCompra: 2000 },
+    { Id: 'bot', Nombre: 'Media', StockActual: 1, StockMinimo: 1, CostoCompra: 42000 },
+    { Id: 'copa', Nombre: 'Copa', StockActual: 0, Fraccion: { OrigenId: 'bot', Rinde: 10 } },
+    { Id: 'off', Nombre: 'Viejo', Activo: false, StockActual: 0, StockMinimo: 9 },
+  ];
+  const d = (dia) => new Date(dia + 'T12:00:00').toISOString();
+  const ped = [
+    { ProductoId: 'a', Cantidad: 86, EstadoPedido: 'ENTREGADO', FechaHora: d('2026-10-05') },
+    { ProductoId: 'a', Cantidad: 10, EstadoPedido: 'CANCELADO', FechaHora: d('2026-10-05') },
+    { ProductoId: 'a', Cantidad: 50, EstadoPedido: 'ENTREGADO', FechaHora: d('2026-09-01') },   // fuera de rango
+    { ProductoId: 'copa', Cantidad: 25, EstadoPedido: 'ENTREGADO', FechaHora: d('2026-10-06') },
+  ];
+  const r = reposicion(prods, ped, '2026-09-24', '2026-10-08');
+  const f = (id) => r.find((x) => x.p.Id === id);
+  assert.equal(f('a').pedir, 102);          // 86 + 24 − 8
+  assert.equal(f('b').pedir, 0);            // sin ventas y stock sobre el mínimo
+  assert.equal(f('bot').vendido, 2.5);      // 25 copas ÷ 10
+  assert.equal(f('bot').pedir, 3);          // 2.5 + 1 − 1 = 2.5 → 3
+  assert.equal(r.some((x) => x.p.Id === 'copa' || x.p.Id === 'off'), false);
+  assert.equal(r[0].p.Id, 'a');             // los de más pedido primero
+});
