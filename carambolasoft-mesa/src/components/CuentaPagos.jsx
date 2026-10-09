@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { leerCuentasPago, guardarCuentasPago, leerWhatsappPatrona, guardarWhatsappPatrona } from '../cuenta/fiadosDb.js';
-import { TIPOS_CUENTA, pieDe, cuentasActivas, cuentaNueva, conPrincipal, validarCuenta } from '../cuenta/cuentasPago.js';
+import { TIPOS_CUENTA, pieDe, formatearNumero, numeroParaCopiar, cuentasActivas, cuentaNueva, conPrincipal, validarCuenta } from '../cuenta/cuentasPago.js';
 import './CuentaPagos.css';
 
 const ORN = <svg viewBox="0 0 60 60" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"><path d="M3 57V22C3 11 11 3 22 3h35" /><path d="M10 57V26c0-9 7-16 16-16h31" opacity=".6" /><path d="M16 30c0-8 6-14 14-14M22 36c0-6 4-10 10-10" opacity=".7" /><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" /></svg>;
@@ -21,7 +21,7 @@ export default function CuentaPagos({ admin, cerrar }) {
   const activas = cuentasActivas(lista);
   const actual = activas[Math.min(i, activas.length - 1)];
   const guardar = async (nueva) => { const l = conPrincipal(nueva); setLista(l); await guardarCuentasPago(l); };
-  const copiar = () => { navigator.clipboard?.writeText(actual.numero).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 1600); }); };
+  const copiar = () => { navigator.clipboard?.writeText(numeroParaCopiar(actual.numero)).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 1600); }); };
 
   async function guardarForm() {
     const e = validarCuenta(form); if (e) { setError(e); return; }
@@ -49,7 +49,7 @@ export default function CuentaPagos({ admin, cerrar }) {
                   {actual.qr && <img className="tc-qr" src={actual.qr} alt="QR de pago" />}
                   <div className="tc-body">
                     <div className="tc-l1">{actual.banco}</div>
-                    <div className="tc-num" style={actual.numero.length > 14 ? { fontSize: "clamp(18px,4.4vw,30px)" } : undefined}>{actual.numero}</div>
+                    <div className="tc-num" style={formatearNumero(actual.tipo, actual.numero).length > 14 ? { fontSize: "clamp(18px,4.4vw,30px)" } : undefined}>{formatearNumero(actual.tipo, actual.numero)}</div>
                     <div className="tc-l2">{actual.titular}</div>
                   </div>
                   <div className="tc-foot"><span>✦</span><span>{pieDe(actual.tipo)}</span><span>✦</span></div>
@@ -76,7 +76,7 @@ export default function CuentaPagos({ admin, cerrar }) {
             {lista.length === 0 && <div className="pn-vacio">No hay cuentas. Agrega la primera.</div>}
             {lista.map((c) => (
               <div key={c.Id} className={`cp-fila${c.activa === false ? ' off' : ''}`}>
-                <div><b>{c.banco}</b>{c.principal && <span className="cp-star">⭐ Principal</span>}{c.activa === false && <span className="mut"> (oculta)</span>}<small>{c.numero} · {c.titular}</small></div>
+                <div><b>{c.banco}</b>{c.principal && <span className="cp-star">⭐ Principal</span>}{c.activa === false && <span className="mut"> (oculta)</span>}<small>{formatearNumero(c.tipo, c.numero)} · {c.titular}</small></div>
                 <div className="cp-ic">
                   {!c.principal && c.activa !== false && <button title="Hacer principal" onClick={() => guardar(lista.map((x) => ({ ...x, principal: x.Id === c.Id })))}>⭐</button>}
                   <button title={c.activa === false ? 'Mostrar' : 'Ocultar'} onClick={() => guardar(lista.map((x) => (x.Id === c.Id ? { ...x, activa: x.activa === false } : x)))}>{c.activa === false ? '👁' : '🙈'}</button>
