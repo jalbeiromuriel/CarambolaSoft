@@ -20,9 +20,9 @@ const cero = () => Object.fromEntries([...METODOS_CAJA, 'FIADO'].map((m) => [m, 
  * Resumen del turno abierto.
  * - porMetodo: lo vendido por método (FIADO = lo que quedó por cobrar al vender).
  * - cobrosFiado: abonos recibidos en el turno, por método.
- * - efectivoEsperado = efectivo vendido + abonos en efectivo − gastos en efectivo.
+ * - efectivoEsperado = efectivo vendido + abonos en efectivo − gastos en efectivo − premios de máquinas.
  */
-export function resumenTurno({ facturas = [], abonos = [], gastos = [] }) {
+export function resumenTurno({ facturas = [], abonos = [], gastos = [], premios = [] }) {
   const porMetodo = cero(), cobrosFiado = cero(), gastosPorMetodo = cero();
   for (const f of facturas) for (const p of partesFactura(f)) porMetodo[p.metodo] = (porMetodo[p.metodo] ?? 0) + p.monto;
   for (const a of abonos) cobrosFiado[a.MetodoPago] = (cobrosFiado[a.MetodoPago] ?? 0) + a.Monto;
@@ -30,11 +30,12 @@ export function resumenTurno({ facturas = [], abonos = [], gastos = [] }) {
   const totalVendido = suma(facturas, (f) => f.TotalPagar ?? 0);
   const totalCobros = suma(abonos, (a) => a.Monto);
   const totalGastos = suma(gastos, (g) => g.Monto);
+  const totalPremios = suma(premios, (p) => p.Monto);   // premios de máquinas: salen del efectivo de la caja
   return {
     nVentas: facturas.length, porMetodo, totalVendido, fiado: porMetodo.FIADO,
     cobrosFiado, totalCobros, nCobros: new Set(abonos.map((a) => `${a.FechaHora}|${a.MetodoPago}`)).size,
-    gastosPorMetodo, totalGastos, nGastos: gastos.length,
-    efectivoEsperado: porMetodo.EFECTIVO + cobrosFiado.EFECTIVO - gastosPorMetodo.EFECTIVO,
+    gastosPorMetodo, totalGastos, nGastos: gastos.length, totalPremios, nPremios: premios.length,
+    efectivoEsperado: porMetodo.EFECTIVO + cobrosFiado.EFECTIVO - gastosPorMetodo.EFECTIVO - totalPremios,
   };
 }
 
@@ -45,7 +46,7 @@ export function arqueo(esperado, contado) {
 }
 
 /** Movimientos del turno, recientes primero: ventas (+), abonos (+) y gastos (−). */
-export function movimientos({ facturas = [], abonos = [], gastos = [], etiquetaDe }) {
+export function movimientos({ facturas = [], abonos = [], gastos = [], premios = [], nombreMaquina = () => 'Máquina', etiquetaDe }) {
   const m = [];
   for (const f of facturas) m.push({ tipo: 'VENTA', id: f.Id, fecha: f.FechaHora, monto: f.TotalPagar ?? 0, titulo: etiquetaDe(f), detalle: partesFactura(f).map((p) => p.metodo) });
   const porPago = new Map();
@@ -55,6 +56,7 @@ export function movimientos({ facturas = [], abonos = [], gastos = [], etiquetaD
   }
   for (const p of porPago.values()) m.push({ ...p, titulo: etiquetaDe({ abono: p }), detalle: [p.metodo] });
   for (const g of gastos) m.push({ tipo: 'GASTO', id: g.Id, fecha: g.FechaHora, monto: g.Monto, titulo: g.Concepto, detalle: [g.MetodoPago, g.Categoria] });
+  for (const p of premios) m.push({ tipo: 'PREMIO', id: p.Id, fecha: p.FechaHora, monto: p.Monto, titulo: nombreMaquina(p.MaquinaId), detalle: ['EFECTIVO', 'Premio'] });
   return m.sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
 }
 
