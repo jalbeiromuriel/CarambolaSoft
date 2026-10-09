@@ -101,3 +101,31 @@ export function abrirEnvase(p, origen) {
 }
 /** Texto de stock: "11 sueltas · 3 env." o "14 u". */
 export const textoStock = (p, origen) => (esFraccionado(p) ? `${p.StockActual ?? 0} sueltas · ${envasesDe(p, origen)} env.` : `${p.StockActual ?? 0} u`);
+
+/**
+ * Lista de reposición. Cuenta lo ENTREGADO entre desde y hasta (YYYY-MM-DD, fecha local).
+ * Los fraccionados (copas) se cuentan en su envase: vendido ÷ rinde.
+ * Pedir = vendido + stock mínimo − stock actual (nunca negativo, redondeado hacia arriba).
+ */
+export function reposicion(productos, pedidos, desde, hasta) {
+  const porId = new Map(productos.map((p) => [p.Id, p]));
+  const vendido = new Map();
+  for (const ped of pedidos) {
+    if (ped.EstadoPedido !== 'ENTREGADO' || !ped.FechaHora) continue;
+    const dia = iso(new Date(ped.FechaHora));
+    if (dia < desde || dia > hasta) continue;
+    const p = porId.get(ped.ProductoId);
+    if (!p) continue;
+    const frac = esFraccionado(p) && p.Fraccion.Rinde > 0;
+    const id = frac ? p.Fraccion.OrigenId : p.Id;
+    vendido.set(id, (vendido.get(id) ?? 0) + (frac ? ped.Cantidad / p.Fraccion.Rinde : ped.Cantidad));
+  }
+  return productos
+    .filter((p) => p.Activo !== false && p.ControlaStock !== false && !esFraccionado(p))
+    .map((p) => {
+      const v = Math.round((vendido.get(p.Id) ?? 0) * 100) / 100, stock = p.StockActual ?? 0, minimo = p.StockMinimo ?? 0;
+      const pedir = Math.max(0, Math.ceil(v + minimo - stock - 1e-9));
+      return { p, vendido: v, stock, minimo, pedir, costo: p.CostoCompra ?? 0 };
+    })
+    .sort((a, b) => b.pedir - a.pedir || a.p.Nombre.localeCompare(b.p.Nombre, 'es'));
+}

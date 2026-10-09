@@ -78,3 +78,17 @@
   @page{size:letter portrait;margin:12mm}
   .iv-aud table{font-size:10.5px}.iv-aud th,.iv-aud td{padding:4px 4px}
 }
+
+/* Lista de reposición (comparte la hoja .iv-aud) */
+.iv-rp-filtro{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:12px}
+.iv-rp-filtro button{border:1px solid #000;background:#fff;color:#000;border-radius:99px;padding:4px 10px;cursor:pointer;font-size:12px}
+.iv-rp-filtro button.on{background:#000;color:#fff}
+.iv-rp-filtro input{border:1px solid #000;border-radius:6px;padding:3px 6px;background:#fff;color:#000;font-size:12px}
+.iv-rp-n{width:56px;text-align:right;border:1px solid #000;border-radius:5px;background:#fff;color:#000;font:inherit;font-weight:700;padding:2px 4px}
+.iv-aud tr.cero td{color:#888}.iv-aud tr.cero .iv-rp-n{color:#888;border-color:#bbb;font-weight:400}
+.iv-rp-nota{margin-top:10px;font-size:11px;color:#333}
+@media print{
+  .iv-rp-filtro{display:none}
+  .iv-aud tr.cero{display:none}
+  .iv-rp-n,.iv-rp-n:focus{border:0 !important;outline:0 !important;box-shadow:none !important;padding:0;width:auto;background:none}
+}
