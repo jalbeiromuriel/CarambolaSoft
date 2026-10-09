@@ -3,7 +3,7 @@ export const SECCIONES = [
   { id: 'panel',        t: 'Panel',        listo: true },
   { id: 'inventario',   t: 'Inventario',   listo: true },
   { id: 'clientes',     t: 'Clientes',     listo: true },
-  { id: 'caja',         t: 'Caja',         listo: false, fase: 4 },
+  { id: 'caja',         t: 'Caja',         listo: true },
   { id: 'maquinas',     t: 'Máquinas',     listo: false, fase: 4 },
   { id: 'estadisticas', t: 'Estadísticas', listo: false, fase: 4 },
   { id: 'adm',          t: 'Adm ⚙',        listo: true },
