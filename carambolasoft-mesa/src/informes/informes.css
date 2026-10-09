@@ -35,3 +35,4 @@
 @media print{ .inf-ticket{width:100%;font-size:11px} }
 .inf-ticket .inf-bloque .h{padding:4px 8px;font-size:11px;white-space:nowrap}.inf-ticket .inf-bloque td{padding:3px 5px}
 .tk-sello{border:2px solid #111;text-align:center;font-weight:700;letter-spacing:.12em;padding:5px;margin:10px 0;font-size:12px}
+.tk-cta hr{border:0;border-top:1px dashed #888;margin:6px 0}

@@ -1,5 +1,6 @@
 // src/cuenta/fiadosDb.js — Fiados y abonos en IndexedDB (FACTURAS + ABONOS_FIADO). Reglas puras en fiados.js.
 import { put, getAll, leerMeta, escribirMeta } from '../db/repository.js';
+import { normalizarCuentas } from './cuentasPago.js';
 import { repartirAbono, siguienteNumero, etiquetaFactura } from './fiados.js';
 
 /** Datos para facturar: número consecutivo y fecha. */
@@ -66,5 +67,9 @@ export async function abonosDeCliente(facturaIds) {
 }
 
 // Datos de pago (cuenta para recibir transferencias): SOLO locales, nunca en el repo.
-export const leerDatosPago = () => leerMeta('negocio.datosPago');
-export const guardarDatosPago = (d) => escribirMeta('negocio.datosPago', d);
+// Varias cuentas (lista). Si solo existe el dato antiguo de una cuenta, se migra como principal.
+export async function leerCuentasPago() {
+  const nuevas = await leerMeta('negocio.cuentasPago');
+  return normalizarCuentas(nuevas ?? (await leerMeta('negocio.datosPago')));
+}
+export const guardarCuentasPago = (lista) => escribirMeta('negocio.cuentasPago', lista);

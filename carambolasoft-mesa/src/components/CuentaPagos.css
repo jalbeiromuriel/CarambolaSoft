@@ -1,4 +1,18 @@
-.cp-mod{text-align:center;min-width:min(520px,94vw)}
-.cp-box{padding:18px 8px}.cp-banco{color:#aab4d0;font-size:15px}
-.cp-num{font-family:ui-monospace,monospace;font-size:clamp(28px,6vw,44px);font-weight:700;letter-spacing:.06em;color:#35d07f;margin:12px 0}
-.cp-tit{font-size:16px;font-weight:600}
+.cp-mod{min-width:min(480px,94vw)}.cp-gran{min-width:min(620px,94vw)}
+.cp-tj{border:2px solid #d9b25a;border-radius:14px;padding:16px 18px;text-align:center;background:linear-gradient(160deg,#14110a,#0a0a0a);margin:6px 0}
+.cp-top{display:flex;justify-content:space-between;align-items:center;color:#d9b25a;font-family:Georgia,serif;font-size:14px;letter-spacing:.12em}.cp-top small{font-size:9px;opacity:.8}
+.cp-chip{width:34px;height:24px;border-radius:5px;background:linear-gradient(135deg,#e8c670,#a07d2c)}
+.cp-cuerpo{display:flex;align-items:center;justify-content:center;gap:18px;margin:14px 0 6px}
+.cp-banco{color:#e8dcc0;font-family:Georgia,serif;font-size:15px}
+.cp-num{font-family:Georgia,serif;font-size:clamp(24px,5vw,38px);letter-spacing:.14em;color:#e8c670;margin:8px 0;text-shadow:0 0 14px #d9b25a55}
+.cp-tit{font-style:italic;font-family:Georgia,serif;font-size:18px;color:#f0e6cc}
+.cp-qr{width:104px;height:104px;object-fit:contain;background:#fff;border-radius:8px;padding:4px}.cp-qr.mini{width:48px;height:48px}
+.cp-pie{margin-top:8px;font-size:9px;letter-spacing:.2em;color:#a8905a}
+.cp-nav{display:flex;justify-content:center;align-items:center;gap:10px;margin:12px 0 4px}.cp-nav button{background:none;border:0;color:#d9b25a;font-size:24px;cursor:pointer;padding:0 8px}
+.cp-dot{width:8px;height:8px;border-radius:50%;background:#2a3350;cursor:pointer}.cp-dot.on{background:#d9b25a}
+.cp-cont{text-align:center;color:#7a86a8;font-size:12px;margin-bottom:10px}
+.cp-fila{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #1f2740}.cp-fila:first-of-type{border-top:0}
+.cp-fila small{display:block;color:#7a86a8;font-size:11.5px}.cp-fila.off{opacity:.5}
+.cp-star{margin-left:8px;color:#d9b25a;font-size:10.5px;border:1px solid #d9b25a77;border-radius:99px;padding:1px 8px}
+.cp-ic{display:flex;gap:4px}.cp-ic button{border:1px solid #2a3350;background:#0e1422;border-radius:8px;padding:5px 8px;cursor:pointer;color:inherit}
+.cp-qrrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

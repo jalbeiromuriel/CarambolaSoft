@@ -231,7 +231,7 @@ test('informes: recibo de cuenta, recibo de fiado y cartera', async () => {
   const c = carteraFiados([g], new Date('2026-10-08T23:00:00Z').getTime());
   assert.equal(c.total, 34000);
   assert.deepEqual(c.clientes[0].facturas.map((x) => x.vieja), [true, false]);   // F-0003 tiene más de 15 días
-  assert.match(textoReciboFiado(f, { banco: 'Banco', cuenta: '123', titular: 'Ana' }), /Pendiente por pagar: \$34\.000[\s\S]*123/);
+  assert.match(textoReciboFiado(f, [{ banco: 'Banco', numero: '123', titular: 'Ana' }, { banco: 'Nequi', numero: '300', titular: 'Ana' }]), /Pendiente por pagar: \$34\.000[\s\S]*123[\s\S]*300/);
 });
 
 test('copiaFactura: pagada, pendiente con abonos y tiempo', async () => {
@@ -263,4 +263,17 @@ test('buscarFacturas: por número, cliente, fecha, estado y periodo', async () =
   assert.deepEqual(b({ estado: 'pagadas' }), ['F-0012']);
   assert.deepEqual(b({ periodo: 'hoy' }), ['F-0012']);
   assert.deepEqual(b({ texto: 'zzz' }), []);
+});
+
+test('cuentasPago: migra la cuenta antigua, principal primero, ocultas fuera, una sola principal', async () => {
+  const { normalizarCuentas, cuentasActivas, conPrincipal, validarCuenta, cuentaNueva } = await import('../src/cuenta/cuentasPago.js');
+  const vieja = normalizarCuentas({ banco: 'Bancolombia', cuenta: '123', titular: 'T' });
+  assert.equal(vieja.length, 1); assert.equal(vieja[0].principal, true); assert.equal(vieja[0].numero, '123');
+  assert.deepEqual(normalizarCuentas(null), []); assert.deepEqual(normalizarCuentas({ banco: '', cuenta: '' }), []);
+  const l = normalizarCuentas([{ Id: 'a', numero: '1', banco: 'A' }, { Id: 'b', numero: '2', banco: 'B', principal: true }, { Id: 'c', numero: '3', banco: 'C', activa: false }, { Id: 'd', numero: ' ', banco: 'D' }]);
+  assert.deepEqual(cuentasActivas(l).map((c) => c.Id), ['b', 'a']);
+  assert.deepEqual(conPrincipal(l, 'a').filter((c) => c.principal).map((c) => c.Id), ['a']);
+  assert.equal(conPrincipal([{ Id: 'x' }, { Id: 'y' }])[0].principal, true);
+  assert.notEqual(validarCuenta({ numero: '', titular: 't', banco: 'b' }), ''); assert.equal(validarCuenta({ numero: '1', titular: 't', banco: 'b' }), '');
+  assert.equal(cuentaNueva('NEQUI').banco, 'Nequi');
 });

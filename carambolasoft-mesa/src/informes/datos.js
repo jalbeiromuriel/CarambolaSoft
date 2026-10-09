@@ -139,19 +139,22 @@ export function carteraFiados(lista, ahora = Date.now(), diasVieja = 15) {
   return { clientes, total: clientes.reduce((t, c) => t + c.deuda, 0) };
 }
 
-const lineasPago = (pago) => (pago?.cuenta ? ['', '*¿Dónde pagar?*', pago.banco, pago.cuenta, pago.titular].filter((x) => x !== undefined && x !== '') : []);
+const lineasPago = (cuentas) => {
+  const l = (Array.isArray(cuentas) ? cuentas : []).filter((c) => c?.numero);
+  return l.length ? ['', '*¿Dónde pagar?*', ...l.flatMap((c, i) => [...(i ? [''] : []), c.banco, c.numero, c.titular].filter((x) => x))] : [];
+};
 
-export function textoReciboFiado(d, pago) {
+export function textoReciboFiado(d, cuentas) {
   const l = [`*MERO PARCHE — Cuenta pendiente*`, d.cliente.Nombre, ''];
   for (const f of d.facturas) l.push(`${f.numero} · ${new Date(f.fecha).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })} · saldo ${fmt(f.saldo)}${f.abonado ? ` (de ${fmt(f.original)})` : ''}`);
-  l.push('', `Consumido: ${fmt(d.consumido)}`, `Abonado: −${fmt(d.abonado)}`, `*Pendiente por pagar: ${fmt(d.pendiente)}*`, ...lineasPago(pago), '', 'Recuerda cancelar tu deuda con el Mero Parche. ¡Te esperamos! 🎱');
+  l.push('', `Consumido: ${fmt(d.consumido)}`, `Abonado: −${fmt(d.abonado)}`, `*Pendiente por pagar: ${fmt(d.pendiente)}*`, ...lineasPago(cuentas), '', 'Recuerda cancelar tu deuda con el Mero Parche. ¡Te esperamos! 🎱');
   return l.join('\n');
 }
 
-export function textoReciboCuenta(d, nombre, pago) {
+export function textoReciboCuenta(d, nombre, cuentas) {
   const l = [`*MERO PARCHE — Cuenta*`, nombre, ''];
   for (const i of d.items) l.push(`${i.cant} × ${i.nombre}: ${fmt(i.total)}`);
-  l.push('', `*Total a pagar: ${fmt(d.total)}*`, ...lineasPago(pago), '', '¡Gracias por su visita! 🎱');
+  l.push('', `*Total a pagar: ${fmt(d.total)}*`, ...lineasPago(cuentas), '', '¡Gracias por su visita! 🎱');
   return l.join('\n');
 }
 
