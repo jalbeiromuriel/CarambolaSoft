@@ -312,6 +312,7 @@ test('préstamo y devolución mueven el cajón; premios y reposiciones no', () =
   const base = { facturas: [{ TotalPagar: 100000, MetodoPago: 'EFECTIVO', EstadoPago: 'PAGADO' }], abonos: [], gastos: [] };
   const r = _rt({ ...base, maq: [{ Tipo: 'PRESTAMO', Monto: 30000 }, { Tipo: 'DEVOLUCION', Monto: 10000 }, { Tipo: 'PREMIO', Monto: 99999 }] });
   assert.equal(r.efectivoEsperado, 80000);
+});
 
 test('formatearNumero: grupos de 3, celular 3-3-4, llaves tal cual; copiar sin espacios', async () => {
   const { formatearNumero, numeroParaCopiar } = await import('../src/cuenta/cuentasPago.js');
