@@ -56,10 +56,10 @@ export function detalleVentas({ facturas = [], pedidos = [], productos = [], eti
 }
 
 /** Todo lo del cierre/turno listo para pintar: resumen, arqueo (si está sellado) y detalle. */
-export function datosCierre({ facturas, abonos, gastos, pedidos, productos, etiquetaDe, cierre = null }) {
+export function datosCierre({ facturas, abonos, gastos, pedidos, productos, etiquetaDe, cierre = null, notas = [] }) {
   const resumen = resumenTurno({ facturas, abonos, gastos });
   return {
-    resumen, cierre, sellado: !!cierre,
+    resumen, cierre, sellado: !!cierre, notas,
     arqueo: cierre ? { esperado: cierre.EfectivoEsperado ?? resumen.efectivoEsperado, contado: cierre.EfectivoReportado, ...arqueo(cierre.EfectivoEsperado ?? resumen.efectivoEsperado, cierre.EfectivoReportado) } : null,
     detalle: detalleVentas({ facturas, pedidos, productos, etiquetaDe }),
     gastos: [...gastos].sort((a, b) => (a.FechaHora ?? '').localeCompare(b.FechaHora ?? '')),
@@ -77,6 +77,7 @@ export function textoCierre(d, fecha) {
   if (r.totalCobros) l.push(`Cobros de fiado: +${fmt(r.totalCobros)}`);
   if (r.totalGastos) l.push(`Gastos: −${fmt(r.totalGastos)}`);
   l.push(`Efectivo esperado: *${fmt(r.efectivoEsperado)}*`);
+  for (const n of d.notas ?? []) l.push(`Aclaración (${n.UsuarioNombre}): ${n.Texto}`);
   if (d.arqueo) l.push(`Contado: ${fmt(d.arqueo.contado)} · ${d.arqueo.estado === 'CUADRA' ? 'Cuadra ✓' : `${d.arqueo.estado === 'SOBRANTE' ? 'Sobrante' : 'Faltante'} ${fmt(Math.abs(d.arqueo.diferencia))}`}`);
   return l.join('\n');
 }

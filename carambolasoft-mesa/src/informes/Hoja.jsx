@@ -50,6 +50,10 @@ export function HojaCierre({ d, usuarioNombre, cerrar, texto }) {
           <div><span>Diferencia</span><b>{d.arqueo.estado === 'CUADRA' ? '$0 · Cuadra' : `${d.arqueo.diferencia > 0 ? '+' : '−'}${fmt(Math.abs(d.arqueo.diferencia))} · ${d.arqueo.estado === 'SOBRANTE' ? 'Sobrante' : 'Faltante'}`}</b></div></>}
       </div>
       {d.sellado && c.Nota && <div className="sub" style={{ marginTop: 6 }}>Nota del cierre: {c.Nota}</div>}
+      {d.notas?.length > 0 && <>
+        <h2>ACLARACIONES</h2>
+        {d.notas.map((n) => <div className="inf-nota" key={n.Id}><b>{new Date(n.FechaHora).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })} · {horaCorta(n.FechaHora)} · {n.UsuarioNombre}</b><br />{n.Texto}</div>)}
+      </>}
       {d.gastos.length > 0 && <>
         <h2>GASTOS ({d.gastos.length})</h2>
         <table><tbody>{d.gastos.map((g) => <tr key={g.Id}><td>{g.Concepto}</td><td>{g.Categoria}</td><td>{nombreMetodo(g.MetodoPago)}</td><td className="r">−{fmt(g.Monto)}</td></tr>)}</tbody></table>

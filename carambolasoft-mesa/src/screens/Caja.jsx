@@ -6,7 +6,7 @@ import { useSesion } from '../components/Sesion.jsx';
 import { PinAdmin } from './Auth.jsx';
 import { METODOS } from '../cuenta/cobro.js';
 import { CATEGORIAS_GASTO, METODOS_CAJA, arqueo, movimientos } from '../cuenta/caja.js';
-import { cargarTurno, registrarGasto, cerrarCaja } from '../cuenta/cajaDb.js';
+import { cargarTurno, registrarGasto, cerrarCaja, agregarAclaracion } from '../cuenta/cajaDb.js';
 import { HojaCierre, HojaInformeDia } from '../informes/Hoja.jsx';
 import { datosCierre, informeDia, sugeridoPedido, textoCierre, textoInformeDia } from '../informes/datos.js';
 import './Panel.css';
@@ -56,13 +56,14 @@ export default function Caja() {
   // datos de un cierre ya sellado (por TurnoCajaId) o del turno abierto
   const datosDe = (c) => {
     const por = (l) => (c ? l.filter((x) => x.TurnoCajaId === c.TurnoCajaId) : l.filter((x) => x.TurnoCajaId == null));
-    return datosCierre({ facturas: por(t.facturasTodas), abonos: por(t.abonosTodos), gastos: por(t.gastosTodos), pedidos: t.pedidos, productos: t.productos, etiquetaDe: etiqueta, cierre: c });
+    return datosCierre({ facturas: por(t.facturasTodas), abonos: por(t.abonosTodos), gastos: por(t.gastosTodos), pedidos: t.pedidos, productos: t.productos, etiquetaDe: etiqueta, cierre: c, notas: c ? t.notas.filter((n) => n.CierreId === c.Id) : [] });
   };
 
   return (
     <>
       <Encabezado activo="caja" />
       <div className="cj">
+        {t.vacio && <div className="cj-aviso">ℹ️ No hay movimientos en este turno: no hay nada que cerrar. Cuando haya ventas, abonos o gastos podrás cerrar la caja.</div>}
         {hayAbiertas && <div className="cj-alerta">⚠️ Cuentas abiertas ({t.abiertas.length}): {aperturas.join(', ')} — ciérralas antes de cerrar caja</div>}
         <div className="cj-cols">
           <div>
@@ -79,7 +80,7 @@ export default function Caja() {
             </div>
             <div className="cj-card cj-big"><small>Vendido en el turno</small><b>{fmt(r.totalVendido)}</b><i>{r.fiado > 0 ? `de los cuales ${fmt(r.fiado)} quedaron fiados` : `${r.nVentas} ventas`}</i></div>
             <div className="cj-btns">
-              <button className="cj-cierre" disabled={hayAbiertas} onClick={() => setModal('cierre')} title={hayAbiertas ? 'Hay cuentas abiertas' : ''}>🔒 Cerrar caja</button>
+              <button className="cj-cierre" disabled={hayAbiertas || t.vacio} onClick={() => setModal('cierre')} title={t.vacio ? 'No hay movimientos en este turno' : hayAbiertas ? 'Hay cuentas abiertas' : ''}>🔒 Cerrar caja</button>
               <button className="cj-b" onClick={() => setModal('gasto')}>💸 Gasto</button>
               <button className="cj-b" onClick={() => setModal({ informe: null })} title="Cierre del turno: resumen, arqueo y detalle por mesa">📄 Informe</button>
               <button className="cj-b ve" onClick={() => setModal('dia')} title="Productos vendidos, ganancia y sugerido de pedido">📊 Del día</button>
@@ -104,8 +105,9 @@ export default function Caja() {
                 {t.cierres.length === 0 && <div className="cj-vacio">Aún no hay cierres.</div>}
                 <div className="cj-lista">{t.cierres.map((c) => (
                   <div className="cj-mv" key={c.Id}>
-                    <div>{dia(c.FechaCierre)} · {hora(c.FechaCierre)}<small>{c.UsuarioNombre || '—'} · {c.NVentas} ventas · {c.Descuadre === 0 ? 'Cuadró ✓' : `${c.Descuadre > 0 ? 'Sobrante' : 'Faltante'} ${fmt(Math.abs(c.Descuadre))}`}{c.Nota ? ` · ${c.Nota}` : ''}</small></div>
-                    <span className="cj-der"><b>{fmt(c.TotalGeneral)}</b><button className="cj-mini" title="Ver informe del cierre" onClick={() => setModal({ informe: c })}>📄</button></span>
+                    <div>{dia(c.FechaCierre)} · {hora(c.FechaCierre)}<small>{c.UsuarioNombre || '—'} · {c.NVentas} ventas · {c.Descuadre === 0 ? 'Cuadró ✓' : `${c.Descuadre > 0 ? 'Sobrante' : 'Faltante'} ${fmt(Math.abs(c.Descuadre))}`}{c.Nota ? ` · ${c.Nota}` : ''}</small>
+                      {t.notas.filter((n) => n.CierreId === c.Id).map((n) => <small className="cj-acl" key={n.Id}>📝 {n.Texto} — {n.UsuarioNombre}, {dia(n.FechaHora)}</small>)}</div>
+                    <span className="cj-der"><b>{fmt(c.TotalGeneral)}</b><button className="cj-mini" title="Ver informe del cierre" onClick={() => setModal({ informe: c })}>📄</button><button className="cj-mini" title="Anotar una aclaración (el cierre no se edita)" onClick={() => setModal({ aclarar: c })}>📝</button></span>
                   </div>
                 ))}</div>
               </div>
@@ -124,6 +126,7 @@ export default function Caja() {
         const d = datosDe(c);
         return <HojaCierre d={d} usuarioNombre={usuario?.Nombre} cerrar={() => setModal(null)} texto={textoCierre(d, new Date(c?.FechaCierre ?? Date.now()).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }))} />;
       })()}
+      {modal?.aclarar && <Aclarar cierre={modal.aclarar} cerrar={() => setModal(null)} guardar={async (texto, autorizo) => { await agregarAclaracion({ cierreId: modal.aclarar.Id, texto, usuario, autorizoId: autorizo.Id }); setModal(null); await cargar(); decir('Aclaración guardada ✓'); }} />}
       {modal === 'dia' && (() => {
         const i = informeDia({ facturas: t.facturas, pedidos: t.pedidos, productos: t.productos });
         const sug = sugeridoPedido({ productos: t.productos, vendidos: i.filas });
@@ -220,5 +223,23 @@ function Vendido({ v, cierre, cerrar }) {
         <div className="pie">Compara estas cantidades con el conteo físico de nevera y bodega.<br />Generado por CarambolaSoft · Mero Parche</div>
       </div>
     </div>, document.body
+  );
+}
+
+/** Aclaración a un cierre sellado. Las cifras no cambian: la nota queda aparte con fecha y autor. */
+function Aclarar({ cierre, cerrar, guardar }) {
+  const [texto, setTexto] = useState(''); const [pide, setPide] = useState(false); const [error, setError] = useState('');
+  return (
+    <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && cerrar()}>
+      <div className="pn-modal cj-mod">
+        <h3>📝 Aclaración al cierre</h3>
+        <p className="cj-nota" style={{ marginTop: 0 }}>Cierre del {dia(cierre.FechaCierre)} · {hora(cierre.FechaCierre)} · {fmt(cierre.TotalGeneral)}. Las cifras de un cierre sellado no se cambian; la aclaración queda al lado, con tu nombre y la fecha, y sale en el PDF.</p>
+        <label>Qué quieres aclarar</label>
+        <textarea autoFocus rows={4} value={texto} placeholder="Ej.: el faltante era un cambio mal dado, ya se repuso." onChange={(e) => { setTexto(e.target.value); setError(''); }} />
+        {error && <div className="pn-err">{error}</div>}
+        <div className="cj-acc"><button onClick={cerrar}>Cancelar</button><button className="g" onClick={() => (texto.trim().length < 5 ? setError('Escribe la aclaración (mínimo unas palabras).') : setPide(true))}>Guardar aclaración</button></div>
+      </div>
+      {pide && <PinAdmin motivo="Un Admin digita su PIN para autorizar esta aclaración." cancelar={() => setPide(false)} ok={(a) => guardar(texto, a)} />}
+    </div>
   );
 }

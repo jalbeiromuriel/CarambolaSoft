@@ -6,15 +6,15 @@ const abierto = (r) => r.TurnoCajaId == null;   // turno abierto = aún sin sell
 
 /** Todo lo del turno abierto + lo necesario para nombrar cada movimiento. */
 export async function cargarTurno() {
-  const [facturas, abonos, gastos, cuentas, mesas, clientes, pedidos, productos, cierres, usuarios] = await Promise.all([
+  const [facturas, abonos, gastos, cuentas, mesas, clientes, pedidos, productos, cierres, usuarios, notas] = await Promise.all([
     getAll('FACTURAS'), getAll('ABONOS_FIADO'), getAll('GASTOS_CAJA'), getAll('CUENTAS'), getAll('MESAS_BILLAR'),
-    getAll('CLIENTES'), getAll('PEDIDOS_CUENTAS'), getAll('PRODUCTOS'), getAll('CIERRE_DIA'), getAll('USUARIOS'),
+    getAll('CLIENTES'), getAll('PEDIDOS_CUENTAS'), getAll('PRODUCTOS'), getAll('CIERRE_DIA'), getAll('USUARIOS'), getAll('CIERRE_NOTAS'),
   ]);
   const t = { facturas: facturas.filter(abierto), abonos: abonos.filter(abierto), gastos: gastos.filter(abierto) };
   const sellados = cierres.filter((c) => c.Confirmado);
   const abiertas = cuentas.filter((c) => c.Estado === 'ABIERTA');
   return {
-    ...t, cuentas, mesas, clientes, productos, usuarios, abiertas, abonosTodos: abonos, facturasTodas: facturas, gastosTodos: gastos, pedidos,
+    ...t, notas: notas.sort((a, b) => (a.FechaHora ?? '').localeCompare(b.FechaHora ?? '')), vacio: !t.facturas.length && !t.abonos.length && !t.gastos.length, cuentas, mesas, clientes, productos, usuarios, abiertas, abonosTodos: abonos, facturasTodas: facturas, gastosTodos: gastos, pedidos,
     resumen: resumenTurno(t),
     vendido: inventarioVendido({ ...t, pedidos, productos }),
     cierres: sellados.sort((a, b) => (b.FechaCierre ?? '').localeCompare(a.FechaCierre ?? '')),
@@ -31,6 +31,7 @@ export const registrarGasto = ({ concepto, monto, categoria, metodo, usuarioId, 
  */
 export async function cerrarCaja({ usuario, contado, nota }) {
   const t = await cargarTurno();
+  if (t.vacio) throw new Error('No hay movimientos en este turno: no hay nada que cerrar.');
   if (t.abiertas.length) throw new Error('Hay cuentas abiertas: ciérralas antes de cerrar caja.');
   const r = t.resumen, ahora = new Date().toISOString();
   const ar = arqueo(r.efectivoEsperado, contado);
@@ -48,3 +49,7 @@ export async function cerrarCaja({ usuario, contado, nota }) {
     PorMetodo: r.porMetodo, NVentas: r.nVentas, Confirmado: true,
   });
 }
+
+/** Aclaración a un cierre sellado: el cierre no se edita; la nota queda aparte, con fecha y autor (lo autoriza un Admin). */
+export const agregarAclaracion = ({ cierreId, texto, usuario, autorizoId }) =>
+  put('CIERRE_NOTAS', { CierreId: cierreId, Texto: texto.trim(), FechaHora: new Date().toISOString(), UsuarioId: usuario?.Id ?? null, UsuarioNombre: usuario?.Nombre ?? '', AutorizoId: autorizoId ?? null });

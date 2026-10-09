@@ -6,7 +6,7 @@
 // ============================================================
 
 export const DB_NAME = 'ElParcheDeJony';   // nombre técnico — NO renombrar sin migración
-export const DB_VERSION = 4;                // v4: USUARIOS
+export const DB_VERSION = 5;                // v4: USUARIOS · v5: CIERRE_NOTAS (aclaraciones de cierres sellados)
 
 // Espejo 1:1 de las 19 tablas SQL (keyPath = Id, GUID generado en cliente)
 export const STORES = [
@@ -31,6 +31,7 @@ export const STORES = [
   'CIERRE_DIA',
   'GARITAS_RELOJ',
   'USUARIOS',
+  'CIERRE_NOTAS',   // solo local por ahora: aclaraciones a un cierre sellado (el cierre no se edita)
 ];
 
 // Cola de sincronización: registro de operaciones pendientes de subir
@@ -53,6 +54,7 @@ const INDEXES = {
   CLIENTES:         [['porNombre', 'Nombre']],
   JUGADORES:        [['porUsername', 'Username']],
   USUARIOS:         [['porNombre', 'Nombre']],
+  CIERRE_NOTAS:     [['porCierre', 'CierreId']],
 };
 
 let _dbPromise = null;
