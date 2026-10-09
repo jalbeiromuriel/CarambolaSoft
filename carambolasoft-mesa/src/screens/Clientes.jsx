@@ -11,6 +11,8 @@ import { antiguedad } from '../cuenta/fiados.js';
 import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import { getAll } from '../db/repository.js';
 import { cargarFiados, registrarAbono, abonosDeCliente, leerDatosPago, guardarDatosPago } from '../cuenta/fiadosDb.js';
+import { HojaReciboFiado, HojaCartera } from '../informes/Hoja.jsx';
+import { reciboFiado, carteraFiados, textoReciboFiado, textoCartera } from '../informes/datos.js';
 import './Panel.css';
 import './Auth.css';
 import './Clientes.css';
@@ -32,6 +34,7 @@ export default function Clientes() {
   const [pedidos, setPedidos] = useState([]); const [productos, setProductos] = useState([]);
   const [form, setForm] = useState(null);       // cliente nuevo/editar
   const [abono, setAbono] = useState(null);     // { g, metodo, monto, error }
+  const [hoja, setHoja] = useState(null);         // { recibo: datos } | { cartera: datos }
   const [detalle, setDetalle] = useState(null); // { g, tipo:'facturas'|'abonos', abonos? }
   const [pago, setPago] = useState(null);       // datos de pago { editar, banco, cuenta, titular }
   const [histCli, setHistCli] = useState(null);
@@ -70,6 +73,11 @@ export default function Clientes() {
   }
   async function verDetalle(g, tipo) {
     setDetalle({ g, tipo, abonos: tipo === 'abonos' ? await abonosDeCliente(g.todasFacturaIds) : [] });
+  }
+  async function verRecibo(g) {
+    const facIds = g.facturas.map((f) => f.Id);
+    const pagos = await abonosDeCliente(facIds);
+    setHoja({ recibo: reciboFiado({ g, pedidos, productos, pagos }), pago: await leerDatosPago(), telefono: g.cliente.Telefono });
   }
   async function verPago() { setPago({ ...((await leerDatosPago()) ?? { banco: '', cuenta: '', titular: '' }), editar: false }); }
   async function guardarPago() { await guardarDatosPago({ banco: pago.banco, cuenta: pago.cuenta, titular: pago.titular }); setPago({ ...pago, editar: false }); }
@@ -132,7 +140,7 @@ export default function Clientes() {
         {tab === 'fiados' && admin && (
           <>
             <div className="cl-ban"><span>{fiados.lista.length} {fiados.lista.length === 1 ? 'cliente' : 'clientes'} con fiado pendiente</span><b>{fmt(fiados.total)}</b>
-              <button className="v" onClick={verPago}>💳 Datos de pago</button><button disabled title="Próximamente (informes)">📄 PDF · próximamente</button></div>
+              <button className="v" onClick={verPago}>💳 Datos de pago</button><button className="o" onClick={() => setHoja({ cartera: carteraFiados(fiados.lista) })}>📄 PDF cartera</button></div>
             {fiados.lista.length === 0 && <div className="pn-vacio">Nadie debe nada. 🎉</div>}
             {fiados.lista.map((g) => {
               const a = antiguedad(g.masAntigua);
@@ -145,7 +153,7 @@ export default function Clientes() {
                   <span className="cl-deb">{fmt(g.deuda)}</span>
                   <button className="b" onClick={() => verDetalle(g, 'facturas')}>Ver detalle</button>
                   {g.abonado > 0 && <button className="o" onClick={() => verDetalle(g, 'abonos')}>📜 Abonos</button>}
-                  <button disabled title="Próximamente (informes)">🧾 Recibo</button>
+                  <button onClick={() => verRecibo(g)}>🧾 Recibo</button>
                   <button className="go" onClick={() => abrirAbono(g)}>💵 Pagar / Abonar</button>
                 </div>
               );
@@ -185,6 +193,8 @@ export default function Clientes() {
         </div>
       )}
 
+      {hoja?.recibo && <HojaReciboFiado d={hoja.recibo} pago={hoja.pago} telefono={hoja.telefono} texto={textoReciboFiado(hoja.recibo, hoja.pago)} cerrar={() => setHoja(null)} />}
+      {hoja?.cartera && <HojaCartera c={hoja.cartera} texto={textoCartera(hoja.cartera, new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }))} cerrar={() => setHoja(null)} />}
       {detalle && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setDetalle(null)}>
           <div className="pn-modal">

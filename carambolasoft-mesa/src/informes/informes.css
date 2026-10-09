@@ -20,3 +20,17 @@
   @page{size:letter portrait;margin:12mm}
 }
 .inf-nota{border-bottom:1px dotted #999;padding:5px 0;font-size:11.5px}
+
+/* Tiquetes (recibos): angostos, monoespaciados, 80 mm al imprimir */
+.inf-ticket{width:min(400px,96vw);padding:22px 18px;font-family:'Courier New',monospace;font-size:12px}
+.inf-ticket h1{font-family:'Courier New',monospace;font-size:20px;text-align:center}
+.tk-cab{text-align:center;border-bottom:1px dashed #888;padding-bottom:10px;margin-bottom:8px}
+.tk-fila{display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0}
+.tk-quien{border-top:1px dashed #888;border-bottom:1px dashed #888;margin:8px 0;padding:8px 0;font-size:14px}
+.tk-tit{font-size:10px;letter-spacing:.15em;color:#444;margin:12px 0 4px}
+.inf-ticket .inf-caja{margin:14px 0}.inf-ticket .inf-caja b{font-size:26px}
+.tk-pago{border:2px solid #111;padding:10px;text-align:center;margin:12px 0}.tk-pago b{display:block;letter-spacing:.1em;margin-bottom:6px}.tk-pago .num{font-size:16px;font-weight:700;margin:2px 0}.tk-pago.vacio{font-size:11px;border-style:dashed}
+.tk-gracias{text-align:center;font-size:11px;color:#333;margin-top:10px}.tk-sumas{padding:6px 10px}
+.inf-ticket .inf-pie{margin-top:12px}.inf-ticket .inf-bloque td{font-size:11px}
+@media print{ .inf-ticket{width:100%;font-size:11px} }
+.inf-ticket .inf-bloque .h{padding:4px 8px;font-size:11px;white-space:nowrap}.inf-ticket .inf-bloque td{padding:3px 5px}

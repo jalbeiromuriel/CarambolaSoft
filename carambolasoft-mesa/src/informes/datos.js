@@ -94,3 +94,69 @@ export const enlaceWhatsApp = (texto, telefono) => {
   const conPais = num.length === 10 ? '57' + num : num;   // celulares colombianos: 10 dígitos
   return `https://wa.me/${conPais}?text=${encodeURIComponent(texto)}`;
 };
+
+// ───────── Recibos y cartera ─────────
+const agrupar = (pedidos, productos) => {
+  const nombre = new Map(productos.map((p) => [p.Id, p.Nombre]));
+  const m = new Map();
+  for (const p of pedidos) {
+    const n = nombre.get(p.ProductoId) ?? p.Detalle ?? 'Producto';
+    const k = `${n}|${p.PrecioUnitarioHist}`;
+    const it = m.get(k) ?? { nombre: n, cant: 0, unit: p.PrecioUnitarioHist ?? 0, total: 0 };
+    it.cant += p.Cantidad; it.total += (p.PrecioUnitarioHist ?? 0) * p.Cantidad; m.set(k, it);
+  }
+  return [...m.values()];
+};
+
+/** Recibo de una cuenta abierta: consumo agrupado, historial de pedidos y total (tiempo incluido). */
+export function reciboCuenta({ pedidos = [], productos = [], tiempo = 0 }) {
+  const ent = pedidos.filter((p) => p.EstadoPedido === 'ENTREGADO').sort((a, b) => (a.FechaHora ?? '').localeCompare(b.FechaHora ?? ''));
+  const items = agrupar(ent, productos);
+  if (tiempo > 0) items.unshift({ nombre: 'Tiempo de mesa', cant: 1, unit: tiempo, total: tiempo });
+  const nombre = new Map(productos.map((p) => [p.Id, p.Nombre]));
+  const historial = ent.map((p) => ({ fecha: p.FechaHora, nombre: nombre.get(p.ProductoId) ?? p.Detalle ?? 'Producto', cant: p.Cantidad, monto: (p.PrecioUnitarioHist ?? 0) * p.Cantidad }));
+  return { items, historial, total: items.reduce((t, i) => t + i.total, 0) };
+}
+
+/** Recibo de fiado de un cliente: sus facturas pendientes con detalle, abonos y total pendiente. */
+export function reciboFiado({ g, pedidos = [], productos = [], pagos = [] }) {
+  const facturas = g.facturas.map((f) => ({
+    numero: f.Numero ?? 'F-—', fecha: f.FechaHora, original: f.original, abonado: f.abonado, saldo: f.saldo,
+    items: agrupar(pedidos.filter((p) => (new Set([f.CuentaId, ...(f.CuentasIncluidas ?? [])])).has(p.CuentaId) && p.EstadoPedido === 'ENTREGADO'), productos),
+  }));
+  return {
+    cliente: g.cliente, facturas, pagos,
+    consumido: facturas.reduce((t, f) => t + f.original, 0), abonado: facturas.reduce((t, f) => t + f.abonado, 0), pendiente: g.deuda,
+  };
+}
+
+/** Cartera pendiente: por cliente, del que debe desde hace más al más reciente. ⚠ = factura con más de `diasVieja` días. */
+export function carteraFiados(lista, ahora = Date.now(), diasVieja = 15) {
+  const clientes = lista.map((g) => ({
+    nombre: g.cliente.Nombre, deuda: g.deuda,
+    facturas: g.facturas.map((f) => ({ numero: f.Numero ?? 'F-—', fecha: f.FechaHora, original: f.original, abonado: f.abonado, saldo: f.saldo, vieja: (ahora - new Date(f.FechaHora).getTime()) / 86400000 > diasVieja })),
+  }));
+  return { clientes, total: clientes.reduce((t, c) => t + c.deuda, 0) };
+}
+
+const lineasPago = (pago) => (pago?.cuenta ? ['', '*¿Dónde pagar?*', pago.banco, pago.cuenta, pago.titular].filter((x) => x !== undefined && x !== '') : []);
+
+export function textoReciboFiado(d, pago) {
+  const l = [`*MERO PARCHE — Cuenta pendiente*`, d.cliente.Nombre, ''];
+  for (const f of d.facturas) l.push(`${f.numero} · ${new Date(f.fecha).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })} · saldo ${fmt(f.saldo)}${f.abonado ? ` (de ${fmt(f.original)})` : ''}`);
+  l.push('', `Consumido: ${fmt(d.consumido)}`, `Abonado: −${fmt(d.abonado)}`, `*Pendiente por pagar: ${fmt(d.pendiente)}*`, ...lineasPago(pago), '', 'Recuerda cancelar tu deuda con el Mero Parche. ¡Te esperamos! 🎱');
+  return l.join('\n');
+}
+
+export function textoReciboCuenta(d, nombre, pago) {
+  const l = [`*MERO PARCHE — Cuenta*`, nombre, ''];
+  for (const i of d.items) l.push(`${i.cant} × ${i.nombre}: ${fmt(i.total)}`);
+  l.push('', `*Total a pagar: ${fmt(d.total)}*`, ...lineasPago(pago), '', '¡Gracias por su visita! 🎱');
+  return l.join('\n');
+}
+
+export function textoCartera(c, fecha) {
+  const l = [`*MERO PARCHE — Cartera de fiados*`, fecha, '', `Total pendiente: *${fmt(c.total)}*`, ''];
+  for (const x of c.clientes) l.push(`• ${x.nombre}: ${fmt(x.deuda)}`);
+  return l.join('\n');
+}

@@ -208,3 +208,28 @@ test('informes: ganancia del día, sugerido de pedido y detalle de ventas', asyn
   assert.equal(d[0].total, 30000);
   assert.equal(enlaceWhatsApp('hola', '300 123 4567'), 'https://wa.me/573001234567?text=hola');
 });
+
+test('informes: recibo de cuenta, recibo de fiado y cartera', async () => {
+  const { reciboCuenta, reciboFiado, carteraFiados, textoReciboFiado } = await import('../src/informes/datos.js');
+  const productos = [{ Id: 'a', Nombre: 'Águila' }, { Id: 'b', Nombre: 'Papas' }];
+  const pedidos = [
+    { CuentaId: 'c1', ProductoId: 'a', Cantidad: 2, EstadoPedido: 'ENTREGADO', PrecioUnitarioHist: 5000, FechaHora: '2026-10-08T20:40:00Z' },
+    { CuentaId: 'c1', ProductoId: 'a', Cantidad: 1, EstadoPedido: 'ENTREGADO', PrecioUnitarioHist: 5000, FechaHora: '2026-10-08T20:50:00Z' },
+    { CuentaId: 'c1', ProductoId: 'b', Cantidad: 1, EstadoPedido: 'ENTREGADO', PrecioUnitarioHist: 3500, FechaHora: '2026-10-08T20:55:00Z' },
+    { CuentaId: 'c1', ProductoId: 'b', Cantidad: 4, EstadoPedido: 'CANCELADO', PrecioUnitarioHist: 3500 },
+  ];
+  const r = reciboCuenta({ pedidos, productos, tiempo: 10000 });
+  assert.equal(r.total, 28500);                       // 15.000 + 3.500 + 10.000 de tiempo
+  assert.deepEqual(r.items.map((i) => [i.nombre, i.cant]), [['Tiempo de mesa', 1], ['Águila', 3], ['Papas', 1]]);
+  assert.equal(r.historial.length, 3);
+  const g = { cliente: { Nombre: 'Carlos' }, deuda: 34000, facturas: [
+    { Numero: 'F-0003', CuentaId: 'c1', FechaHora: '2026-09-01T20:00:00Z', original: 25000, abonado: 0, saldo: 25000 },
+    { Numero: 'F-0004', CuentaId: 'c2', FechaHora: '2026-10-08T21:00:00Z', original: 21000, abonado: 12000, saldo: 9000 } ] };
+  const f = reciboFiado({ g, pedidos, productos, pagos: [] });
+  assert.equal(f.consumido, 46000); assert.equal(f.abonado, 12000); assert.equal(f.pendiente, 34000);
+  assert.equal(f.facturas[0].items.length, 2);
+  const c = carteraFiados([g], new Date('2026-10-08T23:00:00Z').getTime());
+  assert.equal(c.total, 34000);
+  assert.deepEqual(c.clientes[0].facturas.map((x) => x.vieja), [true, false]);   // F-0003 tiene más de 15 días
+  assert.match(textoReciboFiado(f, { banco: 'Banco', cuenta: '123', titular: 'Ana' }), /Pendiente por pagar: \$34\.000[\s\S]*123/);
+});
