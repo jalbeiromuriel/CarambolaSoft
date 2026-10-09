@@ -107,7 +107,7 @@ export default function Caja() {
                   <div className="cj-mv" key={c.Id}>
                     <div>{dia(c.FechaCierre)} · {hora(c.FechaCierre)}<small>{c.UsuarioNombre || '—'} · {c.NVentas} ventas · {c.Descuadre === 0 ? 'Cuadró ✓' : `${c.Descuadre > 0 ? 'Sobrante' : 'Faltante'} ${fmt(Math.abs(c.Descuadre))}`}{c.Nota ? ` · ${c.Nota}` : ''}</small>
                       {t.notas.filter((n) => n.CierreId === c.Id).map((n) => <small className="cj-acl" key={n.Id}>📝 {n.Texto} — {n.UsuarioNombre}, {dia(n.FechaHora)}</small>)}</div>
-                    <span className="cj-der"><b>{fmt(c.TotalGeneral)}</b><button className="cj-mini" title="Ver informe del cierre" onClick={() => setModal({ informe: c })}>📄</button><button className="cj-mini" title="Anotar una aclaración (el cierre no se edita)" onClick={() => setModal({ aclarar: c })}>📝</button></span>
+                    <span className="cj-der"><b>{fmt(c.TotalGeneral)}</b><button className="cj-mini" title="Ver informe del cierre" onClick={() => setModal({ informe: c })}>Ver ⟶</button><button className="cj-mini" title="Anotar una aclaración (el cierre no se edita)" onClick={() => setModal({ aclarar: c })}>📝 Aclarar</button></span>
                   </div>
                 ))}</div>
               </div>
