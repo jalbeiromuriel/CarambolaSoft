@@ -116,14 +116,15 @@ function CabTicket({ sub }) {
   return <div className="tk-cab"><h1>MERO PARCHE</h1><div className="sub">Licores &amp; Billar · Santa Cruz, Medellín</div>{sub}</div>;
 }
 /** Recuadro "¿Dónde pagar?": los datos vienen de Ajustes (guardados solo en este equipo, nunca en el código). */
-function DondePagar({ pago }) {
-  return pago?.cuenta
-    ? <div className="tk-pago"><b>¿DÓNDE PAGAR?</b><div>{pago.banco}</div><div className="num">{pago.cuenta}</div><div>{pago.titular}</div></div>
-    : <div className="tk-pago vacio">Configura los datos de pago en Clientes → Fiados → 💳 Datos de pago.</div>;
+function DondePagar({ cuentas }) {
+  const l = (cuentas ?? []).filter((c) => c?.numero);
+  return l.length
+    ? <div className="tk-pago"><b>¿DÓNDE PAGAR?</b>{l.map((c, i) => <div key={c.Id ?? i} className="tk-cta">{i > 0 && <hr />}<div>{c.banco}</div><div className="num">{c.numero}</div><div>{c.titular}</div></div>)}</div>
+    : <div className="tk-pago vacio">Configura las cuentas en Panel → 💳 Cuenta para pagos → Administrar.</div>;
 }
 
 /** Recibo de una cuenta (tiquete angosto). */
-export function HojaReciboCuenta({ d, nombre, apodo, sitio, pago, telefono, texto, cerrar }) {
+export function HojaReciboCuenta({ d, nombre, apodo, sitio, cuentas, telefono, texto, cerrar }) {
   const ahora = new Date();
   return (
     <Hoja ticket cerrar={cerrar} texto={texto} telefono={telefono}>
@@ -135,14 +136,14 @@ export function HojaReciboCuenta({ d, nombre, apodo, sitio, pago, telefono, text
       {d.historial.length > 0 && <><div className="tk-tit">HISTORIAL DE PEDIDOS</div>
         {d.historial.map((h, k) => <div className="tk-fila" key={k}><span>{hora12(h.fecha)} {h.nombre}{h.cant > 1 ? ` ×${h.cant}` : ''}</span><span>{fmt(h.monto)}</span></div>)}</>}
       <div className="inf-caja"><small>Total a pagar</small><b>{fmt(d.total)}</b></div>
-      <DondePagar pago={pago} />
+      <DondePagar cuentas={cuentas} />
       <div className="tk-gracias">¡Gracias por su visita!<br />Vuelva pronto al Mero Parche 🎱</div>
     </Hoja>
   );
 }
 
 /** Recibo de fiado: facturas pendientes con detalle, abonos y total pendiente. */
-export function HojaReciboFiado({ d, pago, telefono, texto, cerrar }) {
+export function HojaReciboFiado({ d, cuentas, telefono, texto, cerrar }) {
   const ahora = new Date();
   return (
     <Hoja ticket cerrar={cerrar} texto={texto} telefono={telefono}>
@@ -167,7 +168,7 @@ export function HojaReciboFiado({ d, pago, telefono, texto, cerrar }) {
       <div className="inf-bloque tk-sumas"><div className="tk-fila"><b>Total consumido</b><b>{fmt(d.consumido)}</b></div>
         <div className="tk-fila"><span>Total abonado</span><span>− {fmt(d.abonado)}</span></div></div>
       <div className="inf-caja"><small>Total pendiente por pagar</small><b>{fmt(d.pendiente)}</b></div>
-      <DondePagar pago={pago} />
+      <DondePagar cuentas={cuentas} />
       <div className="tk-gracias">Recuerda cancelar tu deuda con el Mero Parche.<br />¡Te esperamos! 🎱</div>
     </Hoja>
   );

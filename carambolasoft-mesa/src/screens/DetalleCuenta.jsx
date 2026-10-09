@@ -13,7 +13,7 @@ import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
 import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js';
-import { datosFactura, leerDatosPago } from '../cuenta/fiadosDb.js';
+import { datosFactura, leerCuentasPago } from '../cuenta/fiadosDb.js';
 import { useSesion } from '../components/Sesion.jsx';
 import { PinAdmin } from './Auth.jsx';
 import { esAdmin } from '../cuenta/auth.js';
@@ -254,14 +254,14 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
   async function abrirRecibo() {
     const d = reciboCuenta({ pedidos: pedidos.filter((p) => p.CuentaId === cuenta.Id), productos, tiempo: subTiempo });
-    setRecibo({ d, pago: await leerDatosPago() });
+    setRecibo({ d, cuentas: (await leerCuentasPago()).filter((c) => c.activa !== false).sort((a, b) => Number(!!b.principal) - Number(!!a.principal)) });
   }
 
   return (
     <div className="pn ms">
       <Encabezado activo="panel" irPanel={volver} />
-      {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} pago={recibo.pago}
-        telefono={esAdmin(usuario?.Rol) ? cliente?.Telefono : null} texto={textoReciboCuenta(recibo.d, cuenta.NombreLibre, recibo.pago)} cerrar={() => setRecibo(null)} />}
+      {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} cuentas={recibo.cuentas}
+        telefono={esAdmin(usuario?.Rol) ? cliente?.Telefono : null} texto={textoReciboCuenta(recibo.d, cuenta.NombreLibre, recibo.cuentas)} cerrar={() => setRecibo(null)} />}
 
       <div className="ms-sub">
         <button className="ms-volver" onClick={volver}>← Volver</button>

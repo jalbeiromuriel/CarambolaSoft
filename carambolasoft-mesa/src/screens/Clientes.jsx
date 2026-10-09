@@ -10,8 +10,10 @@ import { METODOS } from '../cuenta/cobro.js';
 import { antiguedad } from '../cuenta/fiados.js';
 import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import { getAll } from '../db/repository.js';
-import { cargarFiados, registrarAbono, abonosDeCliente, leerDatosPago, guardarDatosPago } from '../cuenta/fiadosDb.js';
+import { cargarFiados, registrarAbono, abonosDeCliente, leerCuentasPago } from '../cuenta/fiadosDb.js';
 import { HojaReciboFiado, HojaCartera, HojaCopiaFactura } from '../informes/Hoja.jsx';
+import CuentaPagos from '../components/CuentaPagos.jsx';
+import { cuentasActivas } from '../cuenta/cuentasPago.js';
 import { copiaFactura, textoCopiaFactura, reciboFiado, carteraFiados, textoReciboFiado, textoCartera } from '../informes/datos.js';
 import './Panel.css';
 import './Auth.css';
@@ -36,7 +38,7 @@ export default function Clientes() {
   const [abono, setAbono] = useState(null);     // { g, metodo, monto, error }
   const [hoja, setHoja] = useState(null);         // { recibo: datos } | { cartera: datos }
   const [detalle, setDetalle] = useState(null); // { g, tipo:'facturas'|'abonos', abonos? }
-  const [pago, setPago] = useState(null);       // datos de pago { editar, banco, cuenta, titular }
+  const [pago, setPago] = useState(false);      // ventana de cuentas para pagos
   const [histCli, setHistCli] = useState(null);
   const [aviso, setAviso] = useState('');
   const decir = (t) => { setAviso(t); setTimeout(() => setAviso(''), 2800); };
@@ -77,14 +79,12 @@ export default function Clientes() {
   async function verRecibo(g) {
     const facIds = g.facturas.map((f) => f.Id);
     const pagos = await abonosDeCliente(facIds);
-    setHoja({ recibo: reciboFiado({ g, pedidos, productos, pagos }), pago: await leerDatosPago(), telefono: g.cliente.Telefono });
+    setHoja({ recibo: reciboFiado({ g, pedidos, productos, pagos }), cuentas: cuentasActivas(await leerCuentasPago()), telefono: g.cliente.Telefono });
   }
   async function verCopia(g, f) {
     const abonos = (await getAll('ABONOS_FIADO')).filter((a) => a.FacturaId === f.Id);
     setHoja({ copia: copiaFactura({ factura: f, pedidos, productos, abonos, cliente: g.cliente }), telefono: g.cliente.Telefono });
   }
-  async function verPago() { setPago({ ...((await leerDatosPago()) ?? { banco: '', cuenta: '', titular: '' }), editar: false }); }
-  async function guardarPago() { await guardarDatosPago({ banco: pago.banco, cuenta: pago.cuenta, titular: pago.titular }); setPago({ ...pago, editar: false }); }
 
   // Historial de un cliente: facturas + lo que más pide
   const histFacturas = histCli ? facturas.filter((f) => cuentas.find((c) => c.Id === f.CuentaId)?.ClienteId === histCli.Id).sort((a, b) => (b.FechaHora ?? '').localeCompare(a.FechaHora ?? '')) : [];
@@ -144,7 +144,7 @@ export default function Clientes() {
         {tab === 'fiados' && admin && (
           <>
             <div className="cl-ban"><span>{fiados.lista.length} {fiados.lista.length === 1 ? 'cliente' : 'clientes'} con fiado pendiente</span><b>{fmt(fiados.total)}</b>
-              <button className="v" onClick={verPago}>💳 Datos de pago</button><button className="o" onClick={() => setHoja({ cartera: carteraFiados(fiados.lista) })}>📄 PDF cartera</button></div>
+              <button className="v" onClick={() => setPago(true)}>💳 Cuentas para pagos</button><button className="o" onClick={() => setHoja({ cartera: carteraFiados(fiados.lista) })}>📄 PDF cartera</button></div>
             {fiados.lista.length === 0 && <div className="pn-vacio">Nadie debe nada. 🎉</div>}
             {fiados.lista.map((g) => {
               const a = antiguedad(g.masAntigua);
@@ -197,7 +197,7 @@ export default function Clientes() {
         </div>
       )}
 
-      {hoja?.recibo && <HojaReciboFiado d={hoja.recibo} pago={hoja.pago} telefono={hoja.telefono} texto={textoReciboFiado(hoja.recibo, hoja.pago)} cerrar={() => setHoja(null)} />}
+      {hoja?.recibo && <HojaReciboFiado d={hoja.recibo} cuentas={hoja.cuentas} telefono={hoja.telefono} texto={textoReciboFiado(hoja.recibo, hoja.cuentas)} cerrar={() => setHoja(null)} />}
       {hoja?.cartera && <HojaCartera c={hoja.cartera} texto={textoCartera(hoja.cartera, new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }))} cerrar={() => setHoja(null)} />}
       {hoja?.copia && <HojaCopiaFactura d={hoja.copia} telefono={hoja.telefono} texto={textoCopiaFactura(hoja.copia)} cerrar={() => setHoja(null)} />}
       {detalle && (
@@ -215,29 +215,7 @@ export default function Clientes() {
         </div>
       )}
 
-      {pago && (
-        <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setPago(null)}>
-          <div className="pn-modal">
-            <h3>💳 Cuenta para pagos</h3>
-            {pago.editar ? (
-              <>
-                <label>Banco y tipo</label><input value={pago.banco} onChange={(e) => setPago({ ...pago, banco: e.target.value })} placeholder="Bancolombia · Cuenta de ahorros" />
-                <label>Número</label><input value={pago.cuenta} onChange={(e) => setPago({ ...pago, cuenta: e.target.value })} />
-                <label>Titular</label><input value={pago.titular} onChange={(e) => setPago({ ...pago, titular: e.target.value })} />
-                <div className="pn-acc"><button className="no" onClick={() => setPago({ ...pago, editar: false })}>CANCELAR</button><button className="si" onClick={guardarPago}>GUARDAR</button></div>
-              </>
-            ) : (
-              <>
-                {pago.cuenta ? <div className="cl-pago"><b>{pago.banco}</b><div className="num">{pago.cuenta}</div><b>{pago.titular}</b></div> : <div className="pn-vacio">Aún no hay datos de pago. Toca Editar.</div>}
-                <p className="au-nota">Estos datos se guardan solo en este equipo; no se publican en el código.</p>
-                <div className="pn-acc"><button className="no" onClick={() => setPago({ ...pago, editar: true })}>✏️ EDITAR</button>
-                  {pago.cuenta && <button className="no" onClick={() => navigator.clipboard?.writeText(pago.cuenta).then(() => decir('Número copiado'))}>📋 COPIAR</button>}
-                  <button className="si" onClick={() => setPago(null)}>CERRAR</button></div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {pago && <CuentaPagos admin={admin} cerrar={() => setPago(false)} />}
       {aviso && <div className="ms-aviso">{aviso}</div>}
     </div>
   );
