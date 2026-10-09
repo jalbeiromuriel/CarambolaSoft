@@ -1,5 +1,8 @@
-// src/cuenta/maquinas.js — Reglas de las máquinas (funciones puras): premios que paga la barra y cuadres con el dueño.
-// PREMIO sale del efectivo de la caja (entra al arqueo del turno). CUADRE es lo recibido del dueño; no toca el arqueo.
+// src/cuenta/maquinas.js — Reglas de las máquinas (funciones puras). Las máquinas tienen un FONDO propio, separado del cajón.
+// PREMIO baja el fondo. REPOSICION (lo que manda el dueño) lo sube. PRESTAMO: la caja le presta al fondo (sale del cajón, queda deuda).
+// DEVOLUCION: el fondo le devuelve a la caja (vuelve al cajón). Solo PRESTAMO y DEVOLUCION tocan el arqueo. CUADRE = dato viejo, vale como reposición.
+export const BASE_FONDO = 200000;
+const SUBE = new Set(['REPOSICION', 'CUADRE', 'PRESTAMO']);
 export const FILTROS_MAQ = [['turno', 'Turno actual'], ['semana', 'Semana'], ['quincena', 'Quincena'], ['mes', 'Mes'], ['rango', '📅 Rango']];
 
 const inicioDia = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -17,20 +20,23 @@ export function filtrarMovs(movs, filtro, { ahora = Date.now(), desde = '', hast
 }
 
 export function resumenMovs(movs) {
-  const prem = movs.filter((x) => x.Tipo === 'PREMIO'), cuad = movs.filter((x) => x.Tipo === 'CUADRE');
-  const totPremios = prem.reduce((t, x) => t + x.Monto, 0), totCuadres = cuad.reduce((t, x) => t + x.Monto, 0);
-  return { totPremios, nPremios: prem.length, totCuadres, nCuadres: cuad.length, neto: totCuadres - totPremios };
+  const de = (t) => movs.filter((x) => (t === 'REPOSICION' ? x.Tipo === 'REPOSICION' || x.Tipo === 'CUADRE' : x.Tipo === t));
+  const suma = (l) => l.reduce((t, x) => t + x.Monto, 0);
+  return { totPremios: suma(de('PREMIO')), nPremios: de('PREMIO').length, totReposiciones: suma(de('REPOSICION')), totPrestamos: suma(de('PRESTAMO')), totDevoluciones: suma(de('DEVOLUCION')) };
 }
 
-/** El papelito para el dueño: por cada máquina activa, premios pagados desde su último cuadre. */
-export function pendientePorMaquina(maquinas, movs) {
-  return maquinas.filter((m) => m.Activa !== false).map((m) => {
-    const mios = movs.filter((x) => x.MaquinaId === m.Id);
-    const ultimoCuadre = mios.filter((x) => x.Tipo === 'CUADRE').map((x) => x.FechaHora).sort().pop() ?? null;
-    const pend = mios.filter((x) => x.Tipo === 'PREMIO' && (!ultimoCuadre || x.FechaHora > ultimoCuadre));
-    return { maquina: m, ultimoCuadre, nPremios: pend.length, pendiente: pend.reduce((t, x) => t + x.Monto, 0) };
-  });
+/** Saldo del fondo (todo el historial, no solo el período): base + lo que entra − lo que sale. */
+export function saldoFondo(movs, base = BASE_FONDO) {
+  return movs.reduce((s, x) => s + (SUBE.has(x.Tipo) ? x.Monto : x.Tipo === 'PREMIO' || x.Tipo === 'DEVOLUCION' ? -x.Monto : 0), base);
 }
+/** Lo que el fondo le debe a la caja (préstamos − devoluciones). */
+export const deudaCaja = (movs) => Math.max(0, movs.reduce((s, x) => s + (x.Tipo === 'PRESTAMO' ? x.Monto : x.Tipo === 'DEVOLUCION' ? -x.Monto : 0), 0));
+
+/** Premios por máquina en el período que se está viendo. */
+export const premiosPorMaquina = (maquinas, movs) => maquinas.filter((m) => m.Activa !== false).map((m) => {
+  const p = movs.filter((x) => x.MaquinaId === m.Id && x.Tipo === 'PREMIO');
+  return { maquina: m, nPremios: p.length, total: p.reduce((t, x) => t + x.Monto, 0) };
+});
 
 const sinTildes = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 /** Valida el nombre de una máquina (único, sin importar tildes ni mayúsculas). Devuelve '' si está bien. */

@@ -15,6 +15,7 @@ import { Gasto } from './Caja.jsx';
 import { registrarGasto } from '../cuenta/cajaDb.js';
 import { PremioModal } from './Maquinas.jsx';
 import { cargarMaquinas } from '../cuenta/maquinasDb.js';
+import { saldoFondo } from '../cuenta/maquinas.js';
 import { useSesion } from '../components/Sesion.jsx';
 import { esAdmin } from '../cuenta/auth.js';
 import './Panel.css';
@@ -30,7 +31,7 @@ export default function Panel({ irACuenta, irAContador }) {
   const { usuario } = useSesion();
   const admin = esAdmin(usuario?.Rol);
   const [acc, setAcc] = useState(null); // 'pagos' | 'gasto'
-  const [maqs, setMaqs] = useState([]);
+  const [maqs, setMaqs] = useState({ maquinas: [], saldo: 0 });
   const [avisoVR, setAvisoVR] = useState('');
   const [rapida, setRapida] = useState(false);
   const [relojes, setRelojes] = useState([]);
@@ -163,7 +164,7 @@ export default function Panel({ irACuenta, irAContador }) {
         <div className="pn-acc2">
           <button className="v" onClick={() => setAcc('pagos')}>💳 CUENTA PARA PAGOS</button>
           {admin && <button className="r" onClick={() => setAcc('gasto')}>− REGISTRAR GASTO</button>}
-          {admin && <button className="r" onClick={async () => { setMaqs((await cargarMaquinas()).maquinas); setAcc('premio'); }}>🎰 PREMIO MÁQUINA</button>}
+          {admin && <button className="r" onClick={async () => { const x = await cargarMaquinas(); setMaqs({ maquinas: x.maquinas, saldo: saldoFondo(x.movs, x.base) }); setAcc('premio'); }}>🎰 PREMIO MÁQUINA</button>}
         </div>
         <div className="pn-btns">
           <button className="pn-b mesa" onClick={() => abrirModal({ tipo: 'MESA' })}>
@@ -198,7 +199,7 @@ export default function Panel({ irACuenta, irAContador }) {
       {rapida && <VentaRapida cerrar={() => setRapida(false)} alCobrar={(t) => { setRapida(false); setAvisoVR(`Venta registrada ✓ ${fmt(t)}`); setTimeout(() => setAvisoVR(''), 2800); cargar(); }} />}
       {avisoVR && <div className="ms-aviso">{avisoVR}</div>}
       {acc === 'pagos' && <CuentaPagos admin={admin} cerrar={() => setAcc(null)} />}
-      {acc === 'premio' && <PremioModal maquinas={maqs} cerrar={() => setAcc(null)} guardado={() => { setAcc(null); setAvisoVR('Premio registrado ✓'); setTimeout(() => setAvisoVR(''), 2600); }} />}
+      {acc === 'premio' && <PremioModal maquinas={maqs.maquinas} saldo={maqs.saldo} cerrar={() => setAcc(null)} guardado={() => { setAcc(null); setAvisoVR('Premio registrado ✓'); setTimeout(() => setAvisoVR(''), 2600); }} />}
       {acc === 'gasto' && <Gasto cerrar={() => setAcc(null)} guardar={async (g, autorizo) => { await registrarGasto({ ...g, usuarioId: usuario?.Id, autorizoId: autorizo.Id }); setAcc(null); setAvisoVR('Gasto registrado ✓'); setTimeout(() => setAvisoVR(''), 2600); }} />}
 
       {modal && (

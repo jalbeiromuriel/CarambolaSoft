@@ -54,7 +54,8 @@ export function HojaCierre({ d, usuarioNombre, cerrar, texto }) {
         <div><span>Efectivo vendido</span><b>{fmt(r.porMetodo.EFECTIVO)}</b></div>
         <div><span>+ Cobros de fiado</span><b>{fmt(r.cobrosFiado.EFECTIVO)}</b></div>
         <div><span>− Gastos en efectivo</span><b>{fmt(r.gastosPorMetodo.EFECTIVO)}</b></div>
-        {r.totalPremios > 0 && <div><span>− Premios de máquinas</span><b>{fmt(r.totalPremios)}</b></div>}
+        {r.totalPrestamos > 0 && <div><span>− Préstamo a máquinas</span><b>{fmt(r.totalPrestamos)}</b></div>}
+        {r.totalDevoluciones > 0 && <div><span>+ Devolución de máquinas</span><b>{fmt(r.totalDevoluciones)}</b></div>}
         <div><span>= Esperado en cajón</span><b>{fmt(r.efectivoEsperado)}</b></div>
         {d.arqueo && <><div><span>Contado</span><b>{fmt(d.arqueo.contado)}</b></div>
           <div><span>Diferencia</span><b>{d.arqueo.estado === 'CUADRA' ? '$0 · Cuadra' : `${d.arqueo.diferencia > 0 ? '+' : '−'}${fmt(Math.abs(d.arqueo.diferencia))} · ${d.arqueo.estado === 'SOBRANTE' ? 'Sobrante' : 'Faltante'}`}</b></div></>}

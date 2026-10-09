@@ -291,22 +291,25 @@ test('comprobante: métodos digitales y texto para la patrona', async () => {
   assert.ok(!/Valor/.test(textoComprobante({ monto: 0, metodos: ['NEQUI'] })));
 });
 
-// ---- Máquinas ----
-import { filtrarMovs as _fm, resumenMovs as _rm, pendientePorMaquina as _pm, validarNombreMaquina as _vn, movEditable as _me } from '../src/cuenta/maquinas.js';
+// ---- Máquinas (fondo propio) ----
+import { filtrarMovs as _fm, resumenMovs as _rm, saldoFondo as _sf, deudaCaja as _dc, validarNombreMaquina as _vn, movEditable as _me } from '../src/cuenta/maquinas.js';
 import { resumenTurno as _rt } from '../src/cuenta/caja.js';
-test('máquinas: pendiente se cuenta desde el último cuadre y neto', () => {
-  const maq = [{ Id: 'a', Nombre: 'Tragamonedas 1' }];
+test('máquinas: saldo del fondo, deuda con la caja y resumen', () => {
   const movs = [
-    { Id: '1', MaquinaId: 'a', Tipo: 'PREMIO', Monto: 50000, FechaHora: '2026-10-01T10:00:00Z', TurnoCajaId: 't' },
-    { Id: '2', MaquinaId: 'a', Tipo: 'CUADRE', Monto: 75000, FechaHora: '2026-10-02T10:00:00Z', TurnoCajaId: 't' },
-    { Id: '3', MaquinaId: 'a', Tipo: 'PREMIO', Monto: 20000, FechaHora: '2026-10-03T10:00:00Z', TurnoCajaId: null },
+    { Id: '1', MaquinaId: 'a', Tipo: 'PREMIO', Monto: 70000, FechaHora: '2026-10-01T10:00:00Z', TurnoCajaId: 't' },
+    { Id: '2', Tipo: 'PRESTAMO', Monto: 50000, FechaHora: '2026-10-02T10:00:00Z', TurnoCajaId: 't' },
+    { Id: '3', Tipo: 'REPOSICION', Monto: 100000, FechaHora: '2026-10-03T10:00:00Z', TurnoCajaId: null },
+    { Id: '4', Tipo: 'DEVOLUCION', Monto: 20000, FechaHora: '2026-10-03T11:00:00Z', TurnoCajaId: null },
   ];
-  assert.equal(_pm(maq, movs)[0].pendiente, 20000);
-  const r = _rm(movs); assert.equal(r.totPremios, 70000); assert.equal(r.totCuadres, 75000);
+  assert.equal(_sf(movs, 200000), 200000 - 70000 + 50000 + 100000 - 20000);
+  assert.equal(_dc(movs), 30000);
+  const r = _rm(movs); assert.equal(r.totPremios, 70000); assert.equal(r.totReposiciones, 100000);
   assert.equal(_me(movs[0]), false); assert.equal(_me(movs[2]), true);
-  assert.ok(_vn('tragamonedas 1', maq)); assert.equal(_vn('Otra', maq), '');
+  assert.equal(_fm(movs, 'turno').length, 2);
+  assert.ok(_vn('x', [{ Id: 'z', Nombre: 'X' }])); assert.equal(_vn('Otra', [{ Id: 'z', Nombre: 'X' }]), '');
 });
-test('premios bajan el efectivo esperado', () => {
-  const r = _rt({ facturas: [{ TotalPagar: 100000, MetodoPago: 'EFECTIVO', EstadoPago: 'PAGADO' }], abonos: [], gastos: [], premios: [{ Monto: 30000 }] });
-  assert.equal(r.totalPremios, 30000); assert.equal(r.efectivoEsperado, 70000);
+test('préstamo y devolución mueven el cajón; premios y reposiciones no', () => {
+  const base = { facturas: [{ TotalPagar: 100000, MetodoPago: 'EFECTIVO', EstadoPago: 'PAGADO' }], abonos: [], gastos: [] };
+  const r = _rt({ ...base, maq: [{ Tipo: 'PRESTAMO', Monto: 30000 }, { Tipo: 'DEVOLUCION', Monto: 10000 }, { Tipo: 'PREMIO', Monto: 99999 }] });
+  assert.equal(r.efectivoEsperado, 80000);
 });
