@@ -43,3 +43,8 @@
 .cj-aviso{border:1px solid #38bdf866;background:#38bdf814;color:#7dd3fc;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px}
 .cj-acl{color:var(--oro) !important}
 .cj-mod textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:#0e1422;color:#e6e8ee;font-size:15px;outline:0;resize:vertical;font-family:inherit}
+
+.fb-barra{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}.fb-in{flex:1;min-width:200px}
+.fb-barra select{background:#0b0f19;color:inherit;border:1px solid var(--line,#1f2740);border-radius:8px;padding:8px}
+.fb-est{font-size:10px;border:1px solid;border-radius:99px;padding:1px 8px;margin-left:6px}.fb-est.PAGADA{color:#35d07f}.fb-est.PENDIENTE{color:#f5a623}.fb-est.ANULADA{color:#ff5d73}
+.cj-mv b.amb{color:#f5a623}

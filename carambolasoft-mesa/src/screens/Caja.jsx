@@ -9,6 +9,7 @@ import { CATEGORIAS_GASTO, METODOS_CAJA, arqueo, movimientos } from '../cuenta/c
 import { cargarTurno, registrarGasto, cerrarCaja, agregarAclaracion } from '../cuenta/cajaDb.js';
 import { HojaCierre, HojaInformeDia } from '../informes/Hoja.jsx';
 import { datosCierre, informeDia, sugeridoPedido, textoCierre, textoInformeDia } from '../informes/datos.js';
+import FacturasBuscar from './FacturasBuscar.jsx';
 import './Panel.css';
 import './Caja.css';
 
@@ -88,8 +89,8 @@ export default function Caja() {
             </div>
           </div>
           <div>
-            <div className="cj-tabs"><button className={vista === 'hoy' ? 'on' : ''} onClick={() => setVista('hoy')}>Hoy</button><button className={vista === 'hist' ? 'on' : ''} onClick={() => setVista('hist')}>Historial de cierres</button></div>
-            {vista === 'hoy' ? (
+            <div className="cj-tabs"><button className={vista === 'hoy' ? 'on' : ''} onClick={() => setVista('hoy')}>Hoy</button><button className={vista === 'hist' ? 'on' : ''} onClick={() => setVista('hist')}>Historial de cierres</button><button className={vista === 'fac' ? 'on' : ''} onClick={() => setVista('fac')}>🔎 Facturas</button></div>
+            {vista === 'fac' ? <FacturasBuscar /> : vista === 'hoy' ? (
               <div className="cj-card"><div className="cj-sec">Movimientos de hoy</div>
                 {movs.length === 0 && <div className="cj-vacio">Sin movimientos en este turno.</div>}
                 <div className="cj-lista">{movs.map((m) => (
@@ -139,7 +140,7 @@ export default function Caja() {
   );
 }
 
-function Gasto({ cerrar, guardar }) {
+export function Gasto({ cerrar, guardar }) {
   const [d, setD] = useState({ concepto: '', monto: '', categoria: CATEGORIAS_GASTO[0], metodo: 'EFECTIVO' });
   const [pide, setPide] = useState(false); const [error, setError] = useState('');
   const set = (k, v) => setD((x) => ({ ...x, [k]: v }));
