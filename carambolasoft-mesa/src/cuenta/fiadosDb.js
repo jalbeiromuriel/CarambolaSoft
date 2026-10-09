@@ -44,7 +44,7 @@ export async function registrarAbono({ facturas, monto, metodo, usuarioId }) {
   const ahora = new Date().toISOString();
   for (const ap of aplicaciones) {
     const f = facturas.find((x) => x.Id === ap.facturaId);
-    await put('ABONOS_FIADO', { FacturaId: ap.facturaId, TurnoCajaId: f.TurnoCajaId ?? null, Monto: ap.aplicado, MetodoPago: metodo, FechaHora: ahora, UsuarioId: usuarioId ?? null });
+    await put('ABONOS_FIADO', { FacturaId: ap.facturaId, TurnoCajaId: null, Monto: ap.aplicado, MetodoPago: metodo, FechaHora: ahora, UsuarioId: usuarioId ?? null });
     const { saldo, abonado, original, FechaHora, ...factura } = f; // quita los campos calculados
     await put('FACTURAS', { ...factura, ...(f.FechaHora ? { FechaHora: f.FechaHora } : {}), TotalPendienteFiado: ap.saldo, EstadoPago: ap.saldo > 0 ? 'FIADO' : 'PAGADO' });
   }

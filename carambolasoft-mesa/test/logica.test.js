@@ -154,3 +154,35 @@ test('reposición: vendido + mínimo − stock, fraccionados cuentan en su envas
   assert.equal(r.some((x) => x.p.Id === 'copa' || x.p.Id === 'off'), false);
   assert.equal(r[0].p.Id, 'a');             // los de más pedido primero
 });
+
+test('caja: resumen del turno, efectivo esperado y arqueo', async () => {
+  const { resumenTurno, arqueo, inventarioVendido } = await import('../src/cuenta/caja.js');
+  const facturas = [
+    { Id: 'f1', CuentaId: 'c1', TotalPagar: 27000, MetodoPago: 'EFECTIVO', MetodoPagoSecundario: null, MontoPrimario: null },
+    { Id: 'f2', CuentaId: 'c2', TotalPagar: 18000, MetodoPago: 'FIADO', MetodoPagoSecundario: null, MontoPrimario: null },
+    { Id: 'f3', CuentaId: 'c3', TotalPagar: 20000, MetodoPago: 'NEQUI', MontoPrimario: 12000, MetodoPagoSecundario: 'EFECTIVO', MontoSecundario: 8000 },
+  ];
+  const abonos = [{ MetodoPago: 'EFECTIVO', Monto: 15000, FechaHora: 't', FacturaId: 'x' }];
+  const gastos = [{ MetodoPago: 'EFECTIVO', Monto: 20000, Concepto: 'Vasos', Categoria: 'Insumos', FechaHora: 't' }];
+  const r = resumenTurno({ facturas, abonos, gastos });
+  assert.equal(r.totalVendido, 65000);
+  assert.equal(r.porMetodo.EFECTIVO, 35000);      // 27.000 + 8.000 de la venta mixta
+  assert.equal(r.porMetodo.NEQUI, 12000);
+  assert.equal(r.fiado, 18000);
+  assert.equal(r.efectivoEsperado, 30000);        // 35.000 + 15.000 de abonos − 20.000 de gastos
+  assert.deepEqual(arqueo(30000, 30000), { diferencia: 0, estado: 'CUADRA' });
+  assert.equal(arqueo(30000, 28000).estado, 'FALTANTE');
+  assert.equal(arqueo(30000, 31000).diferencia, 1000);
+  const inv = inventarioVendido({
+    facturas: [{ CuentaId: 'c1' }, { CuentaId: 'c9', CuentasIncluidas: ['c2'] }],
+    productos: [{ Id: 'a', Nombre: 'Águila' }, { Id: 'g', Nombre: 'Garita' }],
+    pedidos: [
+      { CuentaId: 'c1', ProductoId: 'a', Cantidad: 3, EstadoPedido: 'ENTREGADO' },
+      { CuentaId: 'c2', ProductoId: 'a', Cantidad: 2, EstadoPedido: 'ENTREGADO' },
+      { CuentaId: 'c1', ProductoId: 'a', Cantidad: 5, EstadoPedido: 'CANCELADO' },
+      { CuentaId: 'c1', ProductoId: 'a', Cantidad: 4, EstadoPedido: 'ENTREGADO', CategoriaConsumo: 'TIEMPO' },
+      { CuentaId: 'zz', ProductoId: 'a', Cantidad: 9, EstadoPedido: 'ENTREGADO' },
+    ],
+  });
+  assert.deepEqual(inv, { filas: [{ nombre: 'Águila', cant: 5 }], total: 5 });
+});
