@@ -276,4 +276,9 @@ test('cuentasPago: migra la cuenta antigua, principal primero, ocultas fuera, un
   assert.equal(conPrincipal([{ Id: 'x' }, { Id: 'y' }])[0].principal, true);
   assert.notEqual(validarCuenta({ numero: '', titular: 't', banco: 'b' }), ''); assert.equal(validarCuenta({ numero: '1', titular: 't', banco: 'b' }), '');
   assert.equal(cuentaNueva('NEQUI').banco, 'Nequi');
+  const { TIPOS_CUENTA, pieDe } = await import('../src/cuenta/cuentasPago.js');
+  assert.ok(TIPOS_CUENTA.some((t) => t.v === 'BANCOLOMBIA') && TIPOS_CUENTA.some((t) => t.v === 'BREB'));
+  assert.equal(cuentaNueva('BANCOLOMBIA').banco, 'Bancolombia · Cuenta de ahorros'); assert.equal(cuentaNueva('BREB').banco, 'Bre-B · Llave');
+  assert.match(pieDe('BREB'), /llave/);
+  assert.equal(normalizarCuentas({ banco: 'Bancolombia · Ahorros', cuenta: '1' })[0].tipo, 'BANCOLOMBIA');
 });
