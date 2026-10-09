@@ -233,3 +233,13 @@ test('informes: recibo de cuenta, recibo de fiado y cartera', async () => {
   assert.deepEqual(c.clientes[0].facturas.map((x) => x.vieja), [true, false]);   // F-0003 tiene más de 15 días
   assert.match(textoReciboFiado(f, { banco: 'Banco', cuenta: '123', titular: 'Ana' }), /Pendiente por pagar: \$34\.000[\s\S]*123/);
 });
+
+test('copiaFactura: pagada, pendiente con abonos y tiempo', async () => {
+  const { copiaFactura } = await import('../src/informes/datos.js');
+  const productos = [{ Id: 'p', Nombre: 'Cerveza' }];
+  const pedidos = [{ CuentaId: 'c', ProductoId: 'p', Cantidad: 6, PrecioUnitarioHist: 5000, EstadoPedido: 'ENTREGADO' }, { CuentaId: 'x', ProductoId: 'p', Cantidad: 1, PrecioUnitarioHist: 5000, EstadoPedido: 'ENTREGADO' }];
+  const pag = copiaFactura({ factura: { Numero: 'F-0002', CuentaId: 'c', TotalPagar: 30000, TotalPendienteFiado: 0, MetodoPago: 'EFECTIVO', MetodoPagoSecundario: 'NEQUI', FechaHora: '2026-09-21T21:14:00Z' }, pedidos, productos });
+  assert.equal(pag.estado, 'PAGADA'); assert.equal(pag.items.length, 1); assert.equal(pag.items[0].cant, 6); assert.equal(pag.saldo, 0); assert.equal(pag.pagado, 30000);
+  const pen = copiaFactura({ factura: { CuentaId: 'c', TotalPagar: 35000, SubtotalTiempo: 5000, TotalPendienteFiado: 20000 }, pedidos, productos, abonos: [{ Monto: 15000, MetodoPago: 'NEQUI', FechaHora: 'z' }] });
+  assert.equal(pen.estado, 'PENDIENTE'); assert.equal(pen.numero, 'F-—'); assert.equal(pen.items[0].nombre, 'Tiempo de mesa'); assert.equal(pen.pagado, 15000); assert.equal(pen.pagos.length, 1);
+});

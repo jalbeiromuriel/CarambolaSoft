@@ -194,3 +194,24 @@ export function HojaCartera({ c, cerrar, texto }) {
     </Hoja>
   );
 }
+
+/** Copia de consulta de una factura (tiquete angosto). Sello COPIA · PAGADA / COPIA · PENDIENTE. */
+export function HojaCopiaFactura({ d, telefono, texto, cerrar }) {
+  return (
+    <Hoja ticket cerrar={cerrar} texto={texto} telefono={telefono}>
+      <CabTicket />
+      <div className="tk-sello">COPIA · {d.estado}</div>
+      <div className="tk-fila"><span>Factura</span><b>{d.numero}</b></div>
+      <div className="tk-fila"><span>Fecha</span><span>{fechaHora(d.fecha)}</span></div>
+      {d.metodos && <div className="tk-fila"><span>Pagó</span><span>{d.metodos}</span></div>}
+      <div className="tk-quien"><b>{d.cliente}</b>{d.apodo && <div className="sub">“{d.apodo}”</div>}</div>
+      <table><tbody>{d.items.map((i, k) => <tr key={k}><td>{i.cant} × {i.nombre}</td><td className="r">{fmt(i.total)}</td></tr>)}</tbody></table>
+      <div className="tk-fila" style={{ marginTop: 8 }}><span>Total factura</span><b>{fmt(d.total)}</b></div>
+      {d.pagos.length > 0 && <><div className="tk-tit">ABONOS RECIBIDOS</div>
+        {d.pagos.map((p, k) => <div className="tk-fila" key={k}><span>{fechaHora(p.FechaHora)} · {nombreMetodo(p.MetodoPago)}</span><span>{fmt(p.Monto)}</span></div>)}</>}
+      <div className="tk-fila"><span>Pagado</span><span>{fmt(d.pagado)}</span></div>
+      <div className="inf-caja"><small>Saldo</small><b>{fmt(d.saldo)}</b></div>
+      <div className="tk-gracias">Copia de consulta · no es una nueva venta<br />Impreso {fechaHora(new Date().toISOString())}</div>
+    </Hoja>
+  );
+}

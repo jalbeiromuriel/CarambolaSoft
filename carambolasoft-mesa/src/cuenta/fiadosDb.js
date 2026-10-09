@@ -27,7 +27,10 @@ export async function cargarFiados() {
     g.facturas.sort((a, b) => new Date(a.FechaHora) - new Date(b.FechaHora));
     // Abonos de TODAS las facturas del cliente (incluye las que ya quedaron saldadas)
     const mias = new Set(cuentas.filter((c) => c.ClienteId === g.cliente.Id).map((c) => c.Id));
-    g.todasFacturaIds = facturas.filter((f) => mias.has(f.CuentaId)).map((f) => f.Id);
+    const suyas = facturas.filter((f) => mias.has(f.CuentaId));
+    g.todasFacturaIds = suyas.map((f) => f.Id);
+    // Todas las facturas del cliente (pendientes y pagadas), recientes primero — para consultar recibos
+    g.todasFacturas = suyas.map((f) => ({ ...f, saldo: f.TotalPendienteFiado ?? 0, FechaHora: f.FechaHora ?? f.UltimaModificacion })).sort((a, b) => new Date(b.FechaHora) - new Date(a.FechaHora));
     const suyos = abonos.filter((a) => g.todasFacturaIds.includes(a.FacturaId));
     g.abonado = suyos.reduce((t, a) => t + a.Monto, 0);
     g.pagos = new Set(suyos.map((a) => a.FechaHora)).size; // un pago puede tocar varias facturas

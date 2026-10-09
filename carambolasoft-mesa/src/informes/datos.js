@@ -160,3 +160,26 @@ export function textoCartera(c, fecha) {
   for (const x of c.clientes) l.push(`• ${x.nombre}: ${fmt(x.deuda)}`);
   return l.join('\n');
 }
+
+/** Copia de consulta de UNA factura (solo lectura): detalle, cómo pagó, abonos y saldo. `abonos` = filas de ABONOS_FIADO de esa factura. */
+export function copiaFactura({ factura: f, pedidos = [], productos = [], abonos = [], cliente = null, nombreCuenta = '' }) {
+  const cuentas = new Set([f.CuentaId, ...(f.CuentasIncluidas ?? [])]);
+  const items = agrupar(pedidos.filter((p) => cuentas.has(p.CuentaId) && p.EstadoPedido === 'ENTREGADO'), productos);
+  if ((f.SubtotalTiempo ?? 0) > 0) items.unshift({ nombre: 'Tiempo de mesa', cant: 1, unit: f.SubtotalTiempo, total: f.SubtotalTiempo });
+  const total = f.TotalPagar ?? items.reduce((t, i) => t + i.total, 0);
+  const saldo = f.TotalPendienteFiado ?? 0;
+  const metodos = [f.MetodoPago, f.MetodoPagoSecundario].filter(Boolean).map(nombreMetodo);
+  const pagos = abonos.map((a) => ({ FechaHora: a.FechaHora, MetodoPago: a.MetodoPago, Monto: a.Monto }));
+  return {
+    numero: f.Numero ?? 'F-—', fecha: f.FechaHora, cliente: cliente?.Nombre ?? nombreCuenta, apodo: cliente?.Apodo ?? '',
+    items, total, saldo, pagado: total - saldo, pagos, metodos: metodos.join(' / '),
+    estado: saldo > 0 ? 'PENDIENTE' : 'PAGADA',
+  };
+}
+
+export function textoCopiaFactura(d) {
+  const l = [`*MERO PARCHE — Copia de factura ${d.numero}* (${d.estado})`, d.cliente, new Date(d.fecha).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }), ''];
+  for (const i of d.items) l.push(`${i.cant} × ${i.nombre}: ${fmt(i.total)}`);
+  l.push('', `Total: ${fmt(d.total)}`, `Pagado: ${fmt(d.pagado)}`, `*Saldo: ${fmt(d.saldo)}*`);
+  return l.join('\n');
+}
