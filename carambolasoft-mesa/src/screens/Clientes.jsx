@@ -11,8 +11,8 @@ import { antiguedad } from '../cuenta/fiados.js';
 import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import { getAll } from '../db/repository.js';
 import { cargarFiados, registrarAbono, abonosDeCliente, leerDatosPago, guardarDatosPago } from '../cuenta/fiadosDb.js';
-import { HojaReciboFiado, HojaCartera } from '../informes/Hoja.jsx';
-import { reciboFiado, carteraFiados, textoReciboFiado, textoCartera } from '../informes/datos.js';
+import { HojaReciboFiado, HojaCartera, HojaCopiaFactura } from '../informes/Hoja.jsx';
+import { copiaFactura, textoCopiaFactura, reciboFiado, carteraFiados, textoReciboFiado, textoCartera } from '../informes/datos.js';
 import './Panel.css';
 import './Auth.css';
 import './Clientes.css';
@@ -78,6 +78,10 @@ export default function Clientes() {
     const facIds = g.facturas.map((f) => f.Id);
     const pagos = await abonosDeCliente(facIds);
     setHoja({ recibo: reciboFiado({ g, pedidos, productos, pagos }), pago: await leerDatosPago(), telefono: g.cliente.Telefono });
+  }
+  async function verCopia(g, f) {
+    const abonos = (await getAll('ABONOS_FIADO')).filter((a) => a.FacturaId === f.Id);
+    setHoja({ copia: copiaFactura({ factura: f, pedidos, productos, abonos, cliente: g.cliente }), telefono: g.cliente.Telefono });
   }
   async function verPago() { setPago({ ...((await leerDatosPago()) ?? { banco: '', cuenta: '', titular: '' }), editar: false }); }
   async function guardarPago() { await guardarDatosPago({ banco: pago.banco, cuenta: pago.cuenta, titular: pago.titular }); setPago({ ...pago, editar: false }); }
@@ -148,7 +152,7 @@ export default function Clientes() {
                 <div key={g.cliente.Id} className="cl-row">
                   <div className="n"><b>{g.cliente.Nombre} <span className={`cl-age ${a.clase}`}>{a.texto}</span></b>
                     <small>{g.facturas.length} {g.facturas.length === 1 ? 'factura fiada' : 'facturas fiadas'}</small>
-                    <div>{g.facturas.map((f) => <span key={f.Id} className="cl-chip">{f.Numero ?? 'F-—'} · <i>{fmt(f.saldo)}</i>{f.abonado > 0 ? ` (de ${fmt(f.original)})` : ''}</span>)}</div>
+                    <div>{g.facturas.map((f) => <button key={f.Id} className="cl-chip cl-chip-b" title="Ver el recibo de esta factura" onClick={() => verCopia(g, f)}>{f.Numero ?? 'F-—'} · <i>{fmt(f.saldo)}</i>{f.abonado > 0 ? ` (de ${fmt(f.original)})` : ''} <span className="cl-lupa">🔍</span></button>)}</div>
                     {g.abonado > 0 && <div className="cl-abon">Ha abonado {fmt(g.abonado)} · {g.pagos} {g.pagos === 1 ? 'pago' : 'pagos'}</div>}</div>
                   <span className="cl-deb">{fmt(g.deuda)}</span>
                   <button className="b" onClick={() => verDetalle(g, 'facturas')}>Ver detalle</button>
@@ -195,14 +199,15 @@ export default function Clientes() {
 
       {hoja?.recibo && <HojaReciboFiado d={hoja.recibo} pago={hoja.pago} telefono={hoja.telefono} texto={textoReciboFiado(hoja.recibo, hoja.pago)} cerrar={() => setHoja(null)} />}
       {hoja?.cartera && <HojaCartera c={hoja.cartera} texto={textoCartera(hoja.cartera, new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }))} cerrar={() => setHoja(null)} />}
+      {hoja?.copia && <HojaCopiaFactura d={hoja.copia} telefono={hoja.telefono} texto={textoCopiaFactura(hoja.copia)} cerrar={() => setHoja(null)} />}
       {detalle && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setDetalle(null)}>
           <div className="pn-modal">
             <h3>{detalle.tipo === 'abonos' ? '📜 Abonos' : 'Detalle del fiado'} · {detalle.g.cliente.Nombre}</h3>
             {detalle.tipo === 'abonos'
               ? detalle.abonos.map((a) => <div key={a.Id} className="cl-fila"><span className="mut">{fecha(a.FechaHora)}</span><span>{METODOS.find((m) => m.v === a.MetodoPago)?.t ?? a.MetodoPago}</span><b className="der">{fmt(a.Monto)}</b></div>)
-              : detalle.g.facturas.map((f) => (
-                <div key={f.Id} className="cl-fac"><div className="cl-fila"><b>{f.Numero ?? 'F-—'}</b><span className="mut">{fecha(f.FechaHora)}</span><b className="der">{fmt(f.saldo)}</b></div>
+              : detalle.g.todasFacturas.map((f) => (
+                <div key={f.Id} className="cl-fac"><div className="cl-fila"><b>{f.Numero ?? 'F-—'}</b><span className="mut">{fecha(f.FechaHora)}</span>{f.saldo > 0 ? <b className="der">{fmt(f.saldo)}</b> : <span className="cl-pag">PAGADA</span>}<button className="cl-ver" onClick={() => verCopia(detalle.g, f)}>🧾 Ver recibo</button></div>
                   {pedidos.filter((p) => p.CuentaId === f.CuentaId && p.EstadoPedido === 'ENTREGADO').map((p) => <div key={p.Id} className="cl-item"><span>{p.Cantidad} × {productos.find((x) => x.Id === p.ProductoId)?.Nombre ?? p.Detalle ?? '¿?'}</span><span>{fmt(p.PrecioUnitarioHist * p.Cantidad)}</span></div>)}</div>
               ))}
             <div className="pn-acc"><button className="no" onClick={() => setDetalle(null)}>CERRAR</button></div>

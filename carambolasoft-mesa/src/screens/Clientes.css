@@ -24,3 +24,7 @@
 .cl-est{font-size:10px;letter-spacing:1px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}.cl-est.FIADO{color:var(--rojo);border-color:#fb718566}.cl-est.PAGADO{color:var(--ver);border-color:#4ade8066}
 .cl-fac{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:#0e1422}.cl-item{display:flex;justify-content:space-between;padding:4px 14px;font-size:12px;color:var(--mut)}
 .cl-pago{text-align:center;padding:12px}.cl-pago .num{font-family:ui-monospace,monospace;font-size:30px;color:var(--ver);margin:8px 0}
+
+.cl-chip-b{cursor:pointer;color:inherit;font-family:inherit}.cl-chip-b:hover{border-color:var(--oro)}.cl-lupa{font-size:10px;margin-left:3px}
+.cl-pag{color:#35d07f;font-size:11px;border:1px solid #35d07f55;border-radius:99px;padding:1px 8px}.cl-ver{border:1px solid var(--line);background:#0b0f19;color:inherit;border-radius:7px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:8px}
+.cl-fila .cl-pag{margin-left:auto}
