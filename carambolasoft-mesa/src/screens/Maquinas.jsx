@@ -52,14 +52,20 @@ const CFG = {
 function MontoModal({ tipo, deuda, saldo, cerrar, guardado }) {
   const { usuario } = useSesion(); const c = CFG[tipo];
   const [monto, setMonto] = useState(''); const [nota, setNota] = useState(''); const [pide, setPide] = useState(false); const [error, setError] = useState('');
+  const [devolver, setDevolver] = useState(true);
+  const aDevolver = tipo === 'REPOSICION' && devolver ? Math.min(num(monto), deuda) : 0;   // reposición: salda primero la deuda con la caja
   function seguir() {
     const m = num(monto);
     if (!(m > 0)) { setError('Escribe el valor.'); return; }
     if (tipo === 'DEVOLUCION' && m > deuda) { setError(`Solo debes ${fmt(deuda)} a la caja.`); return; }
     if (tipo === 'DEVOLUCION' && m > saldo) { setError(`El fondo solo tiene ${fmt(saldo)}.`); return; }
-    setError(''); if (c.pin) setPide(true); else hacer(null);
+    setError(''); if (c.pin || aDevolver > 0) setPide(true); else hacer(null);
   }
-  async function hacer(a) { await c.fn({ monto: num(monto), nota, usuario, autorizoId: a?.Id }); guardado(); }
+  async function hacer(a) {
+    await c.fn({ monto: num(monto), nota, usuario, autorizoId: a?.Id });
+    if (aDevolver > 0) await registrarDevolucion({ monto: aDevolver, nota: 'Con la reposición del dueño', usuario, autorizoId: a?.Id });
+    guardado();
+  }
   return (
     <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && cerrar()}>
       <div className="pn-modal cj-mod">
@@ -69,9 +75,16 @@ function MontoModal({ tipo, deuda, saldo, cerrar, guardado }) {
         <input className="cj-hi" autoFocus inputMode="numeric" value={monto ? fmt(num(monto)) : ''} placeholder="$0" onChange={(e) => setMonto(e.target.value)} />
         <label>Nota (opcional)</label>
         <input value={nota} placeholder={tipo === 'PRESTAMO' ? 'El dueño no ha mandado la plata' : ''} onChange={(e) => setNota(e.target.value)} />
-        <p className="cj-nota">{c.ayuda}</p>
+        {tipo === 'REPOSICION' && deuda > 0 && (
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', letterSpacing: 0, textTransform: 'none', fontSize: 13, color: '#cbd0dc' }}>
+            <input type="checkbox" style={{ width: 'auto' }} checked={devolver} onChange={(e) => setDevolver(e.target.checked)} />
+            Devolver a la caja lo que se le debe ({fmt(deuda)})
+          </label>
+        )}
+        {aDevolver > 0 && <div style={{ border: '1px solid #4ade8066', background: '#4ade8012', borderRadius: 10, padding: 10, marginTop: 8, fontSize: 13 }}>↩ Se devuelve <b>{fmt(aDevolver)}</b> a la caja. En el fondo quedan <b>{fmt(saldo + num(monto) - aDevolver)}</b>. Pide PIN de Admin.</div>}
+        <p className="cj-nota">{aDevolver > 0 ? 'Sube el fondo; la parte devuelta vuelve al cajón.' : c.ayuda}</p>
         {error && <div className="pn-err">{error}</div>}
-        <div className="cj-acc"><button onClick={cerrar}>Cancelar</button><button className="g" onClick={seguir}>{c.btn}</button></div>
+        <div className="cj-acc"><button onClick={cerrar}>Cancelar</button><button className="g" onClick={seguir}>{aDevolver > 0 ? 'Registrar y devolver' : c.btn}</button></div>
       </div>
       {pide && <PinAdmin motivo="Un Admin digita su PIN para autorizar este movimiento." cancelar={() => setPide(false)} ok={hacer} />}
     </div>
@@ -147,7 +160,7 @@ export default function Maquinas() {
               {porMaq.map((p) => <div className="cj-mr" key={p.maquina.Id}><span>{p.maquina.Nombre} <small>{p.nPremios} premios</small></span><span className={p.total ? 'y rojo' : 'z'}>{p.total ? '−' : ''}{fmt(p.total)}</span></div>)}
             </div>
           </div>
-          <div className="cj-card"><div className="cj-sec">Movimientos</div>
+          <div className="cj-card" style={{ maxHeight: 'calc(100vh - 230px)', overflowY: 'auto' }}><div className="cj-sec">Movimientos</div>
             {lista.length === 0 && <div className="cj-vacio">Sin movimientos en este periodo.</div>}
             {lista.map((m) => (
               <div className="cj-mv" key={m.Id}>
