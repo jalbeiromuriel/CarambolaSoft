@@ -6,7 +6,7 @@ import { leerCuentasPago, guardarCuentasPago } from '../cuenta/fiadosDb.js';
 import { TIPOS_CUENTA, pieDe, cuentasActivas, cuentaNueva, conPrincipal, validarCuenta } from '../cuenta/cuentasPago.js';
 import './CuentaPagos.css';
 
-const agrupar = (n) => String(n);
+const ORN = <svg viewBox="0 0 60 60" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"><path d="M3 57V22C3 11 11 3 22 3h35" /><path d="M10 57V26c0-9 7-16 16-16h31" opacity=".6" /><path d="M16 30c0-8 6-14 14-14M22 36c0-6 4-10 10-10" opacity=".7" /><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" /></svg>;
 
 export default function CuentaPagos({ admin, cerrar }) {
   const [lista, setLista] = useState(null);
@@ -41,17 +41,16 @@ export default function CuentaPagos({ admin, cerrar }) {
             <h3>💳 Para el cliente</h3>
             {actual ? (
               <>
-                <div className="cp-tj">
-                  <div className="cp-top"><span className="cp-chip" /><span>CUENTA PARA PAGOS</span><small>MERO PARCHE</small></div>
-                  <div className="cp-cuerpo">
-                    <div>
-                      <div className="cp-banco">{actual.banco}</div>
-                      <div className="cp-num">{agrupar(actual.numero)}</div>
-                      <div className="cp-tit">{actual.titular}</div>
-                    </div>
-                    {actual.qr && <img className="cp-qr" src={actual.qr} alt="QR de pago" />}
+                <div className="tcard">
+                  <span className="tc-o tl">{ORN}</span><span className="tc-o tr">{ORN}</span><span className="tc-o bl">{ORN}</span><span className="tc-o br">{ORN}</span>
+                  <div className="tc-top"><span className="tc-chip" /><span className="tc-title">Cuenta para pagos</span><span className="tc-logo">Mero Parche</span></div>
+                  {actual.qr && <img className="tc-qr" src={actual.qr} alt="QR de pago" />}
+                  <div className="tc-body">
+                    <div className="tc-l1">{actual.banco}</div>
+                    <div className="tc-num" style={actual.numero.length > 14 ? { fontSize: "clamp(18px,4.4vw,30px)" } : undefined}>{actual.numero}</div>
+                    <div className="tc-l2">{actual.titular}</div>
                   </div>
-                  <div className="cp-pie">✦ {pieDe(actual.tipo).toUpperCase()} ✦</div>
+                  <div className="tc-foot"><span>✦</span><span>{pieDe(actual.tipo)}</span><span>✦</span></div>
                 </div>
                 {activas.length > 1 && (
                   <div className="cp-nav">
@@ -94,10 +93,10 @@ export default function CuentaPagos({ admin, cerrar }) {
           <>
             <h3>{lista.some((c) => c.Id === form.Id) ? '✏️ Editar cuenta' : '+ Nueva cuenta'}</h3>
             <label>Tipo</label>
-            <select value={form.tipo} onChange={(e) => { const t = e.target.value; setForm({ ...form, tipo: t, banco: !form.banco || ['Nequi', 'Daviplata'].includes(form.banco) ? cuentaNueva(t).banco : form.banco }); }}>
+            <select value={form.tipo} onChange={(e) => { const t = e.target.value; const prev = TIPOS_CUENTA.map((x) => x.banco); setForm({ ...form, tipo: t, banco: !form.banco || prev.includes(form.banco) ? cuentaNueva(t).banco : form.banco }); }}>
               {TIPOS_CUENTA.map((t) => <option key={t.v} value={t.v}>{t.t}</option>)}</select>
             <label>Banco o nombre</label><input value={form.banco} onChange={(e) => setForm({ ...form, banco: e.target.value })} placeholder="Bancolombia · Cuenta de ahorros" />
-            <label>Número</label><input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} placeholder="000 000000 00" />
+            <label>{form.tipo === 'BREB' ? 'Llave (celular, correo o código)' : 'Número'}</label><input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} placeholder="000 000000 00" />
             <label>Titular</label><input value={form.titular} onChange={(e) => setForm({ ...form, titular: e.target.value })} />
             <label>QR de cobro (opcional)</label>
             <div className="cp-qrrow">{form.qr && <img className="cp-qr mini" src={form.qr} alt="QR" />}<input type="file" accept="image/*" onChange={subirQr} />

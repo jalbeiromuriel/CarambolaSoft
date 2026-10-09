@@ -1,13 +1,29 @@
-.cp-mod{min-width:min(480px,94vw)}.cp-gran{min-width:min(620px,94vw)}
-.cp-tj{border:2px solid #d9b25a;border-radius:14px;padding:16px 18px;text-align:center;background:linear-gradient(160deg,#14110a,#0a0a0a);margin:6px 0}
-.cp-top{display:flex;justify-content:space-between;align-items:center;color:#d9b25a;font-family:Georgia,serif;font-size:14px;letter-spacing:.12em}.cp-top small{font-size:9px;opacity:.8}
-.cp-chip{width:34px;height:24px;border-radius:5px;background:linear-gradient(135deg,#e8c670,#a07d2c)}
-.cp-cuerpo{display:flex;align-items:center;justify-content:center;gap:18px;margin:14px 0 6px}
-.cp-banco{color:#e8dcc0;font-family:Georgia,serif;font-size:15px}
-.cp-num{font-family:Georgia,serif;font-size:clamp(24px,5vw,38px);letter-spacing:.14em;color:#e8c670;margin:8px 0;text-shadow:0 0 14px #d9b25a55}
-.cp-tit{font-style:italic;font-family:Georgia,serif;font-size:18px;color:#f0e6cc}
-.cp-qr{width:104px;height:104px;object-fit:contain;background:#fff;border-radius:8px;padding:4px}.cp-qr.mini{width:48px;height:48px}
-.cp-pie{margin-top:8px;font-size:9px;letter-spacing:.2em;color:#a8905a}
+.cp-mod{min-width:min(480px,94vw)}.cp-gran{width:min(640px,96vw)}
+/* Tarjeta negra y dorada — réplica de la v6.28 del POS */
+.tcard{position:relative;overflow:hidden;border-radius:18px;padding:18px 22px 14px;color:#e9d9a8;text-align:center;
+  background:radial-gradient(120% 90% at 20% 0%,#2b2d34 0%,#14161b 55%,#0a0b0e 100%);
+  border:2px solid #c9a24a;box-shadow:0 0 0 4px #0a0b0e,0 0 0 5px #8a6d2b,0 14px 34px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,236,170,.25),inset 0 0 40px rgba(0,0,0,.6);margin:8px 6px}
+.tcard::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(100deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px)}
+.tcard::after{content:"";position:absolute;top:-60%;left:-40%;width:35%;height:220%;pointer-events:none;transform:rotate(18deg);background:linear-gradient(90deg,transparent,rgba(255,236,170,.13),transparent);animation:tcShine 6s ease-in-out infinite}
+@keyframes tcShine{0%,55%{left:-40%}100%{left:130%}}
+.tc-o{position:absolute;width:56px;height:56px;color:#c9a24a;opacity:.55;pointer-events:none}.tc-o svg{width:100%;height:100%}
+.tc-o.tl{top:6px;left:6px}.tc-o.tr{top:6px;right:6px;transform:scaleX(-1)}.tc-o.bl{bottom:6px;left:6px;transform:scaleY(-1)}.tc-o.br{bottom:6px;right:6px;transform:scale(-1,-1)}
+.tc-top{position:relative;display:flex;align-items:center;gap:10px;margin:2px 34px 10px}
+.tc-chip{width:30px;height:22px;border-radius:5px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35),inset 0 0 6px rgba(255,255,255,.4);
+  background-image:linear-gradient(135deg,#f3dc8e,#b8892b 55%,#e9c766),linear-gradient(90deg,transparent 48%,rgba(0,0,0,.3) 49% 51%,transparent 52%)}
+.tc-title{white-space:nowrap;font-family:Georgia,'Times New Roman',serif;font-variant:small-caps;font-size:17px;letter-spacing:3px;color:#e6c76a;font-weight:700;text-shadow:0 1px 0 #000}
+.tc-logo{white-space:nowrap;margin-left:auto;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#9b8650}
+.tc-qr{position:relative;width:150px;height:150px;object-fit:contain;background:#fff;padding:7px;border-radius:10px;border:2px solid #c9a24a;margin:4px auto 8px;display:block}
+.tc-body{position:relative;padding:8px 8px 2px}
+.tc-l1{font-family:Georgia,'Times New Roman',serif;font-size:17px;letter-spacing:1.5px;color:#e9d9a8;margin:2px 0}
+.tc-l2{font-family:Georgia,'Times New Roman',serif;font-size:19px;letter-spacing:1px;color:#f5ebc8;margin:6px 0 2px;font-style:italic}
+.tc-num{line-height:1.25;padding:2px 4px;font-family:'Courier New',ui-monospace,monospace;font-size:clamp(22px,6.4vw,46px);font-weight:900;letter-spacing:.1em;white-space:nowrap;margin:8px 0 4px;
+  background:linear-gradient(180deg,#fff3c4 0%,#e8c765 38%,#b8892b 60%,#f1d680 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 1px 0 #000) drop-shadow(0 0 10px rgba(232,199,101,.35));user-select:all}
+.tc-foot{position:relative;display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px;padding-top:8px;border-top:1px solid rgba(201,162,74,.35);font-size:10px;letter-spacing:2px;color:#9b8650;text-transform:uppercase}
+.tc-foot span:first-child,.tc-foot span:last-child{color:#c9a24a}
+@media print{.tcard::after{display:none}}
+@media(max-width:480px){.tc-logo{display:none}.tc-top{justify-content:center;margin:2px 30px 10px}}
 .cp-nav{display:flex;justify-content:center;align-items:center;gap:10px;margin:12px 0 4px}.cp-nav button{background:none;border:0;color:#d9b25a;font-size:24px;cursor:pointer;padding:0 8px}
 .cp-dot{width:8px;height:8px;border-radius:50%;background:#2a3350;cursor:pointer}.cp-dot.on{background:#d9b25a}
 .cp-cont{text-align:center;color:#7a86a8;font-size:12px;margin-bottom:10px}
@@ -16,3 +32,4 @@
 .cp-star{margin-left:8px;color:#d9b25a;font-size:10.5px;border:1px solid #d9b25a77;border-radius:99px;padding:1px 8px}
 .cp-ic{display:flex;gap:4px}.cp-ic button{border:1px solid #2a3350;background:#0e1422;border-radius:8px;padding:5px 8px;cursor:pointer;color:inherit}
 .cp-qrrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cp-qr.mini{width:48px;height:48px;object-fit:contain;background:#fff;border-radius:6px;padding:2px}
