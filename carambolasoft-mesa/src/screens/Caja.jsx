@@ -51,13 +51,13 @@ export default function Caja() {
 
   if (!t) return <><Encabezado activo="caja" /><div className="cj" /></>;
   const r = t.resumen;
-  const movs = movimientos({ facturas: t.facturas, abonos: t.abonos, gastos: t.gastos, etiquetaDe: etiqueta });
+  const movs = movimientos({ facturas: t.facturas, abonos: t.abonos, gastos: t.gastos, maq: t.maq, etiquetaDe: etiqueta });
   const aperturas = t.abiertas.map((c) => etiqueta({ CuentaId: c.Id }).replace(/^\S+\s/, '')).filter(Boolean);
   const hayAbiertas = t.abiertas.length > 0;
   // datos de un cierre ya sellado (por TurnoCajaId) o del turno abierto
   const datosDe = (c) => {
     const por = (l) => (c ? l.filter((x) => x.TurnoCajaId === c.TurnoCajaId) : l.filter((x) => x.TurnoCajaId == null));
-    return datosCierre({ facturas: por(t.facturasTodas), abonos: por(t.abonosTodos), gastos: por(t.gastosTodos), pedidos: t.pedidos, productos: t.productos, etiquetaDe: etiqueta, cierre: c, notas: c ? t.notas.filter((n) => n.CierreId === c.Id) : [] });
+    return datosCierre({ facturas: por(t.facturasTodas), abonos: por(t.abonosTodos), gastos: por(t.gastosTodos), maq: por(t.maqMovs.filter((x) => x.Tipo === 'PRESTAMO' || x.Tipo === 'DEVOLUCION')), pedidos: t.pedidos, productos: t.productos, etiquetaDe: etiqueta, cierre: c, notas: c ? t.notas.filter((n) => n.CierreId === c.Id) : [] });
   };
 
   return (
@@ -76,6 +76,8 @@ export default function Caja() {
                 <div className="cj-mr lin"><span className="ver">✓ Cobros de fiado recibidos ({r.nCobros})</span><span className="y ver">+{fmt(r.totalCobros)}</span></div>
                 <div className="cj-mr sub"><span>· {METODOS_CAJA.filter((m) => r.cobrosFiado[m]).map((m) => `${nombreMetodo(m)} ${fmt(r.cobrosFiado[m])}`).join(' · ')}</span></div>
               </>}
+              {r.totalPrestamos > 0 && <div className="cj-mr lin"><span className="rojo">🏦 Préstamo a máquinas</span><span className="y rojo">−{fmt(r.totalPrestamos)}</span></div>}
+              {r.totalDevoluciones > 0 && <div className="cj-mr lin"><span className="ver">↩ Devolución de máquinas</span><span className="y ver">+{fmt(r.totalDevoluciones)}</span></div>}
               {r.totalGastos > 0 && <div className="cj-mr lin"><span className="rojo">💸 Gastos del turno ({r.nGastos})</span><span className="y rojo">−{fmt(r.totalGastos)}</span></div>}
               <div className="cj-mr esp"><span>💵 Efectivo esperado en cajón</span><span className="y">{fmt(r.efectivoEsperado)}</span></div>
             </div>
@@ -95,9 +97,9 @@ export default function Caja() {
                 {movs.length === 0 && <div className="cj-vacio">Sin movimientos en este turno.</div>}
                 <div className="cj-lista">{movs.map((m) => (
                   <div className="cj-mv" key={m.id}>
-                    <div><span className={m.tipo === 'ABONO' ? 'ver' : m.tipo === 'GASTO' ? 'rojo' : ''}>{m.tipo === 'GASTO' ? `Gasto · ${m.titulo}` : m.titulo}</span>
-                      <small>{m.tipo === 'GASTO' ? `${nombreMetodo(m.detalle[0])} · ${m.detalle[1]}` : m.detalle.map(nombreMetodo).join(' + ')} · {hora(m.fecha)}</small></div>
-                    <b className={m.tipo === 'GASTO' ? 'rojo' : ''}>{m.tipo === 'GASTO' ? '−' : m.tipo === 'ABONO' ? '+' : ''}{fmt(m.monto)}</b>
+                    <div><span className={m.tipo === 'ABONO' || m.tipo === 'DEVOLUCION' ? 'ver' : m.tipo === 'GASTO' || m.tipo === 'PRESTAMO' ? 'rojo' : ''}>{m.tipo === 'GASTO' ? `Gasto · ${m.titulo}` : m.titulo}</span>
+                      <small>{m.tipo === 'GASTO' || m.tipo === 'PRESTAMO' || m.tipo === 'DEVOLUCION' ? `${nombreMetodo(m.detalle[0])} · ${m.detalle[1]}` : m.detalle.map(nombreMetodo).join(' + ')} · {hora(m.fecha)}</small></div>
+                    <b className={m.tipo === 'GASTO' || m.tipo === 'PRESTAMO' ? 'rojo' : ''}>{m.tipo === 'GASTO' || m.tipo === 'PREMIO' ? '−' : m.tipo === 'ABONO' ? '+' : ''}{fmt(m.monto)}</b>
                   </div>
                 ))}</div>
               </div>

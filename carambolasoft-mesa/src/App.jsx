@@ -13,6 +13,7 @@ import Contador from './screens/Contador/Contador.jsx';
 import { SesionContext } from './components/Sesion.jsx';
 import { PrimerUso, Login, CambioObligatorio } from './screens/Auth.jsx';
 import Caja from './screens/Caja.jsx';
+import Maquinas from './screens/Maquinas.jsx';
 import Inventario from './screens/Inventario.jsx';
 import Clientes from './screens/Clientes.jsx';
 import Usuarios from './screens/Usuarios.jsx';
@@ -114,6 +115,7 @@ return (
       {ruta.pantalla === 'clientes' && <Clientes />}
       {ruta.pantalla === 'inventario' && esAdmin(usuario.Rol) && <Inventario />}
       {ruta.pantalla === 'caja' && esAdmin(usuario.Rol) && <Caja />}
+      {ruta.pantalla === 'maquinas' && esAdmin(usuario.Rol) && <Maquinas />}
       {ruta.pantalla === 'adm' && esAdmin(usuario.Rol) && <Usuarios />}
       {ruta.pantalla === 'contador' && (
         <Contador irACuenta={(cuentaId) => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'cuenta', cuentaId }); }} salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />
