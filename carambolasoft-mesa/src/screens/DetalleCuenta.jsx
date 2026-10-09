@@ -15,6 +15,8 @@ import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
 import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js';
 import { datosFactura, leerCuentasPago } from '../cuenta/fiadosDb.js';
 import { useSesion } from '../components/Sesion.jsx';
+import BotonComprobante from '../components/BotonComprobante.jsx';
+import { esDigital, textoComprobante } from '../cuenta/comprobante.js';
 import { PinAdmin } from './Auth.jsx';
 import { esAdmin } from '../cuenta/auth.js';
 import { HojaReciboCuenta } from '../informes/Hoja.jsx';
@@ -481,6 +483,10 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             )}
             {pagador.ClienteId && cliente && (
               <div className="cb-cli">A nombre de <b>{cliente.Nombre}{cliente.Apodo ? ` · “${cliente.Apodo}”` : ''}</b>{deuda > 0 && <span>Debe <b>{fmt(deuda)}</b></span>}</div>
+            )}
+
+            {(cobro.mixto ? [cobro.metodo1, cobro.metodo2] : [cobro.metodo]).some(esDigital) && (
+              <BotonComprobante texto={textoComprobante({ cliente: cliente?.Nombre ?? pagador.NombreLibre, monto: totalC, metodos: (cobro.mixto ? [cobro.metodo1, cobro.metodo2] : [cobro.metodo]).filter(esDigital), usuario: usuario?.Nombre, motivo: `Cobro de cuenta · ${titulo}` })} />
             )}
 
             {!cobro.mixto && cobro.metodo === 'EFECTIVO' && (

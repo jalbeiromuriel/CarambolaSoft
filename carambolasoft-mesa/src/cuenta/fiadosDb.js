@@ -73,3 +73,7 @@ export async function leerCuentasPago() {
   return normalizarCuentas(nuevas ?? (await leerMeta('negocio.datosPago')));
 }
 export const guardarCuentasPago = (lista) => escribirMeta('negocio.cuentasPago', lista);
+
+// WhatsApp de la patrona (para enviar comprobantes). Solo local.
+export const leerWhatsappPatrona = async () => (await leerMeta('negocio.whatsappPatrona')) ?? '';
+export const guardarWhatsappPatrona = (n) => escribirMeta('negocio.whatsappPatrona', String(n ?? '').replace(/\D/g, ''));
