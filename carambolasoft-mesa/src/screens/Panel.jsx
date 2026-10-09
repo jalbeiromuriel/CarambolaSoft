@@ -10,6 +10,11 @@ import { estadoReloj, mmss } from '../cuenta/garita.js';
 import { abrirGarita } from '../cuenta/garitaDb.js';
 import VentaRapida from '../components/VentaRapida.jsx';
 import Encabezado from '../components/Encabezado.jsx';
+import CuentaPagos from '../components/CuentaPagos.jsx';
+import { Gasto } from './Caja.jsx';
+import { registrarGasto } from '../cuenta/cajaDb.js';
+import { useSesion } from '../components/Sesion.jsx';
+import { esAdmin } from '../cuenta/auth.js';
 import './Panel.css';
 
 const TARIFA_BILLAR = 6000; // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
@@ -20,6 +25,9 @@ export default function Panel({ irACuenta, irAContador }) {
   const [mesas, setMesas] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [pedidos, setPedidos] = useState([]);
+  const { usuario } = useSesion();
+  const admin = esAdmin(usuario?.Rol);
+  const [acc, setAcc] = useState(null); // 'pagos' | 'gasto'
   const [avisoVR, setAvisoVR] = useState('');
   const [rapida, setRapida] = useState(false);
   const [relojes, setRelojes] = useState([]);
@@ -149,6 +157,10 @@ export default function Panel({ irACuenta, irAContador }) {
       <Encabezado activo="panel" />
 
       <div className="pn-wrap">
+        <div className="pn-acc2">
+          <button className="v" onClick={() => setAcc('pagos')}>💳 CUENTA PARA PAGOS</button>
+          {admin && <button className="r" onClick={() => setAcc('gasto')}>− REGISTRAR GASTO</button>}
+        </div>
         <div className="pn-btns">
           <button className="pn-b mesa" onClick={() => abrirModal({ tipo: 'MESA' })}>
             <h3>+ MESA</h3><p>licores y snacks</p>
@@ -181,6 +193,8 @@ export default function Panel({ irACuenta, irAContador }) {
 
       {rapida && <VentaRapida cerrar={() => setRapida(false)} alCobrar={(t) => { setRapida(false); setAvisoVR(`Venta registrada ✓ ${fmt(t)}`); setTimeout(() => setAvisoVR(''), 2800); cargar(); }} />}
       {avisoVR && <div className="ms-aviso">{avisoVR}</div>}
+      {acc === 'pagos' && <CuentaPagos admin={admin} cerrar={() => setAcc(null)} />}
+      {acc === 'gasto' && <Gasto cerrar={() => setAcc(null)} guardar={async (g, autorizo) => { await registrarGasto({ ...g, usuarioId: usuario?.Id, autorizoId: autorizo.Id }); setAcc(null); setAvisoVR('Gasto registrado ✓'); setTimeout(() => setAvisoVR(''), 2600); }} />}
 
       {modal && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setModal(null)}>

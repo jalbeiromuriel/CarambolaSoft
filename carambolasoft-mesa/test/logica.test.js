@@ -243,3 +243,24 @@ test('copiaFactura: pagada, pendiente con abonos y tiempo', async () => {
   const pen = copiaFactura({ factura: { CuentaId: 'c', TotalPagar: 35000, SubtotalTiempo: 5000, TotalPendienteFiado: 20000 }, pedidos, productos, abonos: [{ Monto: 15000, MetodoPago: 'NEQUI', FechaHora: 'z' }] });
   assert.equal(pen.estado, 'PENDIENTE'); assert.equal(pen.numero, 'F-—'); assert.equal(pen.items[0].nombre, 'Tiempo de mesa'); assert.equal(pen.pagado, 15000); assert.equal(pen.pagos.length, 1);
 });
+
+test('buscarFacturas: por número, cliente, fecha, estado y periodo', async () => {
+  const { buscarFacturas } = await import('../src/cuenta/caja.js');
+  const ahora = new Date('2026-10-09T15:00:00').getTime();
+  const cuentas = [{ Id: 'c1', ClienteId: 'k1', NombreLibre: 'x' }, { Id: 'c2', NombreLibre: 'Venta rápida' }];
+  const clientes = [{ Id: 'k1', Nombre: 'Chalo Pérez' }];
+  const facturas = [
+    { Id: 'f1', Numero: 'F-0004', CuentaId: 'c1', TotalPagar: 50000, TotalPendienteFiado: 20000, FechaHora: '2026-10-02T21:00:00' },
+    { Id: 'f2', Numero: 'F-0012', CuentaId: 'c2', TotalPagar: 12000, TotalPendienteFiado: 0, FechaHora: '2026-10-09T10:00:00' },
+  ];
+  const b = (o) => buscarFacturas({ facturas, cuentas, clientes, ahora, ...o }).map((r) => r.numero);
+  assert.deepEqual(b({}), ['F-0012', 'F-0004']);
+  assert.deepEqual(b({ texto: 'f-0004' }), ['F-0004']);
+  assert.deepEqual(b({ texto: '4' }), ['F-0004']);
+  assert.deepEqual(b({ texto: 'perez' }), ['F-0004']);
+  assert.deepEqual(b({ texto: '02/10' }), ['F-0004']);
+  assert.deepEqual(b({ estado: 'pendientes' }), ['F-0004']);
+  assert.deepEqual(b({ estado: 'pagadas' }), ['F-0012']);
+  assert.deepEqual(b({ periodo: 'hoy' }), ['F-0012']);
+  assert.deepEqual(b({ texto: 'zzz' }), []);
+});

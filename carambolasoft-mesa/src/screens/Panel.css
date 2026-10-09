@@ -112,3 +112,7 @@
 .pn-nav button.pn-who{border-color:#4ade8077;color:var(--ver);background:#4ade8010;border-radius:99px;margin-left:8px}
 .pn-nav button.pn-who.emp{border-color:#38bdf877;color:#38bdf8;background:#38bdf810}
 .pn-sec.ver{color:var(--ver)}.pn-nota{color:var(--mut);letter-spacing:1px;text-transform:none;font-size:11px}
+
+.pn-acc2{display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px;flex-wrap:wrap}
+.pn-acc2 button{font-size:10.5px;letter-spacing:.08em;padding:6px 12px;border-radius:7px;border:1px solid;background:transparent;cursor:pointer}
+.pn-acc2 .v{color:#35d07f;border-color:#35d07f77}.pn-acc2 .r{color:#ff8a8a;border-color:#ff5d7377}

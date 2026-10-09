@@ -76,3 +76,31 @@ export function inventarioVendido({ facturas = [], pedidos = [], productos = [] 
   const filas = [...conteo].map(([n, cant]) => ({ nombre: n, cant })).sort((a, b) => b.cant - a.cant || a.nombre.localeCompare(b.nombre, 'es'));
   return { filas, total: filas.reduce((t, f) => t + f.cant, 0) };
 }
+
+const sinTildes = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+/**
+ * Buscador de facturas (solo lectura). `texto` busca por número (F-0004 o 4), nombre del cliente o fecha (dd/mm o dd/mm/aaaa).
+ * estado: 'todas' | 'pagadas' | 'pendientes'. periodo: 'todo' | 'hoy' | '7d'. Más recientes primero.
+ */
+export function buscarFacturas({ facturas = [], cuentas = [], clientes = [], texto = '', estado = 'todas', periodo = 'todo', ahora = Date.now() }) {
+  const cuenta = new Map(cuentas.map((c) => [c.Id, c])); const cli = new Map(clientes.map((c) => [c.Id, c]));
+  const q = sinTildes(texto); const num = q.replace(/^f-?/, '').replace(/^0+/, '');
+  const hoy = new Date(ahora); hoy.setHours(0, 0, 0, 0);
+  const filas = facturas.map((f) => {
+    const c = cuenta.get(f.CuentaId); const cl = cli.get(c?.ClienteId);
+    const saldo = f.TotalPendienteFiado ?? 0;
+    return { factura: f, numero: f.Numero ?? 'F-—', cliente: cl?.Nombre ?? c?.NombreLibre ?? '', fecha: f.FechaHora ?? f.UltimaModificacion, total: f.TotalPagar ?? 0, saldo, estado: f.EstadoPago === 'ANULADO' ? 'ANULADA' : saldo > 0 ? 'PENDIENTE' : 'PAGADA', metodo: f.MetodoPago };
+  });
+  return filas.filter((r) => {
+    if (estado === 'pagadas' && r.estado !== 'PAGADA') return false;
+    if (estado === 'pendientes' && r.estado !== 'PENDIENTE') return false;
+    const t = new Date(r.fecha).getTime();
+    if (periodo === 'hoy' && t < hoy.getTime()) return false;
+    if (periodo === '7d' && t < hoy.getTime() - 6 * 86400000) return false;
+    if (!q) return true;
+    const d = new Date(r.fecha); const dd = String(d.getDate()).padStart(2, '0'); const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const fechas = [`${dd}/${mm}`, `${dd}/${mm}/${d.getFullYear()}`];
+    return sinTildes(r.cliente).includes(q) || sinTildes(r.numero).includes(q) || (num !== '' && /^\d+$/.test(num) && sinTildes(r.numero).replace(/^f-?/, '').replace(/^0+/, '') === num) || fechas.includes(q);
+  }).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+}
