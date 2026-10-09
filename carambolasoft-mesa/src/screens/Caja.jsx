@@ -84,23 +84,23 @@ export default function Caja() {
             {vista === 'hoy' ? (
               <div className="cj-card"><div className="cj-sec">Movimientos de hoy</div>
                 {movs.length === 0 && <div className="cj-vacio">Sin movimientos en este turno.</div>}
-                {movs.map((m) => (
+                <div className="cj-lista">{movs.map((m) => (
                   <div className="cj-mv" key={m.id}>
                     <div><span className={m.tipo === 'ABONO' ? 'ver' : m.tipo === 'GASTO' ? 'rojo' : ''}>{m.tipo === 'GASTO' ? `Gasto · ${m.titulo}` : m.titulo}</span>
                       <small>{m.tipo === 'GASTO' ? `${nombreMetodo(m.detalle[0])} · ${m.detalle[1]}` : m.detalle.map(nombreMetodo).join(' + ')} · {hora(m.fecha)}</small></div>
                     <b className={m.tipo === 'GASTO' ? 'rojo' : ''}>{m.tipo === 'GASTO' ? '−' : m.tipo === 'ABONO' ? '+' : ''}{fmt(m.monto)}</b>
                   </div>
-                ))}
+                ))}</div>
               </div>
             ) : (
               <div className="cj-card"><div className="cj-sec">Cierres anteriores</div>
                 {t.cierres.length === 0 && <div className="cj-vacio">Aún no hay cierres.</div>}
-                {t.cierres.map((c) => (
+                <div className="cj-lista">{t.cierres.map((c) => (
                   <div className="cj-mv" key={c.Id}>
                     <div>{dia(c.FechaCierre)} · {hora(c.FechaCierre)}<small>{c.UsuarioNombre || '—'} · {c.NVentas} ventas · {c.Descuadre === 0 ? 'Cuadró ✓' : `${c.Descuadre > 0 ? 'Sobrante' : 'Faltante'} ${fmt(Math.abs(c.Descuadre))}`}{c.Nota ? ` · ${c.Nota}` : ''}</small></div>
                     <b>{fmt(c.TotalGeneral)}</b>
                   </div>
-                ))}
+                ))}</div>
               </div>
             )}
           </div>
