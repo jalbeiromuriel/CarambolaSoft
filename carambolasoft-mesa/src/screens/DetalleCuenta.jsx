@@ -589,7 +589,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <div className="pn-modal">
               <h3>⏹ Finalizar tiempo de billar</h3>
               <div style={{ textAlign: 'center', marginBottom: 14 }}>
-                <div style={{ fontSize: 28, fontWeight: 700, color: '#e8c06a', fontFamily: 'monospace' }}>{hms(ms)}</div>
+                <div style={{ fontSize: 34, fontWeight: 800, color: '#e8c06a', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>{hms(ms)}</div>
                 <small className="au-nota">{duracionMin(min)} a {fmt(tarifa)}/h = <b style={{ color: '#35d07f' }}>{fmt(Math.round((min * tarifa) / 60))}</b></small>
               </div>
               <div className="cb-lab">¿Cómo se cobra el tiempo?</div>
