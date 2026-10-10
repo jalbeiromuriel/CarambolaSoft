@@ -571,7 +571,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       )}
 
       {cobro && dividir && (
-        <DividirCobro total={totalC} nombres={cuentasCobro.map((c) => c.NombreLibre)} puedeFiar={puedeFiar} pedirPin={(luego) => setPidePin({ luego })}
+        <DividirCobro total={totalC} jugadores={grupo.map((c) => ({ nombre: c.NombreLibre, clienteId: c.ClienteId ?? null }))} puedeFiar={puedeFiar} pedirPin={(luego) => setPidePin({ luego })}
           cerrar={() => setDividir(false)} confirmar={confirmarDivision} />
       )}
 

@@ -1,6 +1,7 @@
 // src/components/DividirCobro.jsx — Dividir la cuenta entre varios pagadores: cada uno con su valor y su método (o fiado a su nombre).
 // Reglas puras en cuenta/dividir.js. El padre (DetalleCuenta) crea una factura por pagador.
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { listarClientes } from '../marcador/datos.js';
 import SelectorCliente from './SelectorCliente.jsx';
 import { METODOS } from '../cuenta/cobro.js';
 import { repartirIgual, planDivision } from '../cuenta/dividir.js';
@@ -8,9 +9,13 @@ import { repartirIgual, planDivision } from '../cuenta/dividir.js';
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const num = (v) => Number(String(v).replace(/\D/g, '')) || 0;
 
-export default function DividirCobro({ total, nombres = [], puedeFiar, pedirPin, cerrar, confirmar }) {
-  const n0 = Math.max(2, nombres.length);
-  const [filas, setFilas] = useState(() => repartirIgual(total, n0).map((m, i) => ({ k: i, nombre: nombres[i] ?? '', cliente: null, metodo: 'EFECTIVO', monto: m, resto: false })));
+export default function DividirCobro({ total, jugadores = [], puedeFiar, pedirPin, cerrar, confirmar }) {
+  // arranca con los jugadores de la mesa (sus cuentas); si la cuenta ya tiene cliente registrado, queda listo para fiar
+  const n0 = Math.max(2, jugadores.length);
+  const [filas, setFilas] = useState(() => repartirIgual(total, n0).map((m, i) => ({ k: i, nombre: jugadores[i]?.nombre ?? '', cliente: null, metodo: 'EFECTIVO', monto: m, resto: false })));
+  useEffect(() => {
+    listarClientes().then((l) => setFilas((fs) => fs.map((f, i) => (f.cliente || !jugadores[i]?.clienteId ? f : { ...f, cliente: l.find((c) => c.Id === jugadores[i].clienteId) ?? null }))));
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   const [pick, setPick] = useState(null);   // índice de la fila que elige cliente
   const [sel, setSel] = useState({ cliente: null, nombre: '' }); const [errSel, setErrSel] = useState('');
   const [ocupado, setOcupado] = useState(false);
