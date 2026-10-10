@@ -105,8 +105,8 @@
 
 /* Barra superior: una sola fila, pestañas con subrayado neón y menú del usuario */
 .pn-top{flex-wrap:nowrap;gap:18px;padding:0 20px;height:62px;position:relative;background:linear-gradient(#0e1424,#0b0f19);border-bottom:1px solid #e8c06a55;box-shadow:0 8px 24px -14px #e8c06a55}
-.pn-logo{display:flex;align-items:center;gap:10px;flex:none}
-.pn-nav{display:flex;gap:2px;align-self:stretch;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;margin-left:6px}
+.pn-logo{display:flex;align-items:center;gap:10px;flex:1 1 0;min-width:0}
+.pn-nav{display:flex;gap:2px;align-self:stretch;flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;justify-content:safe center}
 .pn-nav::-webkit-scrollbar{display:none}
 .pn-nav button{display:flex;align-items:center;gap:7px;padding:0 14px;border:0;border-radius:0;background:transparent;color:#9aa3b8;font-size:13.5px;cursor:pointer;position:relative;white-space:nowrap;min-height:0;transition:color .08s}
 .pn-nav button i{font-style:normal;font-size:15px;filter:grayscale(.5)}
@@ -115,7 +115,7 @@
 .pn-nav button.on i{filter:none}
 .pn-nav button.on::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:2px;border-radius:2px;background:var(--oro);box-shadow:0 0 10px var(--oro)}
 .pn-nav button.off{opacity:.4;cursor:not-allowed}
-.pn-user{position:relative;flex:none}
+.pn-user{position:relative;flex:1 1 0;display:flex;justify-content:flex-end}
 .pn-user .pn-who{display:inline-flex;align-items:center;gap:8px;padding:4px 14px 4px 4px;border:1px solid #4ade8066;border-radius:99px;color:var(--ver);background:#4ade8010;cursor:pointer;font-size:13px;min-height:40px}
 .pn-user .pn-who.emp{border-color:#38bdf877;color:#38bdf8;background:#38bdf810}
 .pn-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:60;width:210px;background:#0f1422;border:1px solid #2a3350;border-radius:12px;padding:6px;box-shadow:0 14px 34px #000c;display:flex;flex-direction:column;gap:2px}
@@ -124,7 +124,7 @@
 @media (max-width:1100px){.pn-t2{display:none}.pn-nav button{padding:0 10px;font-size:13px}}
 @media (max-width:900px){
   .pn-top{gap:10px;padding:0 12px}.pn-t1{display:none}
-  .pn-nav{margin-left:0}.pn-nav button{flex-direction:column;justify-content:center;gap:2px;padding:0 9px;font-size:10.5px}.pn-nav button i{font-size:18px}
+  .pn-nav button{flex-direction:column;justify-content:center;gap:2px;padding:0 9px;font-size:10.5px}.pn-nav button i{font-size:18px}
   .pn-who-n{display:none}.pn-user .pn-who{padding:4px}
 }
 .pn-sec.ver{color:var(--ver)}.pn-nota{color:var(--mut);letter-spacing:1px;text-transform:none;font-size:11px}
