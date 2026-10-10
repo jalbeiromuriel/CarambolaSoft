@@ -35,7 +35,7 @@ export function validarBackup(b) {
  * Plan de importación. `existentes` = { productos, clientes, facturas } de CarambolaSoft.
  * Productos y clientes se comparan por nombre (sin tildes ni mayúsculas); los fiados por OrigenPosId (no se duplican al reimportar).
  */
-export function planImportacion(b, { productos = [], clientes = [], facturas = [] } = {}, hoy = hoyIso()) {
+export function planImportacion(b, { productos = [], clientes = [], facturas = [], ignorados = [] } = {}, hoy = hoyIso()) {
   const prodPorNombre = new Map(productos.map((p) => [norm(p.Nombre).trim(), p]));
   const omitidos = [], prods = [];
   for (const p of b.productos) {
@@ -68,7 +68,7 @@ export function planImportacion(b, { productos = [], clientes = [], facturas = [
   const clientePosPorNombre = new Map(cli.map((f) => [norm(f.datos.Nombre).trim(), f]));
 
   // Fiados pendientes (en curso + historial de cierres), uno por factura
-  const ya = new Set(facturas.map((f) => f.OrigenPosId).filter(Boolean));
+  const ya = new Set([...facturas.map((f) => f.OrigenPosId).filter(Boolean), ...ignorados]);   // ya importados + los que se eliminaron a propósito
   const todas = [...(b.ventas ?? []).map((v) => ({ v, f: v.fecha })), ...(b.historial ?? []).flatMap((h) => (h.ventas ?? []).map((v) => ({ v, f: v.fecha || h.fecha })))];
   const fiados = [], sinCliente = [];
   for (const { v, f } of todas) {
