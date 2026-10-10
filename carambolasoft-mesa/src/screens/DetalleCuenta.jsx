@@ -554,7 +554,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               </>
             )}
 
-            {!esGarita && totalC > 0 && <button className="cb-foto" style={{ borderColor: '#e8c06a99', color: '#e8c06a' }} onClick={() => setDividir(true)}>👥 Dividir la cuenta entre varios pagadores</button>}
+            {!esGarita && cobro.mesa && totalC > 0 && <button className="cb-foto" style={{ borderColor: '#e8c06a99', color: '#e8c06a' }} onClick={() => setDividir(true)}>👥 Dividir la cuenta entre varios pagadores</button>}
 
             <label className="cb-chk">
               <input type="checkbox" checked={cobro.mixto} onChange={(e) => setCobro({ ...cobro, mixto: e.target.checked })} />
@@ -613,6 +613,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <div className="cb-quien lista">{grupo.filter((c) => totalDe(c) > 0).map((c) => <div key={c.Id}><span>👤 {c.NombreLibre}</span><b>{fmt(totalDe(c))}</b></div>)}</div>
             <div className="cb-tot">{fmt(totalMesa)}</div><div className="cb-tl">TOTAL DE LA MESA</div>
             <p className="au-nota">¿Paga una sola persona? Cobra <b>toda la mesa</b> de una vez. O cobra cada cuenta por separado con el botón Cobrar.</p>
+            {!esGarita && <button className="cb-foto" style={{ borderColor: '#e8c06a99', color: '#e8c06a', marginTop: 12 }} onClick={() => { setCierre(false); setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0, mesa: true, pagadorId: cuenta.Id }); setDividir(true); }}>👥 Dividir la mesa entre varios pagadores</button>}
             <div className="pn-acc"><button className="no" onClick={() => setCierre(false)}>VOLVER</button>
               <button className="si" onClick={() => { setCierre(false); setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0, mesa: true, pagadorId: cuenta.Id }); }}>💳 COBRAR TODA LA MESA</button></div>
           </div>
