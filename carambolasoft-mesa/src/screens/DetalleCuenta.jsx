@@ -8,7 +8,7 @@ import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/Selector
 import { precioVigente, disponible } from '../cuenta/inventario.js';
 import { descontarStock, devolverStock } from '../cuenta/inventarioDb.js';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
-import { msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, repartirChico, tarifaDe, tiemposMesa, hms } from '../cuenta/tiempo.js';
+import { msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, repartirChico, tarifaDe, tiemposMesa, duracionMin, hms } from '../cuenta/tiempo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
@@ -321,6 +321,21 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         <h2>{titulo}</h2><span>· {grupo.length} {grupo.length === 1 ? 'cuenta' : 'cuentas'}</span>
       </div>
 
+      <div className={`ms-mesa ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
+        {esBillar && taxi && (<>
+          <div className="mb-id">🎱 TAXÍMETRO<small>{fmt(taxi.TarifaPorHora)} por hora</small></div>
+          <div className="mb-cc"><div className="mb-cr">{hms(msChicoActual(taxi, ahora))}</div>
+            <span className={`mb-chip ${estaCorriendo(taxi) ? 'on' : ''}`}><i />{estaCorriendo(taxi) ? 'EN JUEGO' : 'DETENIDO'}</span></div>
+          <div className="mb-vs" />
+          <div className="mb-n"><small>TIEMPO MESA</small><b className="v">{fmt(tiempoMesa)}</b></div>
+        </>)}
+        <div className="mb-n"><small>TOTAL MESA{grupo.length > 1 ? ` · ${grupo.length} CUENTAS` : ''}</small><b className={esBillar && taxi ? '' : 'v'}>{fmt(totalMesa)}</b></div>
+        <div className="mb-sp" />
+        <button className="mb-b" onClick={abrirRecibo}>🧾 Recibo</button>
+        <button className="mb-b oro" onClick={cerrarMesa}>{esGarita ? 'Terminar garita' : 'Cerrar mesa'}</button>
+        {esBillar && taxi && <button className={`mb-b ${estaCorriendo(taxi) ? 'stop' : 'go'}`} onClick={cambiarChico}>{estaCorriendo(taxi) ? '■ Terminar chico' : '▶ Iniciar'}</button>}
+      </div>
+
       <div className="ms-grid">
         <section className="ms-card">
           <div className="ms-lab">Cuentas</div>
@@ -350,24 +365,6 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               {er.enAviso
                 ? <button className="ini" onClick={() => setAvisoSel({ ids: new Set(grupo.filter((c) => marcadaPorDefecto(c)).map((c) => c.Id)) })}>COBRAR HORA</button>
                 : <button className="ini" onClick={() => setNueva({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>＋ Persona</button>}
-            </div>
-          )}
-
-          {esBillar && taxi && (
-            <div className={`ms-bil ${estaCorriendo(taxi) ? 'run' : ''}`}>
-              <div>
-                <div className="ms-lab verde">🎱 Taxímetro de la mesa · {fmt(taxi.TarifaPorHora)}/h</div>
-                <div className="ms-cr">{hms(msChicoActual(taxi, ahora))}</div>
-                <small>{estaCorriendo(taxi) ? 'chico en juego' : 'chico detenido'} · acumulado {hms(msJugados(taxi, ahora))}</small>
-              </div>
-              <div className="ms-acum">
-                <small>Tiempo de la mesa</small>
-                <strong>{fmt(tiempoMesa)}</strong>
-                {grupo.length > 1 && <small>Total de la mesa · {grupo.length} cuentas <b style={{ color: '#e6e9f2' }}>{fmt(totalMesa)}</b></small>}
-              </div>
-              <button className={estaCorriendo(taxi) ? 'fin' : 'ini'} onClick={cambiarChico}>
-                {estaCorriendo(taxi) ? '■ Terminar chico' : '▶ Iniciar'}
-              </button>
             </div>
           )}
 
@@ -413,11 +410,6 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         </section>
 
         <aside className="ms-card">
-          <div className="ms-tm">
-            <div><small>TOTAL MESA</small><div className="v">{fmt(totalMesa)}</div></div>
-            <button className="ms-sec" onClick={abrirRecibo}>🧾 Recibo</button>
-            <button className="ms-oro" onClick={cerrarMesa}>{esGarita ? 'Terminar garita' : 'Cerrar mesa'}</button>
-          </div>
           <div className="ms-nom">{cuenta.NombreLibre}</div>
           <div className="ms-ap">
             {cliente?.Apodo && cliente.Apodo !== cuenta.NombreLibre && <>“{cliente.Apodo}” · </>}
@@ -598,11 +590,11 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               <h3>⏹ Finalizar tiempo de billar</h3>
               <div style={{ textAlign: 'center', marginBottom: 14 }}>
                 <div style={{ fontSize: 28, fontWeight: 700, color: '#e8c06a', fontFamily: 'monospace' }}>{hms(ms)}</div>
-                <small className="au-nota">{min} {min === 1 ? 'minuto' : 'minutos'} × {fmt(tarifa / 60)} = <b style={{ color: '#35d07f' }}>{fmt(Math.round((min * tarifa) / 60))}</b></small>
+                <small className="au-nota">{duracionMin(min)} a {fmt(tarifa)}/h = <b style={{ color: '#35d07f' }}>{fmt(Math.round((min * tarifa) / 60))}</b></small>
               </div>
               <div className="cb-lab">¿Cómo se cobra el tiempo?</div>
               <div className="cb-quien">
-                <button className={finChico.modo === 'dividir' ? 'on' : ''} onClick={() => setFinChico({ ...finChico, modo: 'dividir' })}>➗ Dividir entre las {n} cuentas (~{Math.floor(min / n)} min c/u)</button>
+                <button className={finChico.modo === 'dividir' ? 'on' : ''} onClick={() => setFinChico({ ...finChico, modo: 'dividir' })}>➗ Dividir entre las {n} cuentas (~{duracionMin(Math.floor(min / n))} c/u)</button>
                 <button className={finChico.modo === 'una' ? 'on' : ''} onClick={() => setFinChico({ ...finChico, modo: 'una' })}>🎱 Todo a una sola cuenta</button>
               </div>
               {finChico.modo === 'una' && (<><div className="cb-lab" style={{ marginTop: 10 }}>Cuenta que asume el tiempo</div>
