@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { put, get, getAll, porIndice } from '../db/repository.js';
 import Encabezado from '../components/Encabezado.jsx';
-import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
+import SelectorCliente, { personasDe, sumarVisita } from '../components/SelectorCliente.jsx';
 import { precioVigente, disponible } from '../cuenta/inventario.js';
 import { descontarStock, devolverStock } from '../cuenta/inventarioDb.js';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
@@ -49,6 +49,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [avisoSel, setAvisoSel] = useState(null); // { ids:Set } — modal de cobro de la hora
   const [descartado, setDescartado] = useState(0); // Cobros del aviso que se dejó para después
   const { usuario } = useSesion();
+  const [carro, setCarro] = useState({ abierto: false, fijo: false }); // carrito: la cuenta del cliente; se oculta solo a los 6 s
+  const carroT = useRef(null);
   const [finChico, setFinChico] = useState(null); // { modo, destinoId } — cómo se cobra el chico que termina
   const [dividir, setDividir] = useState(false); // dividir la cuenta entre varios pagadores
   const [pidePin, setPidePin] = useState(null); // { luego } — un Admin autoriza (fiar siendo Empleado)
@@ -63,7 +65,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     const abiertas = await porIndice('CUENTAS', 'porEstado', 'ABIERTA');
     const todas = await getAll('CUENTAS');
     setTodasCuentas(todas);
-    setGrupo(base ? abiertas.filter((c) => grupoDe(c) === grupoDe(base)) : []);
+    setGrupo(base ? abiertas.filter((c) => grupoDe(c) === grupoDe(base)).sort((a, b) => (a.HoraApertura ?? '').localeCompare(b.HoraApertura ?? '')) : []);   // en el orden en que se abrieron
     setReloj(base?.GaritaRelojId ? (await get('GARITAS_RELOJ', base.GaritaRelojId)) ?? null : null);
     setPedidos(await getAll('PEDIDOS_CUENTAS'));
     setProductos((await getAll('PRODUCTOS')).filter((p) => p.Activo !== false));
@@ -71,6 +73,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   }, [cuentaId]);
 
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => () => clearTimeout(carroT.current), []);
   useEffect(() => { const t = setInterval(() => setAhora(Date.now()), 1000); return () => clearInterval(t); }, []);
 
   const cuenta = grupo.find((c) => c.Id === activaId) ?? grupo[0];
@@ -135,7 +138,17 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   lista = filtrar(lista.filter((p) => !/garita/i.test(p.Nombre)), q); // la garita se cobra con ＋ Persona y el aviso, no desde el catálogo
 
   // ── Pedidos (espejo local del trigger: el stock baja al entregar)
+  const SEG_CARRITO = 6000;
+  function mostrarCarro() {   // abre el carrito y reinicia la cuenta regresiva para ocultarlo
+    clearTimeout(carroT.current);
+    setCarro((c) => ({ ...c, abierto: true }));
+    carroT.current = setTimeout(() => setCarro((c) => (c.fijo ? c : { ...c, abierto: false })), SEG_CARRITO);
+  }
+  const alternarCarro = () => (carro.abierto ? (clearTimeout(carroT.current), setCarro((c) => ({ ...c, abierto: false }))) : mostrarCarro());
+  const fijarCarro = () => { clearTimeout(carroT.current); setCarro((c) => ({ abierto: true, fijo: !c.fijo })); if (carro.fijo) mostrarCarro(); };
+
   async function agregar(prod) {
+    mostrarCarro();
     const controla = prod.ControlaStock !== false;
     if (controla && disponible(prod, productos.find((x) => x.Id === prod.Fraccion?.OrigenId)) <= 0) { decir(`Sin stock: ${prod.Nombre}`); return; }
     const existente = entregados.find((p) => p.ProductoId === prod.Id);
@@ -156,6 +169,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
   // Quitar una unidad: a 0 queda CANCELADO (nunca borrado) y el stock vuelve
   async function quitar(pedido) {
+    mostrarCarro();
     const prod = productos.find((p) => p.Id === pedido.ProductoId);
     await put('PEDIDOS_CUENTAS', pedido.Cantidad > 1
       ? { ...pedido, Cantidad: pedido.Cantidad - 1 }
@@ -187,21 +201,19 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
   // ── Cuentas de la mesa
   async function crearCuenta() {
-    const { sel } = nueva;
-    const etiqueta = etiquetaDe(sel);
-    if (!etiqueta) { setNueva({ ...nueva, error: 'Elige un cliente o escribe un nombre.' }); return; }
-    if (esGarita) {
-      const c = await agregarPersona(cuenta.GaritaRelojId, { cliente: sel.cliente, etiqueta });
-      await sumarVisita(sel.cliente);
-      setNueva(null); setActivaId(c.Id); await cargar(); return;
+    const personas = personasDe(nueva.sel, true);
+    if (personas.length === 0) { setNueva({ ...nueva, error: 'Marca un cliente o escribe un nombre.' }); return; }
+    const creadas = [];
+    for (const [i, x] of personas.entries()) {
+      if (esGarita) { creadas.push(await agregarPersona(cuenta.GaritaRelojId, x)); continue; }
+      creadas.push(await put('CUENTAS', {
+        TipoCuenta: cuenta.TipoCuenta, MesaId: cuenta.MesaId ?? null, GrupoMesaId: cuenta.MesaId ? null : grupoDe(cuenta), // las cuentas viejas sin grupo usan su propio Id
+        ClienteId: x.cliente?.Id ?? null, NombreLibre: x.etiqueta,
+        HoraApertura: new Date(Date.now() + i).toISOString(), HoraCierre: null, TarifaPorHora: null, Estado: 'ABIERTA',
+      }));
     }
-    const c = await put('CUENTAS', {
-      TipoCuenta: cuenta.TipoCuenta, MesaId: cuenta.MesaId ?? null, GrupoMesaId: cuenta.MesaId ? null : grupoDe(cuenta), // las cuentas viejas sin grupo usan su propio Id
-      ClienteId: sel.cliente?.Id ?? null, NombreLibre: etiqueta,
-      HoraApertura: new Date().toISOString(), HoraCierre: null, TarifaPorHora: null, Estado: 'ABIERTA',
-    });
-    await sumarVisita(sel.cliente);
-    setNueva(null); setActivaId(c.Id); await cargar();
+    for (const x of personas) await sumarVisita(x.cliente);
+    setNueva(null); setActivaId(creadas[0].Id); await cargar();
   }
 
   async function cerrarMesa() {
@@ -338,7 +350,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
       <div className="ms-grid">
         <section className="ms-card">
-          <div className="ms-lab">Cuentas</div>
+          <div className="ms-linea">
           <div className="ms-tabs">
             {grupo.map((c) => {
               const n = entregadosDe(c).reduce((t, p) => t + p.Cantidad, 0);
@@ -348,7 +360,15 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                 </button>
               );
             })}
-            <button className="ms-tab nueva" onClick={() => setNueva({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>＋ Nueva cuenta</button>
+            <button className="ms-tab nueva" onClick={() => setNueva({ sel: { cliente: null, nombre: '', lista: [] }, creando: false, error: '' })}>＋ Nueva cuenta</button>
+          </div>
+          <div className="ms-busca">
+            <input value={q} onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && lista[0]) { agregar(lista[0]); setQ(''); } }}
+              placeholder="🔍 Buscar o escribir + Enter para agregar…" />
+            {q && <span onClick={() => setQ('')}>✕</span>}
+          </div>
+          <button className={`ms-pill ${carro.abierto ? 'on' : ''}`} onClick={alternarCarro}>🛒 <i>{entregados.reduce((t, p) => t + p.Cantidad, 0)}</i> <b>{fmt(total)}</b></button>
           </div>
 
           {esGarita && reloj && (
@@ -364,16 +384,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               </div>
               {er.enAviso
                 ? <button className="ini" onClick={() => setAvisoSel({ ids: new Set(grupo.filter((c) => marcadaPorDefecto(c)).map((c) => c.Id)) })}>COBRAR HORA</button>
-                : <button className="ini" onClick={() => setNueva({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>＋ Persona</button>}
+                : <button className="ini" onClick={() => setNueva({ sel: { cliente: null, nombre: '', lista: [] }, creando: false, error: '' })}>＋ Persona</button>}
             </div>
           )}
-
-          <div className="ms-busca">
-            <input value={q} onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && lista[0]) { agregar(lista[0]); setQ(''); } }}
-              placeholder="🔍 Buscar o escribir + Enter para agregar…" />
-            {q && <span onClick={() => setQ('')}>✕</span>}
-          </div>
 
           <div className="ms-chips">
             <button className={filtro === 'todos' ? 'on' : ''} onClick={() => setFiltro('todos')}>Todos</button>
@@ -409,7 +422,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           </div>
         </section>
 
-        <aside className="ms-card">
+        <aside className={`ms-carrito ${carro.abierto ? 'open' : ''}`} onPointerDown={() => carro.abierto && !carro.fijo && mostrarCarro()} onClick={(e) => e.stopPropagation()}>
+          <div className="ms-ch"><b>🛒 Cuenta</b><span><button className={carro.fijo ? 'on' : ''} title="Dejar abierto" onClick={fijarCarro}>📌</button><button title="Ocultar" onClick={() => { clearTimeout(carroT.current); setCarro({ abierto: false, fijo: false }); }}>✕</button></span></div>
           <div className="ms-nom">{cuenta.NombreLibre}</div>
           <div className="ms-ap">
             {cliente?.Apodo && cliente.Apodo !== cuenta.NombreLibre && <>“{cliente.Apodo}” · </>}
@@ -454,14 +468,14 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       {nueva && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setNueva(null)}>
           <div className="pn-modal">
-            <h3>Nueva cuenta</h3>
-            <SelectorCliente valor={nueva.sel} onChange={(sel) => setNueva((n) => ({ ...n, sel }))}
+            <h3>{esGarita ? 'Agregar personas a la garita' : 'Nuevas cuentas'}</h3>
+            <SelectorCliente varios valor={nueva.sel} onChange={(sel) => setNueva((n) => ({ ...n, sel }))}
               onModoNuevo={(creando) => setNueva((n) => ({ ...n, creando }))}
               error={nueva.error} setError={(error) => setNueva((n) => ({ ...n, error }))} />
             {!nueva.creando && nueva.error && <div className="pn-err">{nueva.error}</div>}
             {!nueva.creando && <div className="pn-acc">
               <button className="no" onClick={() => setNueva(null)}>CANCELAR</button>
-              <button className="si" onClick={crearCuenta}>AGREGAR</button>
+              <button className="si" onClick={crearCuenta}>AGREGAR{nueva.sel.lista?.length > 1 ? ` ${nueva.sel.lista.length} CUENTAS` : ''}</button>
             </div>}
           </div>
         </div>

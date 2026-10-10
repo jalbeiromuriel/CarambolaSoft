@@ -134,3 +134,24 @@
 .mb-b.oro{background:linear-gradient(#f0cf85,#c9a24a);color:#1a1405;border:0;font-weight:800}
 .mb-b.stop{background:var(--rojo);color:#2a0a10;border:0;font-weight:800}.mb-b.go{background:var(--ver);color:#052e16;border:0;font-weight:800}
 @media (max-width:1100px){.ms-mesa{gap:14px}.mb-sp{display:none}}
+
+/* Una sola línea: cuentas + buscador + carrito. El carrito (cuenta del cliente) entra por la derecha y se oculta solo. */
+.ms-grid{grid-template-columns:minmax(0,1fr)}
+.ms-linea{display:flex;gap:10px;align-items:stretch;margin-bottom:12px}
+.ms-linea .ms-tabs{margin-bottom:0;flex:0 1 auto;max-width:62%}
+.ms-linea .ms-tab{min-width:0;white-space:nowrap;padding:8px 14px}
+.ms-linea .ms-tab b{display:inline;font-size:15px}.ms-linea .ms-tab small{display:block;font-size:12px}.ms-linea .ms-tab em{display:block;margin:2px 0 0;font-size:16px}
+.ms-linea .ms-tab.nueva{display:flex;align-items:center;font-size:14px}
+.ms-linea .ms-busca{flex:1;min-width:200px;margin-bottom:0}.ms-linea .ms-busca input{height:100%;font-size:15px}
+.ms-pill{display:flex;align-items:center;gap:10px;border:1px solid var(--oro);background:#e8c06a14;color:var(--oro);border-radius:12px;padding:8px 16px;font-size:16px;font-weight:700;cursor:pointer;white-space:nowrap}
+.ms-pill i{font-style:normal;background:var(--oro);color:#1a1405;border-radius:20px;padding:1px 9px;font-size:14px}.ms-pill b{color:#e6e9f2;font-size:18px}.ms-pill.on{background:#e8c06a2a}
+.ms-chips button{font-size:14px;padding:8px 14px}
+.ms-prods{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.ms-p b{font-size:14.5px}.ms-p i{font-size:15px}
+.ms-carrito{position:fixed;top:0;right:0;height:100%;width:min(420px,100vw);z-index:15;background:#0d1220;border-left:1px solid #e8c06a66;box-shadow:-20px 0 40px #000a;padding:16px 20px;overflow-y:auto;transform:translateX(105%);transition:transform .22s ease;visibility:hidden}
+.ms-carrito.open{transform:none;visibility:visible}
+.ms-ch{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:15px;color:var(--oro)}.ms-ch button{background:none;border:1px solid var(--line);color:#cbd0dc;border-radius:8px;padding:5px 10px;margin-left:6px;cursor:pointer;font-size:14px}.ms-ch button.on{border-color:var(--oro);background:#e8c06a22}
+@media (max-width:900px){.ms-linea{flex-wrap:wrap}.ms-linea .ms-tabs{max-width:100%;flex:1 1 100%}}
+/* selector de varias personas */
+.pn-multi button{display:flex;align-items:center;gap:10px}.pn-chk{width:22px;height:22px;border-radius:6px;border:2px solid #3a4568;display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:#1a1405;flex:none}
+.pn-multi button.on .pn-chk{background:var(--oro);border-color:var(--oro)}
+.pn-van{margin-top:10px}.pn-chips{display:flex;flex-wrap:wrap;gap:8px}.pn-chip{background:#e8c06a22;border:1px solid var(--oro);color:var(--oro);border-radius:20px;padding:6px 14px;font-weight:600}.pn-chip i{font-style:normal;margin-left:8px;cursor:pointer;opacity:.7}

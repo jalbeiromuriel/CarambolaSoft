@@ -3,11 +3,11 @@
 // Fuente de verdad: IndexedDB. Mesa = dorado, Billar = verde. Garita y Venta rápida: Fase 1b.
 import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
-import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
+import SelectorCliente, { personasDe, sumarVisita } from '../components/SelectorCliente.jsx';
 import { agrupar } from '../cuenta/grupos.js';
 import { tiemposMesa, msJugados, estaCorriendo, hms } from '../cuenta/tiempo.js';
 import { estadoReloj, mmss } from '../cuenta/garita.js';
-import { abrirGarita } from '../cuenta/garitaDb.js';
+import { abrirGarita, agregarPersona } from '../cuenta/garitaDb.js';
 import VentaRapida from '../components/VentaRapida.jsx';
 import Encabezado from '../components/Encabezado.jsx';
 import CuentaPagos from '../components/CuentaPagos.jsx';
@@ -45,7 +45,7 @@ export default function Panel({ irACuenta, irAContador }) {
 
   const cargar = useCallback(async () => {
     setMesas((await getAll('MESAS_BILLAR')).sort((a, b) => a.Numero - b.Numero));
-    setCuentas(await porIndice('CUENTAS', 'porEstado', 'ABIERTA'));
+    setCuentas((await porIndice('CUENTAS', 'porEstado', 'ABIERTA')).sort((a, b) => (a.HoraApertura ?? '').localeCompare(b.HoraApertura ?? '')));
     setPedidos(await getAll('PEDIDOS_CUENTAS'));
     setRelojes(await getAll('GARITAS_RELOJ'));
 
@@ -76,42 +76,42 @@ export default function Panel({ irACuenta, irAContador }) {
     return { pedidos: items.reduce((t, p) => t + p.Cantidad, 0), total: consumo + tiempo };
   }
 
-  function abrirModal(m) { setError(''); setSel({ cliente: null, nombre: '' }); setCreando(false); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
+  function abrirModal(m) { setError(''); setSel({ cliente: null, nombre: '', lista: [] }); setCreando(false); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
 
   async function abrirCuenta() {
-    const { cliente } = sel;
-    const etiqueta = etiquetaDe(sel);
-    if (!etiqueta) { setError('Elige un cliente o escribe un nombre.'); return; }
-    if (modal.tipo === 'GARITA') {
-      const c = await abrirGarita({ cliente, etiqueta });
-      await sumarVisita(cliente);
-      setModal(null);
-      irACuenta(c.Id);
-      return;
-    }
+    const personas = personasDe(sel, true);
+    if (personas.length === 0) { setError('Marca un cliente o escribe un nombre.'); return; }
     const esBillar = modal.tipo === 'BILLAR';
     if (esBillar && !modal.mesaId) { setError('Elige una mesa libre.'); return; }
     if (esBillar && !(Number(tarifa) > 0)) { setError('La tarifa por hora es obligatoria en billar.'); return; }
-
-    const cuenta = await put('CUENTAS', {
-      TipoCuenta: esBillar ? 'BILLAR' : 'LICORES',
-      MesaId: esBillar ? modal.mesaId : null,
-      ClienteId: cliente?.Id ?? null,   // null = no registrado: no puede fiar
-      NombreLibre: etiqueta,
-      HoraApertura: new Date().toISOString(),
-      GrupoMesaId: esBillar ? null : crypto.randomUUID(), // cuentas de una misma mesa de licores comparten grupo
-      HoraCierre: null,
-      TarifaPorHora: esBillar ? Number(tarifa) : null,
-      ...(esBillar ? { MsAcumulados: 0, InicioChico: null } : {}), // el taxímetro arranca con ▶ INICIAR
-      Estado: 'ABIERTA',
-    });
-    if (esBillar) {
-      const mesa = mesas.find((m) => m.Id === modal.mesaId);
-      await put('MESAS_BILLAR', { ...mesa, Estado: 'OCUPADA' });
+    const creadas = [];
+    if (modal.tipo === 'GARITA') {
+      const primera = await abrirGarita(personas[0]); creadas.push(primera);
+      for (const x of personas.slice(1)) creadas.push(await agregarPersona(primera.GaritaRelojId, x));
+    } else {
+      const grupoLicores = crypto.randomUUID();   // las cuentas de una misma mesa de licores comparten grupo
+      for (const [i, x] of personas.entries()) {
+        creadas.push(await put('CUENTAS', {
+          TipoCuenta: esBillar ? 'BILLAR' : 'LICORES',
+          MesaId: esBillar ? modal.mesaId : null,
+          ClienteId: x.cliente?.Id ?? null,   // null = no registrado: no puede fiar
+          NombreLibre: x.etiqueta,
+          HoraApertura: new Date(Date.now() + i).toISOString(),   // +i ms: conserva el orden en que las marcaste (la mesa lleva el nombre de la primera)
+          GrupoMesaId: esBillar ? null : grupoLicores,
+          HoraCierre: null,
+          TarifaPorHora: esBillar && i === 0 ? Number(tarifa) : null,   // el taxímetro es de la mesa: lo lleva la primera cuenta
+          ...(esBillar && i === 0 ? { MsAcumulados: 0, InicioChico: null } : {}),
+          Estado: 'ABIERTA',
+        }));
+      }
+      if (esBillar) {
+        const mesa = mesas.find((m) => m.Id === modal.mesaId);
+        await put('MESAS_BILLAR', { ...mesa, Estado: 'OCUPADA' });
+      }
     }
-    await sumarVisita(cliente);
+    for (const x of personas) await sumarVisita(x.cliente);
     setModal(null);
-    irACuenta(cuenta.Id); // directo al detalle, como en el POS
+    irACuenta(creadas[0].Id); // directo al detalle, como en el POS
   }
 
   const tarjeta = (g) => {
@@ -205,7 +205,7 @@ export default function Panel({ irACuenta, irAContador }) {
       {modal && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
           <div className={`pn-modal ${modal.tipo === 'BILLAR' ? 'bil' : modal.tipo === 'GARITA' ? 'ga' : ''}`}>
-            <h3>{modal.tipo === 'BILLAR' ? 'Abrir billar' : modal.tipo === 'GARITA' ? 'Iniciar garita · primera persona' : 'Abrir mesa · licores y snacks'}</h3>
+            <h3>{modal.tipo === 'BILLAR' ? 'Abrir billar' : modal.tipo === 'GARITA' ? 'Iniciar garita · quiénes entran' : 'Abrir mesa · licores y snacks'}</h3>
             {modal.tipo === 'BILLAR' && (
               <>
                 <label>Mesa</label>
@@ -219,7 +219,7 @@ export default function Panel({ irACuenta, irAContador }) {
                 </div>
               </>
             )}
-            <SelectorCliente valor={sel} onChange={setSel} onModoNuevo={setCreando} error={error} setError={setError} />
+            <SelectorCliente varios valor={sel} onChange={setSel} onModoNuevo={setCreando} error={error} setError={setError} />
             {!creando && modal.tipo === 'BILLAR' && (
               <>
                 <label>Tarifa por hora (COP)</label>
@@ -229,7 +229,7 @@ export default function Panel({ irACuenta, irAContador }) {
             {!creando && error && <div className="pn-err">{error}</div>}
             {!creando && <div className="pn-acc">
               <button className="no" onClick={() => setModal(null)}>CANCELAR</button>
-              <button className="si" onClick={abrirCuenta}>{modal.tipo === 'GARITA' ? 'INICIAR GARITA' : 'ABRIR CUENTA'}</button>
+              <button className="si" onClick={abrirCuenta}>{modal.tipo === 'GARITA' ? 'INICIAR GARITA' : 'ABRIR'}{sel.lista?.length > 1 ? ` CON ${sel.lista.length} PERSONAS` : modal.tipo === 'GARITA' ? '' : ' CUENTA'}</button>
             </div>}
           </div>
         </div>
