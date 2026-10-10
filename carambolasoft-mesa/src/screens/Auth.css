@@ -25,3 +25,5 @@
 .av.e{background:linear-gradient(#7dd3fc,#38bdf8)}.av.g{width:40px;height:40px;font-size:14px}
 .au-quien button .av{width:38px;height:38px;font-size:14px}
 .pn-nav button.pn-who{display:inline-flex;align-items:center;gap:8px;padding:5px 14px 5px 6px}
+
+.au-volver{display:block;margin:14px auto 0;background:none;border:0;color:#7d8597;font-size:13px;cursor:pointer;text-decoration:underline}

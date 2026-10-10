@@ -132,7 +132,7 @@ export function Login({ usuarios, entrar }) {
 }
 
 /** Tras un restablecimiento: obliga a elegir un PIN propio. */
-export function CambioObligatorio({ usuario, listo }) {
+export function CambioObligatorio({ usuario, listo, salir }) {
   const [pin, setPin] = useState(''); const [pin2, setPin2] = useState(''); const [paso, setPaso] = useState(1); const [error, setError] = useState('');
   async function guardar() {
     if (pin !== pin2) { setError('No coinciden. Intenta de nuevo.'); setPin(''); setPin2(''); setPaso(1); return; }
@@ -147,6 +147,7 @@ export function CambioObligatorio({ usuario, listo }) {
           ? <PinPad valor={pin} onChange={setPin} onEnter={() => (pinValido(pin) ? (setError(''), setPaso(2)) : setError('4 a 6 dígitos.'))} />
           : <><label>Repítelo</label><PinPad valor={pin2} onChange={setPin2} onEnter={guardar} /></>}
         {error && <div className="pn-err">{error}</div>}
+        {salir && <button className="au-volver" onClick={salir}>← No soy {usuario.Nombre}: cambiar de usuario</button>}
       </div>
     </Marco>
   );

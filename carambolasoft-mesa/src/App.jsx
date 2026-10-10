@@ -101,7 +101,7 @@ export default function App() {
   if (!listo) return null;
   if (usuarios.length === 0) return <><style>{ESTILOS}</style><PrimerUso listo={entrar} /></>;
   if (!usuario) return <><style>{ESTILOS}</style><Login usuarios={usuarios} entrar={(u) => (u.DebeCambiarPin ? setUsuario({ ...u, _cambiar: true }) : entrar(u))} /></>;
-  if (usuario._cambiar) return <><style>{ESTILOS}</style><CambioObligatorio usuario={usuario} listo={entrar} /></>;
+  if (usuario._cambiar) return <><style>{ESTILOS}</style><CambioObligatorio usuario={usuario} listo={entrar} salir={() => setUsuario(null)} /></>;
 
 return (
     <SesionContext.Provider value={{ usuario, cerrarSesion, irA: (id) => setRuta(id === 'panel' ? { pantalla: 'tablero' } : { pantalla: id }) }}>
