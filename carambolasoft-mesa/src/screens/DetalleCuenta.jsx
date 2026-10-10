@@ -8,7 +8,7 @@ import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/Selector
 import { precioVigente, disponible } from '../cuenta/inventario.js';
 import { descontarStock, devolverStock } from '../cuenta/inventarioDb.js';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
-import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, repartirChico, tarifaDe, hms } from '../cuenta/tiempo.js';
+import { msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, repartirChico, tarifaDe, tiemposMesa, hms } from '../cuenta/tiempo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
@@ -101,18 +101,20 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
   const entregadosDe = (c) => pedidos.filter((p) => p.CuentaId === c.Id && p.EstadoPedido === 'ENTREGADO');
   const consumoDe = (c) => entregadosDe(c).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
-  const totalDe = (c) => consumoDe(c) + cobroTiempo(c, ahora);
+  const tiempos = tiemposMesa(grupo, ahora);   // tiempo por cuenta, con el total de la mesa subido al siguiente $100
+  const tiempoDeC = (c) => tiempos[grupo.findIndex((x) => x.Id === c.Id)] ?? 0;
+  const totalDe = (c) => consumoDe(c) + tiempoDeC(c);
 
   const entregados = entregadosDe(cuenta);
-  const subTiempo = cobroTiempo(cuenta, ahora);
+  const subTiempo = tiempoDeC(cuenta);
   const total = subTiempo + consumoDe(cuenta);
-  const tiempoMesa = grupo.reduce((t, c) => t + cobroTiempo(c, ahora), 0);
+  const tiempoMesa = tiempos.reduce((t, x) => t + x, 0);
   const totalMesa = grupo.reduce((t, c) => t + totalDe(c), 0);
   // Lo que se está cobrando: la cuenta activa, o toda la mesa cuando paga una sola persona
   const cuentasCobro = cobro?.mesa ? grupo.filter((c) => totalDe(c) > 0) : [cuenta];
   const pagador = (cobro?.mesa && grupo.find((c) => c.Id === cobro.pagadorId)) || cuenta;
   const pedidosCobro = cuentasCobro.flatMap(entregadosDe);
-  const subTiempoC = cuentasCobro.reduce((t, c) => t + cobroTiempo(c, ahora), 0);
+  const subTiempoC = cuentasCobro.reduce((t, c) => t + tiempoDeC(c), 0);
   const totalC = cuentasCobro.reduce((t, c) => t + totalDe(c), 0);
   const resumenC = resumenPorCategoria(pedidosCobro, productos, categorias);
   const esBillar = cuenta.TipoCuenta === 'BILLAR';

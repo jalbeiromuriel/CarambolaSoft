@@ -58,6 +58,24 @@ export function repartirChico(grupo, taxi, { modo = 'dividir', destinoId = null 
   });
 }
 
+export const UNIDAD_REDONDEO = 100;   // el tiempo de la mesa se cobra en múltiplos de $100, hacia arriba
+export const redondearArriba = (v, u = UNIDAD_REDONDEO) => (u > 0 ? Math.ceil(Math.round(v) / u) * u : Math.round(v));
+
+/**
+ * Tiempo a cobrar por cuenta de una mesa: se suma el de todas, el total se sube al siguiente múltiplo de $100 (una sola vez
+ * para toda la mesa) y la diferencia queda en la cuenta del taxímetro. Devuelve un arreglo alineado con `grupo`.
+ */
+export function tiemposMesa(grupo, ahora = Date.now(), unidad = UNIDAD_REDONDEO) {
+  const exacto = grupo.map((c) => { const t = tarifaDe(c); return t ? (Math.ceil(msCobrables(c, ahora) / 60000) * t) / 60 : 0; });
+  const total = redondearArriba(Math.round(exacto.reduce((t, x) => t + x, 0) * 1000) / 1000 - 1e-6, unidad);   // 1e-6: que 11.600,000 no suba a 11.700
+  let i = grupo.findIndex((c, k) => c.TarifaPorHora && exacto[k] > 0);
+  if (i < 0) i = exacto.findIndex((x) => x > 0);
+  if (i < 0) return exacto.map(() => 0);
+  const out = exacto.map((x) => Math.round(x));
+  out[i] = total - out.reduce((t, x, k) => (k === i ? t : t + x), 0);
+  return out;
+}
+
 export function iniciarChico(c, ahora = Date.now()) {
   if (estaCorriendo(c)) return c;
   return { ...c, MsAcumulados: c.MsAcumulados ?? 0, InicioChico: new Date(ahora).toISOString() };

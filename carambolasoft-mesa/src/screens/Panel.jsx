@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
 import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/SelectorCliente.jsx';
 import { agrupar } from '../cuenta/grupos.js';
-import { cobroTiempo, msJugados, estaCorriendo, hms } from '../cuenta/tiempo.js';
+import { tiemposMesa, msJugados, estaCorriendo, hms } from '../cuenta/tiempo.js';
 import { estadoReloj, mmss } from '../cuenta/garita.js';
 import { abrirGarita } from '../cuenta/garitaDb.js';
 import VentaRapida from '../components/VentaRapida.jsx';
@@ -70,10 +70,9 @@ export default function Panel({ irACuenta, irAContador }) {
   const mesasLibres = mesas.filter((m) => !(m.Estado === 'OCUPADA' && cuentaDeMesa(m.Id)));
   const numMesa = (id) => mesas.find((m) => m.Id === id)?.Numero;
 
-  function resumen(c) {
+  function resumen(c, tiempo) {
     const items = pedidos.filter((p) => p.CuentaId === c.Id && p.EstadoPedido === 'ENTREGADO');
     const consumo = items.reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
-    const tiempo = cobroTiempo(c, ahora);
     return { pedidos: items.reduce((t, p) => t + p.Cantidad, 0), total: consumo + tiempo };
   }
 
@@ -122,7 +121,8 @@ export default function Panel({ irACuenta, irAContador }) {
     const garita = c.TipoCuenta === 'GARITA';
     const reloj = garita ? relojes.find((r) => r.Id === c.GaritaRelojId) : null;
     const er = reloj ? estadoReloj(reloj, ahora) : null;
-    const rs = g.map(resumen);
+    const tiempos = tiemposMesa(g, ahora);
+    const rs = g.map((x, i) => resumen(x, tiempos[i]));
     const pedidosN = rs.reduce((t, r) => t + r.pedidos, 0);
     const total = rs.reduce((t, r) => t + r.total, 0);
     const conTaxi = g.find((x) => x.TarifaPorHora);

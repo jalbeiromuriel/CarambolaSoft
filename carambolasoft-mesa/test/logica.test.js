@@ -481,3 +481,14 @@ test('repartirChico: divide los minutos del chico entre las cuentas o los manda 
   const d4 = repartirChico(g, { ...taxi, InicioChico: new Date(ahora - 10 * 60000).toISOString() }, { modo: 'dividir' }, ahora);
   assert.deepEqual(d4.map((c) => cobroT(c, ahora)), [400, 300, 300]);   // 10 min / 3: sobrante al primero
 });
+
+import { tiemposMesa, redondearArriba } from '../src/cuenta/tiempo.js';
+test('tiemposMesa: el tiempo de la mesa sube al siguiente $100 una sola vez', () => {
+  assert.equal(redondearArriba(11467), 11500); assert.equal(redondearArriba(11500), 11500); assert.equal(redondearArriba(1), 100);
+  const ahora = Date.now();
+  const taxi = { Id: 'a', TarifaPorHora: 8000, MsAcumulados: 86 * 60000, InicioChico: null };   // 86 min × $8.000/h = 11.467
+  assert.deepEqual(tiemposMesa([taxi], ahora), [11500]);
+  const g = [{ ...taxi, MsAjuste: -43 * 60000 }, { Id: 'b', TarifaPorHora: null, TarifaCargada: 8000, MsAjuste: 43 * 60000 }];   // 43 min c/u = 5.733 + 5.733
+  const t = tiemposMesa(g, ahora);
+  assert.equal(t.reduce((x, y) => x + y, 0), 11500); assert.equal(t[0] + t[1], 11500);
+});
