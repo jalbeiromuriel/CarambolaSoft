@@ -9,6 +9,20 @@ export function repartirIgual(total, n) {
 }
 
 /**
+ * Reparto automático al agregar/quitar pagadores o marcar quién paga: las filas con valor fijado a mano (`fijo`) lo conservan y
+ * lo que falta se reparte en partes iguales entre las demás que pagan. Las que no pagan quedan en 0. Con una fila "el resto" no se toca nada.
+ * filas: [{ paga, fijo, resto, monto }] → filas con `monto` actualizado.
+ */
+export function repartirAuto(total, filas) {
+  if (filas.some((f) => f.resto && f.paga)) return filas.map((f) => (f.paga ? f : { ...f, monto: 0 }));
+  const fijas = filas.filter((f) => f.paga && f.fijo).reduce((s, f) => s + (f.monto || 0), 0);
+  const libres = filas.filter((f) => f.paga && !f.fijo);
+  const partes = repartirIgual(Math.max(0, total - fijas), libres.length);
+  let k = 0;
+  return filas.map((f) => (!f.paga ? { ...f, monto: 0 } : f.fijo ? f : { ...f, monto: partes[k++] }));
+}
+
+/**
  * Valida la división y fija el monto del pagador marcado "el resto".
  * pagos: [{ nombre, clienteId, metodo, monto, resto? }] → { error } | { pagos: [{ ..., monto }] }
  */

@@ -492,3 +492,12 @@ test('tiemposMesa: el tiempo de la mesa sube al siguiente $100 una sola vez', ()
   const t = tiemposMesa(g, ahora);
   assert.equal(t.reduce((x, y) => x + y, 0), 11500); assert.equal(t[0] + t[1], 11500);
 });
+
+import { repartirAuto } from '../src/cuenta/dividir.js';
+test('repartirAuto: reparte solo entre los que pagan y respeta lo fijado a mano', () => {
+  const f = (o = {}) => ({ paga: true, fijo: false, resto: false, monto: 0, ...o });
+  assert.deepEqual(repartirAuto(36467, [f(), f(), f(), f({ paga: false })]).map((x) => x.monto), [12155, 12155, 12157, 0]);
+  assert.deepEqual(repartirAuto(36467, [f({ paga: false }), f(), f({ paga: false }), f()]).map((x) => x.monto), [0, 18233, 0, 18234]);
+  assert.deepEqual(repartirAuto(30000, [f({ fijo: true, monto: 10000 }), f(), f()]).map((x) => x.monto), [10000, 10000, 10000]);
+  assert.deepEqual(repartirAuto(10000, [f({ fijo: true, monto: 15000 }), f()]).map((x) => x.monto), [15000, 0]);
+});
