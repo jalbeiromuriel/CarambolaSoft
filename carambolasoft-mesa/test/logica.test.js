@@ -467,3 +467,17 @@ test('ingresosPorMesa: tiempo y consumo por mesa, venta dividida una sola vez, g
   assert.equal(Math.round(m1.horas * 10), 15); assert.equal(g.total, 4000); assert.equal(g.ocupacion, null);
   assert.equal(r.masRentable.clave, 'm1'); assert.equal(r.menosUsada.clave, 'm1'); assert.equal(r.filas[0].clave, 'm1'); assert.equal(r.filas.at(-1).clave, 'garita');
 });
+
+import { repartirChico, cobroTiempo as cobroT } from '../src/cuenta/tiempo.js';
+test('repartirChico: divide los minutos del chico entre las cuentas o los manda a una sola', () => {
+  const ahora = Date.parse('2026-10-09T20:00:00Z');
+  const taxi = { Id: 'a', TarifaPorHora: 6000, MsAcumulados: 0, InicioChico: new Date(ahora - 169000).toISOString() };   // 2:49 → 3 min
+  const g = [taxi, { Id: 'b', TarifaPorHora: null }, { Id: 'c', TarifaPorHora: null }];
+  const d = repartirChico(g, taxi, { modo: 'dividir' }, ahora);
+  assert.deepEqual(d.map((c) => cobroT(c, ahora)), [100, 100, 100]);   // 1 min c/u a $100/min
+  assert.equal(d[0].InicioChico, null);
+  const u = repartirChico(g, taxi, { modo: 'una', destinoId: 'c' }, ahora);
+  assert.deepEqual(u.map((c) => cobroT(c, ahora)), [0, 0, 300]);
+  const d4 = repartirChico(g, { ...taxi, InicioChico: new Date(ahora - 10 * 60000).toISOString() }, { modo: 'dividir' }, ahora);
+  assert.deepEqual(d4.map((c) => cobroT(c, ahora)), [400, 300, 300]);   // 10 min / 3: sobrante al primero
+});

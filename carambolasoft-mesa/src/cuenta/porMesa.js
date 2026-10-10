@@ -1,6 +1,6 @@
 // src/cuenta/porMesa.js — Ingresos por mesa: tiempo (plata de la mesa), consumo servido, horas jugadas y ocupación.
 // Funciones puras. Una venta dividida cuenta una sola vez, en la mesa de la factura principal.
-import { msJugados } from './tiempo.js';
+import { msCobrables } from './tiempo.js';
 
 export const HORAS_ATENCION = 10;   // horas de atención por día (para la ocupación); configurable en META negocio.horasAtencion
 const H = 3600000;
@@ -23,7 +23,7 @@ export function ingresosPorMesa({ facturas = [], cuentas = [], mesas = [], dias 
     r.tiempo += f.SubtotalTiempo ?? 0;
     r.consumo += (f.SubtotalLicor ?? 0) + (f.SubtotalSnacks ?? 0) + (f.SubtotalOtros ?? 0);
     if (f.DivisionDeFacturaId) continue;   // las horas y cuentas se cuentan en la factura principal
-    for (const id of [f.CuentaId, ...(f.CuentasIncluidas ?? [])]) { const x = cuenta.get(id); if (x) { r.cuentas++; if (r.esMesa) r.ms += msJugados(x); } }
+    for (const id of [f.CuentaId, ...(f.CuentasIncluidas ?? [])]) { const x = cuenta.get(id); if (x) { r.cuentas++; if (r.esMesa) r.ms += msCobrables(x); } }
   }
 
   const disponibles = Math.max(1, dias) * horasAtencion * H;
