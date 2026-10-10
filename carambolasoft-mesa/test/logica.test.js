@@ -467,3 +467,37 @@ test('ingresosPorMesa: tiempo y consumo por mesa, venta dividida una sola vez, g
   assert.equal(Math.round(m1.horas * 10), 15); assert.equal(g.total, 4000); assert.equal(g.ocupacion, null);
   assert.equal(r.masRentable.clave, 'm1'); assert.equal(r.menosUsada.clave, 'm1'); assert.equal(r.filas[0].clave, 'm1'); assert.equal(r.filas.at(-1).clave, 'garita');
 });
+
+import { repartirChico, cobroTiempo as cobroT } from '../src/cuenta/tiempo.js';
+test('repartirChico: divide los minutos del chico entre las cuentas o los manda a una sola', () => {
+  const ahora = Date.parse('2026-10-09T20:00:00Z');
+  const taxi = { Id: 'a', TarifaPorHora: 6000, MsAcumulados: 0, InicioChico: new Date(ahora - 169000).toISOString() };   // 2:49 → 3 min
+  const g = [taxi, { Id: 'b', TarifaPorHora: null }, { Id: 'c', TarifaPorHora: null }];
+  const d = repartirChico(g, taxi, { modo: 'dividir' }, ahora);
+  assert.deepEqual(d.map((c) => cobroT(c, ahora)), [100, 100, 100]);   // 1 min c/u a $100/min
+  assert.equal(d[0].InicioChico, null);
+  const u = repartirChico(g, taxi, { modo: 'una', destinoId: 'c' }, ahora);
+  assert.deepEqual(u.map((c) => cobroT(c, ahora)), [0, 0, 300]);
+  const d4 = repartirChico(g, { ...taxi, InicioChico: new Date(ahora - 10 * 60000).toISOString() }, { modo: 'dividir' }, ahora);
+  assert.deepEqual(d4.map((c) => cobroT(c, ahora)), [400, 300, 300]);   // 10 min / 3: sobrante al primero
+});
+
+import { tiemposMesa, redondearArriba } from '../src/cuenta/tiempo.js';
+test('tiemposMesa: el tiempo de la mesa sube al siguiente $100 una sola vez', () => {
+  assert.equal(redondearArriba(11467), 11500); assert.equal(redondearArriba(11500), 11500); assert.equal(redondearArriba(1), 100);
+  const ahora = Date.now();
+  const taxi = { Id: 'a', TarifaPorHora: 8000, MsAcumulados: 86 * 60000, InicioChico: null };   // 86 min × $8.000/h = 11.467
+  assert.deepEqual(tiemposMesa([taxi], ahora), [11500]);
+  const g = [{ ...taxi, MsAjuste: -43 * 60000 }, { Id: 'b', TarifaPorHora: null, TarifaCargada: 8000, MsAjuste: 43 * 60000 }];   // 43 min c/u = 5.733 + 5.733
+  const t = tiemposMesa(g, ahora);
+  assert.equal(t.reduce((x, y) => x + y, 0), 11500); assert.equal(t[0] + t[1], 11500);
+});
+
+import { repartirAuto } from '../src/cuenta/dividir.js';
+test('repartirAuto: reparte solo entre los que pagan y respeta lo fijado a mano', () => {
+  const f = (o = {}) => ({ paga: true, fijo: false, resto: false, monto: 0, ...o });
+  assert.deepEqual(repartirAuto(36467, [f(), f(), f(), f({ paga: false })]).map((x) => x.monto), [12155, 12155, 12157, 0]);
+  assert.deepEqual(repartirAuto(36467, [f({ paga: false }), f(), f({ paga: false }), f()]).map((x) => x.monto), [0, 18233, 0, 18234]);
+  assert.deepEqual(repartirAuto(30000, [f({ fijo: true, monto: 10000 }), f(), f()]).map((x) => x.monto), [10000, 10000, 10000]);
+  assert.deepEqual(repartirAuto(10000, [f({ fijo: true, monto: 15000 }), f()]).map((x) => x.monto), [15000, 0]);
+});

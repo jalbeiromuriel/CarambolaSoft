@@ -8,7 +8,7 @@ import SelectorCliente, { etiquetaDe, sumarVisita } from '../components/Selector
 import { precioVigente, disponible } from '../cuenta/inventario.js';
 import { descontarStock, devolverStock } from '../cuenta/inventarioDb.js';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre, resumenPorCategoria, colorTiempo } from '../cuenta/catalogo.js';
-import { cobroTiempo, msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, hms } from '../cuenta/tiempo.js';
+import { msJugados, msChicoActual, estaCorriendo, iniciarChico, terminarChico, repartirChico, tarifaDe, tiemposMesa, hms } from '../cuenta/tiempo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
@@ -49,6 +49,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [avisoSel, setAvisoSel] = useState(null); // { ids:Set } — modal de cobro de la hora
   const [descartado, setDescartado] = useState(0); // Cobros del aviso que se dejó para después
   const { usuario } = useSesion();
+  const [finChico, setFinChico] = useState(null); // { modo, destinoId } — cómo se cobra el chico que termina
   const [dividir, setDividir] = useState(false); // dividir la cuenta entre varios pagadores
   const [pidePin, setPidePin] = useState(null); // { luego } — un Admin autoriza (fiar siendo Empleado)
   const [aviso, setAviso] = useState('');
@@ -100,17 +101,20 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
   const entregadosDe = (c) => pedidos.filter((p) => p.CuentaId === c.Id && p.EstadoPedido === 'ENTREGADO');
   const consumoDe = (c) => entregadosDe(c).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
-  const totalDe = (c) => consumoDe(c) + cobroTiempo(c, ahora);
+  const tiempos = tiemposMesa(grupo, ahora);   // tiempo por cuenta, con el total de la mesa subido al siguiente $100
+  const tiempoDeC = (c) => tiempos[grupo.findIndex((x) => x.Id === c.Id)] ?? 0;
+  const totalDe = (c) => consumoDe(c) + tiempoDeC(c);
 
   const entregados = entregadosDe(cuenta);
-  const subTiempo = cobroTiempo(cuenta, ahora);
+  const subTiempo = tiempoDeC(cuenta);
   const total = subTiempo + consumoDe(cuenta);
+  const tiempoMesa = tiempos.reduce((t, x) => t + x, 0);
   const totalMesa = grupo.reduce((t, c) => t + totalDe(c), 0);
   // Lo que se está cobrando: la cuenta activa, o toda la mesa cuando paga una sola persona
   const cuentasCobro = cobro?.mesa ? grupo.filter((c) => totalDe(c) > 0) : [cuenta];
   const pagador = (cobro?.mesa && grupo.find((c) => c.Id === cobro.pagadorId)) || cuenta;
   const pedidosCobro = cuentasCobro.flatMap(entregadosDe);
-  const subTiempoC = cuentasCobro.reduce((t, c) => t + cobroTiempo(c, ahora), 0);
+  const subTiempoC = cuentasCobro.reduce((t, c) => t + tiempoDeC(c), 0);
   const totalC = cuentasCobro.reduce((t, c) => t + totalDe(c), 0);
   const resumenC = resumenPorCategoria(pedidosCobro, productos, categorias);
   const esBillar = cuenta.TipoCuenta === 'BILLAR';
@@ -167,7 +171,13 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
   // ── Taxímetro por chico
   async function cambiarChico() {
+    if (estaCorriendo(cuenta) && grupo.length > 1) { setFinChico({ modo: 'dividir', destinoId: cuenta.Id }); return; }   // con varias cuentas pregunta cómo se cobra, como el POS
     await put('CUENTAS', estaCorriendo(cuenta) ? terminarChico(cuenta) : iniciarChico(cuenta));
+    await cargar();
+  }
+  async function confirmarFinChico() {
+    for (const c of repartirChico(grupo, cuenta, finChico, Date.now())) await put('CUENTAS', c);
+    setFinChico(null);
     await cargar();
   }
 
@@ -343,7 +353,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               </div>
               <div className="ms-acum">
                 <small>Tiempo acumulado · {hms(msJugados(cuenta, ahora))}</small>
-                <strong>{fmt(subTiempo)}</strong>
+                <strong>{fmt(tiempoMesa)}</strong>
+                {tiempoMesa !== subTiempo && <small>esta cuenta {fmt(subTiempo)}</small>}
               </div>
               <button className={estaCorriendo(cuenta) ? 'fin' : 'ini'} onClick={cambiarChico}>
                 {estaCorriendo(cuenta) ? '■ Terminar chico' : '▶ Iniciar'}
@@ -408,7 +419,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
           <div className="ms-res">
             <div className="ms-lab chico">Resumen por categoría</div>
-            {esBillar && cuenta.TarifaPorHora > 0 && <div><span style={{ color: colorTiempo }}>🎱 Tiempo de mesa</span><b style={{ color: colorTiempo }}>{fmt(subTiempo)}</b></div>}
+            {esBillar && subTiempo > 0 && <div><span style={{ color: colorTiempo }}>🎱 Tiempo de mesa</span><b style={{ color: colorTiempo }}>{fmt(subTiempo)}</b></div>}
             {resumen.map((r) => <div key={r.clave}><span>{r.emoji} {r.nombre}</span><b>{fmt(r.total)}</b></div>)}
             <div className="t"><b>TOTAL</b><span>{fmt(total)}</span></div>
           </div>
@@ -569,6 +580,30 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           </div>
         </div>
       )}
+
+      {finChico && (() => {
+        const ms = msChicoActual(cuenta, ahora), min = Math.ceil(ms / 60000), tarifa = tarifaDe(cuenta), n = grupo.length;
+        return (
+          <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setFinChico(null)}>
+            <div className="pn-modal">
+              <h3>⏹ Finalizar tiempo de billar</h3>
+              <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: '#e8c06a', fontFamily: 'monospace' }}>{hms(ms)}</div>
+                <small className="au-nota">{min} {min === 1 ? 'minuto' : 'minutos'} × {fmt(tarifa / 60)} = <b style={{ color: '#35d07f' }}>{fmt(Math.round((min * tarifa) / 60))}</b></small>
+              </div>
+              <div className="cb-lab">¿Cómo se cobra el tiempo?</div>
+              <div className="cb-quien">
+                <button className={finChico.modo === 'dividir' ? 'on' : ''} onClick={() => setFinChico({ ...finChico, modo: 'dividir' })}>➗ Dividir entre las {n} cuentas (~{Math.floor(min / n)} min c/u)</button>
+                <button className={finChico.modo === 'una' ? 'on' : ''} onClick={() => setFinChico({ ...finChico, modo: 'una' })}>🎱 Todo a una sola cuenta</button>
+              </div>
+              {finChico.modo === 'una' && (<><div className="cb-lab" style={{ marginTop: 10 }}>Cuenta que asume el tiempo</div>
+                <div className="cb-quien">{grupo.map((c) => <button key={c.Id} className={finChico.destinoId === c.Id ? 'on' : ''} onClick={() => setFinChico({ ...finChico, destinoId: c.Id })}>{c.NombreLibre}</button>)}</div></>)}
+              <p className="au-nota">El tiempo se carga a la cuenta como "Tiempo de mesa". El taxímetro se detiene ya mismo.</p>
+              <div className="pn-acc"><button className="no" onClick={() => setFinChico(null)}>CANCELAR</button><button className="si" onClick={confirmarFinChico}>✓ DETENER Y CARGAR</button></div>
+            </div>
+          </div>
+        );
+      })()}
 
       {cobro && dividir && (
         <DividirCobro total={totalC} jugadores={grupo.map((c) => ({ nombre: c.NombreLibre, clienteId: c.ClienteId ?? null }))} puedeFiar={puedeFiar} pedirPin={(luego) => setPidePin({ luego })}
