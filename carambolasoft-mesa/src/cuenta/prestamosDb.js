@@ -16,4 +16,4 @@ export async function prestar({ persona, monto, motivo, usuario, autoriza }) {
   return mov('PRESTAMO', { persona, monto, motivo, usuario, autorizoId: autoriza.Id });
 }
 /** Devolución en efectivo: entra al cajón. */
-export const devolver = ({ persona, monto, motivo, usuario }) => mov('DEVOLUCION', { persona, monto, motivo: motivo || 'Pago de préstamo', usuario });
+export const devolver = ({ persona, monto, motivo, usuario }) => mov('DEVOLUCION', { persona, monto, motivo: motivo || 'Abono al préstamo', usuario });
