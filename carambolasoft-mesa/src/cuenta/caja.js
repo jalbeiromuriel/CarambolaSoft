@@ -60,7 +60,7 @@ export function movimientos({ facturas = [], abonos = [], gastos = [], maq = [],
   for (const p of porPago.values()) m.push({ ...p, titulo: etiquetaDe({ abono: p }), detalle: [p.metodo] });
   for (const g of gastos) m.push({ tipo: 'GASTO', id: g.Id, fecha: g.FechaHora, monto: g.Monto, titulo: g.Concepto, detalle: [g.MetodoPago, g.Categoria] });
   for (const p of maq.filter((x) => x.Tipo === 'PRESTAMO' || x.Tipo === 'DEVOLUCION')) m.push({ tipo: p.Tipo, id: p.Id, fecha: p.FechaHora, monto: p.Monto, titulo: p.Tipo === 'PRESTAMO' ? 'Préstamo a máquinas' : 'Devolución de máquinas', detalle: ['EFECTIVO', 'Máquinas'] });
-  for (const p of pers) m.push({ tipo: p.Tipo === 'PRESTAMO' ? 'PRESTAMO_PERS' : 'DEVOLUCION_PERS', id: p.Id, fecha: p.FechaHora, monto: p.Monto, titulo: `${p.Tipo === 'PRESTAMO' ? 'Préstamo a' : 'Devolución de'} ${p.PersonaNombre}`, detalle: ['EFECTIVO', 'Personal'] });
+  for (const p of pers) m.push({ tipo: p.Tipo === 'PRESTAMO' ? 'PRESTAMO_PERS' : 'DEVOLUCION_PERS', id: p.Id, fecha: p.FechaHora, monto: p.Monto, titulo: `${p.Tipo === 'PRESTAMO' ? 'Préstamo a' : 'Abono de'} ${p.PersonaNombre}`, detalle: ['EFECTIVO', 'Personal'] });
   return m.sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
 }
 

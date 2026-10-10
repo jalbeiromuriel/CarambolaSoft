@@ -79,7 +79,7 @@ export default function Caja() {
               {r.totalPrestamos > 0 && <div className="cj-mr lin"><span className="rojo">🏦 Préstamo a máquinas</span><span className="y rojo">−{fmt(r.totalPrestamos)}</span></div>}
               {r.totalDevoluciones > 0 && <div className="cj-mr lin"><span className="ver">↩ Devolución de máquinas</span><span className="y ver">+{fmt(r.totalDevoluciones)}</span></div>}
               {r.totalPrestPers > 0 && <div className="cj-mr lin"><span className="rojo">🤝 Préstamos al personal</span><span className="y rojo">−{fmt(r.totalPrestPers)}</span></div>}
-              {r.totalDevPers > 0 && <div className="cj-mr lin"><span className="ver">↩ Devoluciones del personal</span><span className="y ver">+{fmt(r.totalDevPers)}</span></div>}
+              {r.totalDevPers > 0 && <div className="cj-mr lin"><span className="ver">↩ Abonos del personal</span><span className="y ver">+{fmt(r.totalDevPers)}</span></div>}
               {r.totalGastos > 0 && <div className="cj-mr lin"><span className="rojo">💸 Gastos del turno ({r.nGastos})</span><span className="y rojo">−{fmt(r.totalGastos)}</span></div>}
               <div className="cj-mr esp"><span>💵 Efectivo esperado en cajón</span><span className="y">{fmt(r.efectivoEsperado)}</span></div>
             </div>

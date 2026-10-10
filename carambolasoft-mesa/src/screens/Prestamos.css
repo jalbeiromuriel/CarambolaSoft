@@ -1,0 +1,11 @@
+/* Préstamos al personal */
+.pr-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.pr-top h2{margin:0;font-size:18px;color:#e8ecf5}.pr-top p{margin:2px 0 0;font-size:12px;color:#7d879c}
+.pr-nuevo{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;padding:13px 22px;font-size:15px;font-weight:800;letter-spacing:.04em;cursor:pointer;color:#1a1405;background:linear-gradient(#f4d98f,#c9a24a);box-shadow:0 0 18px #e8c06a44,inset 0 1px 0 #fff6;transition:transform .05s}
+.pr-nuevo span{font-size:20px;line-height:1}.pr-nuevo:active{transform:scale(.97)}
+.pr-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:6px}
+.pr-k{border:1px solid #232b3d;border-top:3px solid var(--c,#e8c06a);border-radius:12px;padding:14px 16px;background:linear-gradient(#121826,#0e1422)}
+.pr-k small{display:block;font-size:10px;letter-spacing:.2em;color:#7d879c}.pr-k b{display:block;font-size:26px;margin-top:4px;color:var(--c,#e8ecf5)}
+.pr-abonar{border:1px solid #4ade8099;color:#4ade80;background:#4ade8012;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer}
+.pr-abonar:active{transform:scale(.97)}
+@media (max-width:700px){.pr-kpis{grid-template-columns:1fr}}
