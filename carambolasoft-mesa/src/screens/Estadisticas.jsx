@@ -27,7 +27,8 @@ export default function Estadisticas() {
   const totalOrigen = Math.max(1, e.origen.tiempo + e.origen.licor + e.origen.snacks + e.origen.garita);
   const totalMetodos = Math.max(1, Object.values(e.metodos).reduce((t, x) => t + x, 0));
   const edadTotal = Math.max(1, e.fiadosEdad.reciente + e.fiadosEdad.medio + e.fiadosEdad.viejo);
-  const k = e.kpi;
+  const k = e.kpi, pm = e.porMesa;
+  const horasT = (h) => { const m = Math.round(h * 60); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`; };
   const ORIGEN = [['⏱ Tiempo de mesa', e.origen.tiempo, 'cy'], ['🍺 Licor', e.origen.licor, 'mg'], ['🍿 Snacks y otros', e.origen.snacks, 'am'], ['⏳ Garita', e.origen.garita, 'vd']];
   return (
     <>
@@ -60,6 +61,22 @@ export default function Estadisticas() {
           <div className="es-c"><h3>DE DÓNDE VIENE LA PLATA</h3>
             {ORIGEN.map(([t, v, c]) => <div key={t}><div className="es-row"><span>{t}</span><b>{fmt(v)} · {pct((v / totalOrigen) * 100)}</b></div><div className="es-pb"><i className={c} style={{ width: `${(v / totalOrigen) * 100}%` }} /></div></div>)}</div>
         </div>
+
+        <div className="es-c" style={{ marginTop: 12 }}><h3>🎱 INGRESOS POR MESA</h3>
+          {pm.filas.length === 0 ? <div className="es-mut">Sin ventas en este periodo.</div> : (
+            <>
+              <div className="es-k" style={{ marginBottom: 10 }}>
+                <div><small>TIEMPO DE MESAS</small><b className="v">{fmt(pm.totales.tiempoMesas)}</b><span className="es-mut">{horasT(pm.totales.horas)} jugadas</span></div>
+                <div><small>CONSUMO EN MESAS</small><b className="v">{fmt(pm.totales.consumoMesas)}</b><span className="es-mut">licor, snacks y otros</span></div>
+                <div><small>OCUPACIÓN PROMEDIO</small><b className="a">{pct(pm.totales.ocupacion)}</b><span className="es-mut">sobre {datos.horasAtencion ?? 10} h/día de atención</span></div>
+                <div><small>MESA MÁS RENTABLE</small><b>{pm.masRentable ? pm.masRentable.nombre.replace('🎱 ', '') : '—'}</b><span className="es-mut">{pm.masRentable ? `${fmt(pm.masRentable.porHora)} por hora` : 'sin horas jugadas'}</span></div>
+              </div>
+              <div className="es-tbl"><table><thead><tr><th>MESA</th><th>TIEMPO</th><th>CONSUMO</th><th>TOTAL</th><th>HORAS</th><th>OCUPACIÓN</th><th>CUENTAS</th><th>$ POR HORA</th></tr></thead>
+                <tbody>{pm.filas.map((r) => <tr key={r.clave}><td><b>{r.nombre}</b>{r.tipo && <small className="es-mut"> {r.tipo}</small>}</td><td>{fmt(r.tiempo)}</td><td>{r.consumo ? fmt(r.consumo) : '—'}</td><td><b>{fmt(r.total)}</b></td>
+                  <td>{r.esMesa ? horasT(r.horas) : '—'}</td><td>{r.ocupacion === null ? <span className="es-mut">sin reloj de mesa</span> : <><span className="es-pb" style={{ display: 'inline-block', width: 90, verticalAlign: 'middle', marginRight: 6 }}><i className="cy" style={{ width: `${r.ocupacion}%` }} /></span>{pct(r.ocupacion)}</>}</td><td>{r.cuentas}</td><td>{r.porHora ? fmt(r.porHora) : '—'}</td></tr>)}</tbody>
+                <tfoot><tr><td>TOTAL</td><td>{fmt(pm.totales.tiempo)}</td><td>{fmt(pm.totales.consumo)}</td><td>{fmt(pm.totales.total)}</td><td>{horasT(pm.totales.horas)}</td><td>{pct(pm.totales.ocupacion)}</td><td>{pm.totales.cuentas}</td><td>{pm.totales.porHora ? fmt(pm.totales.porHora) : '—'}</td></tr></tfoot></table></div>
+              {pm.masRentable && pm.menosUsada && pm.menosUsada.ocupacion < 30 && <div className="es-alerta" style={{ marginTop: 8 }}>⚠️ {pm.menosUsada.nombre.replace('🎱 ', '')} estuvo ocupada solo el {pct(pm.menosUsada.ocupacion)} del tiempo: {fmt(pm.menosUsada.total)} en el periodo.</div>}
+            </>)}</div>
 
         <div className="es-g2">
           <div className="es-c"><h3>TOP PRODUCTOS · POR GANANCIA</h3>

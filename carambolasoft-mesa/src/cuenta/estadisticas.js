@@ -4,6 +4,7 @@ import { informeDia } from '../informes/datos.js';
 import { productosBajoMargen, MARGEN_OBJETIVO } from './inventario.js';
 import { saldoFondo, deudaCaja, BASE_FONDO } from './maquinas.js';
 import { perdidaIncobrables } from './fiados.js';
+import { ingresosPorMesa } from './porMesa.js';
 
 export const PERIODOS = [['hoy', 'Hoy'], ['semana', 'Semana'], ['quincena', 'Quincena'], ['mes', 'Mes'], ['rango', '📅 Rango']];
 export const BINS_HORA = ['4p', '6p', '8p', '10p', '12a', '2a'];   // franjas de 2 h desde las 4 p. m. hasta las 4 a. m.
@@ -39,7 +40,7 @@ function resumenPeriodo({ facturas, pedidos, productos, gastos }, ini, fin) {
 }
 
 /** Todo el tablero listo para pintar. `fiados` = lista de cargarFiados() ({ cliente, deuda, facturas:[{saldo, FechaHora}] }). */
-export function estadisticas({ facturas = [], pedidos = [], productos = [], gastos = [], cuentas = [], fiados = [], maq = [], baseFondo = BASE_FONDO, cierres = [], objetivo = MARGEN_OBJETIVO, filtro = 'mes', desde = '', hasta = '', ahora = Date.now() }) {
+export function estadisticas({ facturas = [], pedidos = [], productos = [], gastos = [], cuentas = [], mesas = [], horasAtencion, fiados = [], maq = [], baseFondo = BASE_FONDO, cierres = [], objetivo = MARGEN_OBJETIVO, filtro = 'mes', desde = '', hasta = '', ahora = Date.now() }) {
   const r = rangoPeriodo(filtro, { ahora, desde, hasta });
   const act = resumenPeriodo({ facturas, pedidos, productos, gastos }, r.ini, r.fin);
   const prev = resumenPeriodo({ facturas, pedidos, productos, gastos }, r.iniPrev, r.finPrev);
@@ -102,6 +103,7 @@ export function estadisticas({ facturas = [], pedidos = [], productos = [], gast
       gastos: act.gastos, vGastos: variacion(act.gastos, prev.gastos),
       porCobrar, incobrables: perdidaIncobrables(facturas, r.ini, r.fin), nDeudores: fiados.length, nViejos: viejos.length, nVentas: act.nVentas,
     },
+    porMesa: ingresosPorMesa({ facturas: act.facturas, cuentas, mesas, dias, horasAtencion }),
     porDia, calor, origen, metodos, top, alertas, deudores: deudores.slice(0, 5),
     fiadosEdad: { reciente: cubo(0, 7), medio: cubo(8, 30), viejo: cubo(31, Infinity) },
   };
