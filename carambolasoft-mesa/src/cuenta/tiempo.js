@@ -90,3 +90,9 @@ export function hms(msTotal) {
   const s = Math.max(0, Math.floor(msTotal / 1000));
   return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((x) => String(x).padStart(2, '0')).join(':');
 }
+
+/** Duración legible desde minutos: 45 → "45 min", 180 → "3 h 00 min", 185 → "3 h 05 min". */
+export function duracionMin(min) {
+  const m = Math.max(0, Math.round(min));
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+}

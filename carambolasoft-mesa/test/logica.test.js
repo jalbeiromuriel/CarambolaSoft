@@ -501,3 +501,8 @@ test('repartirAuto: reparte solo entre los que pagan y respeta lo fijado a mano'
   assert.deepEqual(repartirAuto(30000, [f({ fijo: true, monto: 10000 }), f(), f()]).map((x) => x.monto), [10000, 10000, 10000]);
   assert.deepEqual(repartirAuto(10000, [f({ fijo: true, monto: 15000 }), f()]).map((x) => x.monto), [15000, 0]);
 });
+
+import { duracionMin } from '../src/cuenta/tiempo.js';
+test('duracionMin: minutos legibles en horas', () => {
+  assert.equal(duracionMin(45), '45 min'); assert.equal(duracionMin(180), '3 h 00 min'); assert.equal(duracionMin(185), '3 h 05 min'); assert.equal(duracionMin(0), '0 min');
+});
