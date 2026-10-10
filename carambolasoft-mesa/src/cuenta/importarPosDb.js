@@ -4,8 +4,8 @@ import { norm } from './catalogo.js';
 import { asegurarCategorias } from './categoriasDb.js';
 
 export async function datosExistentes() {
-  const [productos, clientes, facturas] = await Promise.all([getAll('PRODUCTOS'), getAll('CLIENTES'), getAll('FACTURAS')]);
-  return { productos, clientes, facturas };
+  const [productos, clientes, facturas, ignorados] = await Promise.all([getAll('PRODUCTOS'), getAll('CLIENTES'), getAll('FACTURAS'), leerMeta('importar.ignorados')]);
+  return { productos, clientes, facturas, ignorados: ignorados ?? [] };
 }
 
 export async function aplicarImportacion(plan) {

@@ -406,3 +406,19 @@ test('préstamos al personal: saldos, cierre de caja y autorización', () => {
   assert.ok(_vp({ persona: null, monto: 1 })); assert.ok(_vp({ persona: {}, monto: 0 })); assert.ok(_vp({ persona: {}, monto: 500, efectivoCajon: 100 })); assert.equal(_vp({ persona: {}, monto: 50, efectivoCajon: 100 }), '');
   assert.ok(_vd({ debe: 100, monto: 200 })); assert.equal(_vd({ debe: 100, monto: 100 }), '');
 });
+
+// ---- Castigo de fiados y limpieza de pruebas ----
+import { esDePrueba as _ep, castigarFactura as _cf, reabrirFactura as _rf, perdidaIncobrables as _pi } from '../src/cuenta/fiados.js';
+test('fiados: castigar, reabrir, pérdida por incobrables y solo se eliminan los de prueba', () => {
+  const f = { Id: 'f1', TotalPendienteFiado: 30000, saldo: 30000, abonado: 20000, original: 50000, EstadoPago: 'FIADO', Migrado: true, OrigenPosId: 'v1' };
+  assert.equal(_ep(f), true); assert.equal(_ep({ ...f, Migrado: false }), false); assert.equal(_ep({ Id: 'x' }), false);
+  assert.throws(() => _cf(f, { motivo: '  ' }), /motivo/); assert.throws(() => _cf({ ...f, TotalPendienteFiado: 0, saldo: 0 }, { motivo: 'x' }), /saldo/);
+  const c = _cf(f, { motivo: 'No contesta', usuarioId: 'u', autorizoId: 'a', ahora: '2026-10-09T12:00:00.000Z' });
+  assert.equal(c.TotalPendienteFiado, 0); assert.equal(c.MontoCastigado, 30000); assert.equal(c.Castigado, true); assert.equal(c.saldo, undefined); assert.equal(c.EstadoPago, 'FIADO');
+  assert.equal(_pi([c], new Date('2026-10-01'), new Date('2026-11-01')), 30000); assert.equal(_pi([c], new Date('2026-09-01'), new Date('2026-10-01')), 0);
+  const r = _rf(c); assert.equal(r.TotalPendienteFiado, 30000); assert.equal(r.Castigado, undefined); assert.equal(r.MotivoCastigo, undefined);
+  assert.throws(() => _rf(f), /no está castigada/);
+  // lo eliminado a propósito no vuelve al reimportar
+  const b = { nextFactura: 5, productos: [], clientes: [{ id: 'c1', n: 'Luis', ap: 'L', vis: 1 }], historial: [{ fecha: '2026-07-14', ventas: [{ id: 'v1', cliId: 'c1', factura: 'F-0001', total: 5000, metodo: 'Fiado', pagado: false, fecha: '2026-07-14', hora: '9:00 a. m.' }] }] };
+  assert.equal(_plan(b, { ignorados: ['v1'] }, '2026-10-09').resumen.fiados, 0); assert.equal(_plan(b, {}, '2026-10-09').resumen.fiados, 1);
+});

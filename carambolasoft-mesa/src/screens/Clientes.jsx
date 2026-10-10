@@ -7,7 +7,8 @@ import { useSesion } from '../components/Sesion.jsx';
 import { esAdmin } from '../cuenta/auth.js';
 import { norm } from '../cuenta/catalogo.js';
 import { METODOS } from '../cuenta/cobro.js';
-import { antiguedad } from '../cuenta/fiados.js';
+import { antiguedad, esDePrueba } from '../cuenta/fiados.js';
+import { EliminarPrueba, Castigar, Castigados } from './FiadosLimpieza.jsx';
 import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import { getAll } from '../db/repository.js';
 import { cargarFiados, registrarAbono, abonosDeCliente, leerCuentasPago } from '../cuenta/fiadosDb.js';
@@ -37,6 +38,8 @@ export default function Clientes() {
   const [facturas, setFacturas] = useState([]); const [cuentas, setCuentas] = useState([]);
   const [pedidos, setPedidos] = useState([]); const [productos, setProductos] = useState([]);
   const [form, setForm] = useState(null);       // cliente nuevo/editar
+  const [limp, setLimp] = useState(null);       // { t:'eliminar', cid? } | { t:'castigar', g }
+  const [vCast, setVCast] = useState(0);
   const [abono, setAbono] = useState(null);     // { g, metodo, monto, error }
   const [hoja, setHoja] = useState(null);         // { recibo: datos } | { cartera: datos }
   const [detalle, setDetalle] = useState(null); // { g, tipo:'facturas'|'abonos', abonos? }
@@ -146,7 +149,7 @@ export default function Clientes() {
         {tab === 'fiados' && admin && (
           <>
             <div className="cl-ban"><span>{fiados.lista.length} {fiados.lista.length === 1 ? 'cliente' : 'clientes'} con fiado pendiente</span><b>{fmt(fiados.total)}</b>
-              <button className="v" onClick={() => setPago(true)}>💳 Cuentas para pagos</button><button className="o" onClick={() => setHoja({ cartera: carteraFiados(fiados.lista) })}>📄 PDF cartera</button></div>
+              <button className="v" onClick={() => setPago(true)}>💳 Cuentas para pagos</button><button className="o" onClick={() => setHoja({ cartera: carteraFiados(fiados.lista) })}>📄 PDF cartera</button>{fiados.lista.some((g) => g.facturas.some(esDePrueba)) && <button onClick={() => setLimp({ t: 'eliminar' })}>🗑 Eliminar fiados de prueba</button>}</div>
             {fiados.lista.length === 0 && <div className="pn-vacio">Nadie debe nada. 🎉</div>}
             {fiados.lista.map((g) => {
               const a = antiguedad(g.masAntigua);
@@ -160,13 +163,18 @@ export default function Clientes() {
                   <button className="b" onClick={() => verDetalle(g, 'facturas')}>Ver detalle</button>
                   {g.abonado > 0 && <button className="o" onClick={() => verDetalle(g, 'abonos')}>📜 Abonos</button>}
                   <button onClick={() => verRecibo(g)}>🧾 Recibo</button>
+                  <button onClick={() => setLimp({ t: 'castigar', g })}>⋯ Castigar</button>
+                  {g.facturas.some(esDePrueba) && <button onClick={() => setLimp({ t: 'eliminar', cid: g.cliente.Id })}>🗑 Eliminar prueba</button>}
                   <button className="go" onClick={() => abrirAbono(g)}>💵 Pagar / Abonar</button>
                 </div>
               );
             })}
+            <Castigados version={vCast} cambio={async (m) => { decir(m); setVCast((v) => v + 1); await cargar(); }} />
           </>
         )}
       </div>
+      {limp?.t === 'eliminar' && <EliminarPrueba grupos={fiados.lista} clienteId={limp.cid} cerrar={() => setLimp(null)} hecho={async (m) => { setLimp(null); decir(m); await cargar(); }} />}
+      {limp?.t === 'castigar' && <Castigar g={limp.g} cerrar={() => setLimp(null)} hecho={async (m) => { setLimp(null); decir(m); setVCast((v) => v + 1); await cargar(); }} />}
 
       {form && (
         <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setForm(null)}>

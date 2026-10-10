@@ -1,7 +1,7 @@
 // src/cuenta/fiadosDb.js — Fiados y abonos en IndexedDB (FACTURAS + ABONOS_FIADO). Reglas puras en fiados.js.
-import { put, getAll, leerMeta, escribirMeta } from '../db/repository.js';
+import { put, getAll, leerMeta, escribirMeta, borrarLocal } from '../db/repository.js';
 import { normalizarCuentas } from './cuentasPago.js';
-import { repartirAbono, siguienteNumero, etiquetaFactura } from './fiados.js';
+import { repartirAbono, siguienteNumero, etiquetaFactura, esDePrueba, castigarFactura, reabrirFactura } from './fiados.js';
 
 /** Datos para facturar: número consecutivo y fecha. */
 export async function datosFactura() {
@@ -78,3 +78,35 @@ export const guardarCuentasPago = (lista) => escribirMeta('negocio.cuentasPago',
 // WhatsApp de la patrona (para enviar comprobantes). Solo local.
 export const leerWhatsappPatrona = async () => (await leerMeta('negocio.whatsappPatrona')) ?? '';
 export const guardarWhatsappPatrona = (n) => escribirMeta('negocio.whatsappPatrona', String(n ?? '').replace(/\D/g, ''));
+
+/** Castiga facturas fiadas (un Admin ya digitó su PIN). Cada una pasa a saldo 0 y queda marcada con el motivo. */
+export async function castigarFiados({ facturas, motivo, usuario, autorizoId }) {
+  const nuevas = facturas.map((f) => castigarFactura(f, { motivo, usuarioId: usuario?.Id, autorizoId }));   // valida todas antes de escribir
+  for (const n of nuevas) await put('FACTURAS', n);
+  return nuevas.length;
+}
+/** Facturas castigadas (para reabrirlas), recientes primero, con el nombre del cliente. */
+export async function cargarCastigados() {
+  const [facturas, cuentas, clientes] = await Promise.all([getAll('FACTURAS'), getAll('CUENTAS'), getAll('CLIENTES')]);
+  return facturas.filter((f) => f.Castigado).map((f) => ({ ...f, cliente: clientes.find((c) => c.Id === cuentas.find((x) => x.Id === f.CuentaId)?.ClienteId)?.Nombre ?? '—' }))
+    .sort((a, b) => (b.FechaCastigo ?? '').localeCompare(a.FechaCastigo ?? ''));
+}
+export const reabrirFiado = (f) => put('FACTURAS', reabrirFactura(f));
+
+/** Elimina fiados importados del POS (de prueba) y recuerda su id del POS para que un reimport no los traiga de vuelta. */
+export async function eliminarFiadosPrueba(facturas) {
+  const validas = facturas.filter(esDePrueba); if (validas.length !== facturas.length) throw new Error('Solo se pueden eliminar fiados importados del POS.');
+  const [pedidos, abonos] = await Promise.all([getAll('PEDIDOS_CUENTAS'), getAll('ABONOS_FIADO')]);
+  for (const f of validas) {
+    await borrarLocal('PEDIDOS_CUENTAS', pedidos.filter((p) => p.CuentaId === f.CuentaId).map((p) => p.Id));
+    await borrarLocal('ABONOS_FIADO', abonos.filter((a) => a.FacturaId === f.Id).map((a) => a.Id));
+    await borrarLocal('FACTURAS', [f.Id]);
+    await borrarLocal('CUENTAS', [f.CuentaId]);
+  }
+  // el turno de migración (compartido por todos los fiados importados) se borra solo cuando ya no lo usa ninguna factura
+  const quedan = await getAll('FACTURAS');
+  for (const t of new Set(validas.map((f) => f.TurnoCajaId).filter(Boolean))) if (!quedan.some((x) => x.TurnoCajaId === t)) await borrarLocal('TURNOS_CAJA', [t]);
+  const ya = (await leerMeta('importar.ignorados')) ?? [];
+  await escribirMeta('importar.ignorados', [...new Set([...ya, ...validas.map((f) => f.OrigenPosId)])]);
+  return validas.length;
+}

@@ -3,6 +3,7 @@ import { partesFactura } from './caja.js';
 import { informeDia } from '../informes/datos.js';
 import { productosBajoMargen, MARGEN_OBJETIVO } from './inventario.js';
 import { saldoFondo, deudaCaja, BASE_FONDO } from './maquinas.js';
+import { perdidaIncobrables } from './fiados.js';
 
 export const PERIODOS = [['hoy', 'Hoy'], ['semana', 'Semana'], ['quincena', 'Quincena'], ['mes', 'Mes'], ['rango', '📅 Rango']];
 export const BINS_HORA = ['4p', '6p', '8p', '10p', '12a', '2a'];   // franjas de 2 h desde las 4 p. m. hasta las 4 a. m.
@@ -99,7 +100,7 @@ export function estadisticas({ facturas = [], pedidos = [], productos = [], gast
       vendido: act.vendido, vVendido: variacion(act.vendido, prev.vendido),
       ganancia: act.ganancia, vGanancia: variacion(act.ganancia, prev.ganancia), margen: act.vendido > 0 ? (act.ganancia / act.vendido) * 100 : 0,
       gastos: act.gastos, vGastos: variacion(act.gastos, prev.gastos),
-      porCobrar, nDeudores: fiados.length, nViejos: viejos.length, nVentas: act.nVentas,
+      porCobrar, incobrables: perdidaIncobrables(facturas, r.ini, r.fin), nDeudores: fiados.length, nViejos: viejos.length, nVentas: act.nVentas,
     },
     porDia, calor, origen, metodos, top, alertas, deudores: deudores.slice(0, 5),
     fiadosEdad: { reciente: cubo(0, 7), medio: cubo(8, 30), viejo: cubo(31, Infinity) },

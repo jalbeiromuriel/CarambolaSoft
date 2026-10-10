@@ -41,7 +41,7 @@ export default function Estadisticas() {
           <div><small>VENDIDO</small><b className="v">{fmt(k.vendido)}</b><Var v={k.vVendido} /><i>{k.nVentas} ventas</i></div>
           <div><small>GANANCIA</small><b className="v">{fmt(k.ganancia)}</b><Var v={k.vGanancia} /><i>margen {pct(k.margen)}</i></div>
           <div><small>GASTOS</small><b className="r">{fmt(k.gastos)}</b><Var v={k.vGastos} malo /></div>
-          <div><small>POR COBRAR (FIADOS)</small><b className="a">{fmt(k.porCobrar)}</b><span className="es-mut">{k.nDeudores} clientes{k.nViejos ? ` · ${k.nViejos} con más de 30 días` : ''}</span></div>
+          <div><small>POR COBRAR (FIADOS)</small><b className="a">{fmt(k.porCobrar)}</b><span className="es-mut">{k.nDeudores} clientes{k.nViejos ? ` · ${k.nViejos} con más de 30 días` : ''}</span>{k.incobrables > 0 && <span className="es-mut" style={{ display: 'block', color: '#ff7a8a' }}>Pérdida por incobrables: {fmt(k.incobrables)}</span>}</div>
         </div>
 
         <div className="es-g">
