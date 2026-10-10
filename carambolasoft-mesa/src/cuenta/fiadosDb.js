@@ -9,6 +9,13 @@ export async function datosFactura() {
   return { Numero: etiquetaFactura(Math.max(siguienteNumero(await getAll('FACTURAS')), base + 1)), FechaHora: new Date().toISOString() };
 }
 
+/** Números consecutivos para `n` facturas de una misma división de cuenta. */
+export async function datosFacturas(n) {
+  const base = Number(await leerMeta('facturas.ultimoNumero')) || 0;
+  const primero = Math.max(siguienteNumero(await getAll('FACTURAS')), base + 1);
+  return { Numeros: Array.from({ length: n }, (_, i) => etiquetaFactura(primero + i)), FechaHora: new Date().toISOString() };
+}
+
 /** Fiados agrupados por cliente: una sola deuda por persona, con sus facturas (saldo, abonado, antigüedad). */
 export async function cargarFiados() {
   const [facturas, cuentas, clientes, abonos] = await Promise.all([getAll('FACTURAS'), getAll('CUENTAS'), getAll('CLIENTES'), getAll('ABONOS_FIADO')]);
