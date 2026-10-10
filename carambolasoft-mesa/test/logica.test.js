@@ -422,3 +422,25 @@ test('fiados: castigar, reabrir, pérdida por incobrables y solo se eliminan los
   const b = { nextFactura: 5, productos: [], clientes: [{ id: 'c1', n: 'Luis', ap: 'L', vis: 1 }], historial: [{ fecha: '2026-07-14', ventas: [{ id: 'v1', cliId: 'c1', factura: 'F-0001', total: 5000, metodo: 'Fiado', pagado: false, fecha: '2026-07-14', hora: '9:00 a. m.' }] }] };
   assert.equal(_plan(b, { ignorados: ['v1'] }, '2026-10-09').resumen.fiados, 0); assert.equal(_plan(b, {}, '2026-10-09').resumen.fiados, 1);
 });
+
+// ---- Dividir la cuenta ----
+import { repartirIgual as _ri, planDivision as _pd, repartirSubtotales as _rs } from '../src/cuenta/dividir.js';
+test('dividir cuenta: partes iguales, validación y reparto de subtotales', () => {
+  assert.deepEqual(_ri(13000, 4), [3250, 3250, 3250, 3250]); assert.deepEqual(_ri(10000, 3), [3333, 3333, 3334]); assert.deepEqual(_ri(100, 0), []);
+  const ok = _pd({ total: 13000, pagos: [
+    { nombre: 'Carlos', metodo: 'EFECTIVO', monto: 1000 }, { nombre: 'Luis', clienteId: 'c1', metodo: 'FIADO', monto: 4000 },
+    { nombre: 'Mariana', metodo: 'NEQUI', monto: 4000 }, { nombre: 'Juan', metodo: 'EFECTIVO', resto: true }] });
+  assert.deepEqual(ok.pagos.map((p) => p.monto), [1000, 4000, 4000, 4000]);
+  const pagos = (extra) => [{ nombre: 'A', metodo: 'EFECTIVO', monto: 5000 }, { nombre: 'B', metodo: 'NEQUI', monto: 5000, ...extra }];
+  assert.match(_pd({ total: 12000, pagos: pagos() }).error, /Faltan \$2\.000/); assert.match(_pd({ total: 9000, pagos: pagos() }).error, /Se pasan/);
+  assert.match(_pd({ total: 10000, pagos: pagos({ metodo: 'FIADO' }) }).error, /cliente registrado/); assert.equal(_pd({ total: 10000, pagos: pagos({ metodo: 'FIADO', clienteId: 'x' }) }).pagos.length, 2);
+  assert.match(_pd({ total: 10000, pagos: [{ nombre: 'A', metodo: 'EFECTIVO', monto: 10000 }] }).error, /al menos dos/);
+  assert.match(_pd({ total: 10000, pagos: pagos({ monto: 0 }) }).error, /mayor a 0/);
+  assert.match(_pd({ total: 10000, pagos: [{ metodo: 'EFECTIVO', resto: true }, { metodo: 'NEQUI', resto: true }] }).error, /Solo un pagador/);
+  // subtotales: cada categoría suma exacto y cada factura suma su monto
+  const sub = { SubtotalTiempo: 9000, SubtotalLicor: 4000, SubtotalSnacks: 0, SubtotalOtros: 0 }; const montos = [1000, 4000, 4000, 4000];
+  const r = _rs(sub, montos);
+  r.forEach((f, i) => assert.equal(Object.values(f).reduce((s, v) => s + v, 0), montos[i]));
+  assert.equal(r.reduce((s, f) => s + f.SubtotalTiempo, 0), 9000); assert.equal(r.reduce((s, f) => s + f.SubtotalLicor, 0), 4000);
+  const raro = _rs({ a: 100, b: 33, c: 1 }, [50, 50, 34]); raro.forEach((f, i) => assert.equal(Object.values(f).reduce((s, v) => s + v, 0), [50, 50, 34][i]));
+});

@@ -35,7 +35,7 @@ export function resumenTurno({ facturas = [], abonos = [], gastos = [], maq = []
   const totalPrestPers = suma(pers.filter((x) => x.Tipo === 'PRESTAMO'), (p) => p.Monto);       // la caja le presta al personal
   const totalDevPers = suma(pers.filter((x) => x.Tipo === 'DEVOLUCION'), (p) => p.Monto);       // el personal le devuelve a la caja
   return {
-    nVentas: facturas.length, porMetodo, totalVendido, fiado: porMetodo.FIADO,
+    nVentas: facturas.filter((f) => !f.DivisionDeFacturaId).length, porMetodo, totalVendido, fiado: porMetodo.FIADO,
     cobrosFiado, totalCobros, nCobros: new Set(abonos.map((a) => `${a.FechaHora}|${a.MetodoPago}`)).size,
     gastosPorMetodo, totalGastos, nGastos: gastos.length, totalPrestamos, totalDevoluciones, totalPrestPers, totalDevPers,
     efectivoEsperado: porMetodo.EFECTIVO + cobrosFiado.EFECTIVO - gastosPorMetodo.EFECTIVO - totalPrestamos + totalDevoluciones - totalPrestPers + totalDevPers,

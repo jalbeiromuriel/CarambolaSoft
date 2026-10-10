@@ -13,7 +13,9 @@ import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { grupoDe } from '../cuenta/grupos.js';
 import { estadoReloj, marcadaPorDefecto, mmss } from '../cuenta/garita.js';
 import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js';
-import { datosFactura, leerCuentasPago } from '../cuenta/fiadosDb.js';
+import { datosFactura, datosFacturas, leerCuentasPago } from '../cuenta/fiadosDb.js';
+import { repartirSubtotales } from '../cuenta/dividir.js';
+import DividirCobro from '../components/DividirCobro.jsx';
 import { useSesion } from '../components/Sesion.jsx';
 import BotonComprobante from '../components/BotonComprobante.jsx';
 import { esDigital, textoComprobante } from '../cuenta/comprobante.js';
@@ -47,6 +49,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [avisoSel, setAvisoSel] = useState(null); // { ids:Set } — modal de cobro de la hora
   const [descartado, setDescartado] = useState(0); // Cobros del aviso que se dejó para después
   const { usuario } = useSesion();
+  const [dividir, setDividir] = useState(false); // dividir la cuenta entre varios pagadores
   const [pidePin, setPidePin] = useState(null); // { luego } — un Admin autoriza (fiar siendo Empleado)
   const [aviso, setAviso] = useState('');
   const [ahora, setAhora] = useState(Date.now());
@@ -227,8 +230,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       MontoPrimario: mixto ? m1 : null, MontoSecundario: mixto ? m2 : null,
       EstadoPago: pendienteFiado > 0 ? 'FIADO' : 'PAGADO',
     });
+    await terminarCobro(new Date().toISOString());
+  }
+
+  // Tras facturar: liquida las cuentas cobradas, libera la mesa y vuelve (lo comparten el cobro normal y el dividido)
+  async function terminarCobro(ahoraIso) {
     // Al cobrar, un chico en curso se termina; en "toda la mesa" se liquidan todas las cuentas cobradas
-    const ahoraIso = new Date().toISOString();
     for (const c of cuentasCobro) await put('CUENTAS', { ...terminarChico(c), Estado: 'LIQUIDADA', HoraCierre: ahoraIso, ...(c.Id !== pagador.Id ? { PagadaPorCuentaId: pagador.Id } : {}) });
     if (cobro.mesa) for (const c of grupo.filter((x) => !cuentasCobro.some((y) => y.Id === x.Id))) await put('CUENTAS', { ...c, Estado: 'CANCELADA', HoraCierre: ahoraIso });
     const quedan = cobro.mesa ? [] : grupo.filter((c) => c.Id !== cuenta.Id);
@@ -239,6 +246,31 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     setCobro(null);
     if (quedan.length === 0) { if (cuenta.GaritaRelojId) await cerrarReloj(cuenta.GaritaRelojId); volver(); return; }
     setActivaId(quedan[0].Id); decir('Cobrado ✓'); await cargar();
+  }
+
+  // Dividir: una factura por pagador (cada uno con su método, o fiado a su nombre). La primera lleva las cuentas con sus pedidos
+  // (el costo y las unidades cuentan una sola vez) y las demás se marcan como parte de esa venta.
+  async function confirmarDivision(pagos) {
+    const suma = (fn) => pedidosCobro.filter(fn).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
+    const sub = { SubtotalTiempo: subTiempoC, SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'), SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
+      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO'].includes(p.CategoriaConsumo)) };
+    const partes = repartirSubtotales(sub, pagos.map((p) => p.monto));
+    const { Numeros, FechaHora } = await datosFacturas(pagos.length);
+    let principalId = null;
+    for (let i = 0; i < pagos.length; i++) {
+      const p = pagos[i]; const fiado = p.metodo === 'FIADO';
+      const quien = await put('CUENTAS', { TipoCuenta: pagador.TipoCuenta, MesaId: null, ClienteId: p.cliente?.Id ?? null, NombreLibre: p.nombre?.trim() || p.cliente?.Nombre || `Jugador ${i + 1}`,
+        Estado: 'LIQUIDADA', HoraCierre: FechaHora, TurnoCajaId: pagador.TurnoCajaId ?? null, DivisionDeCuentaId: pagador.Id });
+      const f = await put('FACTURAS', {
+        Numero: Numeros[i], FechaHora, CuentaId: quien.Id, TurnoCajaId: pagador.TurnoCajaId ?? null, ...partes[i],
+        ...(i === 0 ? { CuentasIncluidas: cuentasCobro.map((c) => c.Id) } : { DivisionDeFacturaId: principalId }),
+        TotalPagar: p.monto, TotalPendienteFiado: fiado ? p.monto : 0, UsuarioId: usuario?.Id ?? null, AutorizoId: cobro?.autorizoId ?? null,
+        MetodoPago: p.metodo, MetodoPagoSecundario: null, MontoPrimario: null, MontoSecundario: null, EstadoPago: fiado ? 'FIADO' : 'PAGADO',
+      });
+      if (i === 0) principalId = f.Id;
+    }
+    setDividir(false);
+    await terminarCobro(FechaHora);
   }
 
   const puedeFiar = esAdmin(usuario?.Rol) || cobro?.fiadoOk;
@@ -522,6 +554,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               </>
             )}
 
+            {!esGarita && totalC > 0 && <button className="cb-foto" style={{ borderColor: '#e8c06a99', color: '#e8c06a' }} onClick={() => setDividir(true)}>👥 Dividir la cuenta entre varios pagadores</button>}
+
             <label className="cb-chk">
               <input type="checkbox" checked={cobro.mixto} onChange={(e) => setCobro({ ...cobro, mixto: e.target.checked })} />
               <span className="box">{cobro.mixto ? '✓' : ''}</span>
@@ -534,6 +568,11 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             </div>
           </div>
         </div>
+      )}
+
+      {cobro && dividir && (
+        <DividirCobro total={totalC} nombres={cuentasCobro.map((c) => c.NombreLibre)} puedeFiar={puedeFiar} pedirPin={(luego) => setPidePin({ luego })}
+          cerrar={() => setDividir(false)} confirmar={confirmarDivision} />
       )}
 
       {avisoSel && reloj && (

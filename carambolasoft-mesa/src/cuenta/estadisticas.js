@@ -35,7 +35,7 @@ function resumenPeriodo({ facturas, pedidos, productos, gastos }, ini, fin) {
   const g = gastos.filter((x) => enRango(x, ini, fin));
   const inf = informeDia({ facturas: f, pedidos, productos });
   const vendido = suma(f, (x) => x.TotalPagar ?? 0);
-  return { facturas: f, vendido, ganancia: inf.ganancia, gastos: suma(g, (x) => x.Monto ?? 0), inf, nVentas: f.length };
+  return { facturas: f, vendido, ganancia: inf.ganancia, gastos: suma(g, (x) => x.Monto ?? 0), inf, nVentas: f.filter((x) => !x.DivisionDeFacturaId).length };
 }
 
 /** Todo el tablero listo para pintar. `fiados` = lista de cargarFiados() ({ cliente, deuda, facturas:[{saldo, FechaHora}] }). */
