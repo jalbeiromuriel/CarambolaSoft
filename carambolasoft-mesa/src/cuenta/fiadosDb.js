@@ -5,7 +5,8 @@ import { repartirAbono, siguienteNumero, etiquetaFactura } from './fiados.js';
 
 /** Datos para facturar: número consecutivo y fecha. */
 export async function datosFactura() {
-  return { Numero: etiquetaFactura(siguienteNumero(await getAll('FACTURAS'))), FechaHora: new Date().toISOString() };
+  const base = Number(await leerMeta('facturas.ultimoNumero')) || 0;   // última factura del POS importado: la numeración continúa desde ahí
+  return { Numero: etiquetaFactura(Math.max(siguienteNumero(await getAll('FACTURAS')), base + 1)), FechaHora: new Date().toISOString() };
 }
 
 /** Fiados agrupados por cliente: una sola deuda por persona, con sus facturas (saldo, abonado, antigüedad). */
