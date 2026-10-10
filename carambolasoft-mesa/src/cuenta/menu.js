@@ -5,6 +5,6 @@ export const SECCIONES = [
   { id: 'clientes',     t: 'Clientes',     listo: true },
   { id: 'caja',         t: 'Caja',         listo: true },
   { id: 'maquinas',     t: 'Máquinas',     listo: true },
-  { id: 'estadisticas', t: 'Estadísticas', listo: false, fase: 4 },
+  { id: 'estadisticas', t: 'Estadísticas', listo: true },
   { id: 'adm',          t: 'Adm ⚙',        listo: true },
 ];

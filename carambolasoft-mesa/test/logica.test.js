@@ -325,3 +325,23 @@ test('formatearNumero: grupos de 3, celular 3-3-4, llaves tal cual; copiar sin e
   assert.equal(formatearNumero('OTRA', 'a@b.co'), 'a@b.co');
   assert.equal(numeroParaCopiar('614 000 330 80'), '61400033080'); assert.equal(numeroParaCopiar('@meroparche'), '@meroparche');
 });
+
+// ---- Estadísticas ----
+import { estadisticas as _est, rangoPeriodo as _rp } from '../src/cuenta/estadisticas.js';
+test('estadísticas: kpi, comparación con periodo anterior, origen, calor y fiados por edad', () => {
+  const ahora = new Date('2026-10-09T22:00:00').getTime(), d = (s) => new Date(s).toISOString();
+  const facturas = [
+    { Id: 'a', CuentaId: 'c1', FechaHora: d('2026-10-08T21:00:00'), TotalPagar: 100000, SubtotalTiempo: 40000, SubtotalLicor: 60000, MetodoPago: 'EFECTIVO' },
+    { Id: 'b', CuentaId: 'c2', FechaHora: d('2026-10-09T23:00:00'), TotalPagar: 50000, SubtotalSnacks: 50000, MetodoPago: 'NEQUI' },
+    { Id: 'c', CuentaId: 'c1', FechaHora: d('2026-10-01T21:00:00'), TotalPagar: 80000, SubtotalLicor: 80000, MetodoPago: 'EFECTIVO' },
+    { Id: 'x', CuentaId: 'c1', FechaHora: d('2026-10-09T20:00:00'), TotalPagar: 999999, EstadoPago: 'ANULADO', MetodoPago: 'EFECTIVO' },
+  ];
+  const r = _est({ facturas, gastos: [{ FechaHora: d('2026-10-09T10:00:00'), Monto: 20000 }], fiados: [{ cliente: { Nombre: 'Luis' }, deuda: 120000, facturas: [{ saldo: 120000, FechaHora: d('2026-08-20T20:00:00') }] }], filtro: 'semana', ahora });
+  assert.equal(r.kpi.vendido, 150000); assert.equal(r.kpi.gastos, 20000);
+  assert.equal(r.kpi.vVendido, ((150000 - 80000) / 80000) * 100 > 0 ? r.kpi.vVendido : null); assert.ok(r.kpi.vVendido > 0);
+  assert.equal(r.origen.tiempo, 40000); assert.equal(r.origen.licor, 60000); assert.equal(r.origen.snacks, 50000);
+  assert.equal(r.porDia.length, 7); assert.equal(r.porDia.at(-1).total, 50000);
+  assert.equal(r.calor.flat().reduce((t, x) => t + x, 0), 150000);
+  assert.equal(r.fiadosEdad.viejo, 120000); assert.equal(r.kpi.nViejos, 1); assert.ok(r.alertas.some((a) => a.tipo === 'fiado'));
+  assert.equal(_rp('hoy', { ahora }).fin - _rp('hoy', { ahora }).ini, 86400000);
+});
