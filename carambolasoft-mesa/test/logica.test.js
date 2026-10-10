@@ -372,7 +372,8 @@ test('importar POS: omite tiempo/ocultos, une clientes repetidos, promo vencida 
   assert.deepEqual(p.omitidos, ['Tiempo Mesa Billar', 'inventario inmuebles sillas']);
   assert.equal(p.resumen.productos, 3); assert.equal(p.resumen.productosActualizan, 1);
   assert.equal(p.productos[0].datos.Promo, null); assert.ok(p.productos.find((x) => x.pos === 'P005').datos.Promo);
-  assert.equal(p.productos.find((x) => x.pos === 'P005').datos.ControlaStock, false);
+  assert.equal(p.productos.find((x) => x.pos === 'P005').datos.ControlaStock, true);   // Tinto lleva stock
+  assert.equal(_plan({ productos: [{ id: 'P9', n: 'Garita', cat: 'Juegos', p: 1500, s: 1 }], clientes: [], historial: [] }, {}, '2026-10-09').productos[0].datos.ControlaStock, false);
   assert.equal(p.productos[1].fracOrigenPos, 'P001'); assert.equal(p.productos[1].datos.Fraccion.Rinde, 12);
   assert.equal(p.resumen.clientes, 2); assert.equal(p.resumen.clientesUnidos, 1); assert.equal(p.clientes[0].datos.Apodo, 'Lucho'); assert.equal(p.clientes[1].datos.Apodo, '');
   assert.equal(p.resumen.fiados, 2); assert.equal(p.resumen.fiadoTotal, 38000);
