@@ -11,7 +11,7 @@ import {
 } from '../../marcador/logica.js';
 import {
   mesasConCuenta, listarClientes, cargarReto, cargarChico, crearParticipante, iniciarChico,
-  registrarSerie, corregirUltima, finalizarChico, leerConsumo, retoInicialDe,
+  registrarSerie, corregirUltima, finalizarChico, leerConsumoMesa, tiempoDeMesa, retoInicialDe,
 } from '../../marcador/datos.js';
 import Informe, { construirInforme } from './Informe.jsx';
 
@@ -90,7 +90,7 @@ export default function Marcador({ mesaId, admin, irInicio, irCuenta }) {
   useEffect(() => {
     if (!cajon || !cuenta) return undefined;
     let vivo = true;
-    const leer = () => leerConsumo(cuenta.Id).then((c) => vivo && setConsumo(c));
+    const leer = () => leerConsumoMesa(mesa.Id).then((c) => vivo && setConsumo(c));
     leer();
     const t = setInterval(() => { setAhora(Date.now()); leer(); }, 5000);
     return () => { vivo = false; clearInterval(t); };
@@ -219,9 +219,9 @@ export default function Marcador({ mesaId, admin, irInicio, irCuenta }) {
       await cola.current;                               // que todas las series estén guardadas antes de cerrar
       const lista = jugRef.current.map((j) => ({ ...j, puntaje: stats(j).puntaje }));
       const d = await finalizarChico(sesion, lista, modo, async (g) => {
-        const [consumoConPrecios, retoFinal] = await Promise.all([leerConsumo(cuenta.Id, { conPrecios: true }), cargarReto()]);
+        const [consumoConPrecios, retoFinal, tiempoReal] = await Promise.all([leerConsumoMesa(mesa.Id, { conPrecios: true }), cargarReto(), tiempoDeMesa(mesa.Id)]);
         setReto(retoFinal);
-        return construirInforme({ mesa, cuenta, modo, jugadores: lista, durSeg: segs, ganador: g, reto: retoFinal, retoInicial, consumo: consumoConPrecios });
+        return construirInforme({ mesa, cuenta, modo, jugadores: lista, durSeg: segs, ganador: g, reto: retoFinal, retoInicial, consumo: consumoConPrecios, tiempoReal });
       });
       setCajon(false); setDosDigitos(false); setCompuesto('');
       setInforme(d);
