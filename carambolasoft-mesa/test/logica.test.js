@@ -383,3 +383,25 @@ test('importar POS: omite tiempo/ocultos, une clientes repetidos, promo vencida 
   assert.equal(_h24('11:26 p. m.'), '23:26:00'); assert.equal(_h24('12:05 a. m.'), '00:05:00'); assert.equal(_h24('9:05 a. m.'), '09:05:00');
   assert.equal(_inf({ total: 7000, items: [] }).orig, 7000);
 });
+
+// ---- Préstamos al personal ----
+import { saldosPersonal as _sp, totalesPersonal as _tp, autorizaValido as _av, validarPrestamo as _vp, validarDevolucion as _vd } from '../src/cuenta/prestamos.js';
+import { resumenTurno as _rtP, movimientos as _mvP } from '../src/cuenta/caja.js';
+test('préstamos al personal: saldos, cierre de caja y autorización', () => {
+  const movs = [
+    { PersonaId: 'a', PersonaNombre: 'Carlos', Tipo: 'PRESTAMO', Monto: 150000, TurnoCajaId: 't1' },
+    { PersonaId: 'a', PersonaNombre: 'Carlos', Tipo: 'DEVOLUCION', Monto: 20000, TurnoCajaId: null },
+    { PersonaId: 'b', PersonaNombre: 'Mariana', Tipo: 'PRESTAMO', Monto: 50000, TurnoCajaId: null },
+  ];
+  const s = _sp(movs); assert.equal(s[0].nombre, 'Carlos'); assert.equal(s[0].debe, 130000); assert.equal(s[1].debe, 50000);
+  assert.deepEqual(_tp(movs), { debenTotal: 180000, prestadoTurno: 50000, devueltoTurno: 20000 });
+  // el efectivo esperado baja con el préstamo y sube con la devolución; no toca ventas ni gastos
+  const r = _rtP({ facturas: [{ TotalPagar: 100000, MetodoPago: 'EFECTIVO', EstadoPago: 'PAGADO', MontoPrimario: null }], pers: movs.filter((m) => m.TurnoCajaId == null) });
+  assert.equal(r.totalPrestPers, 50000); assert.equal(r.totalDevPers, 20000); assert.equal(r.totalGastos, 0);
+  assert.equal(r.efectivoEsperado, r.porMetodo.EFECTIVO - 50000 + 20000);
+  const m = _mvP({ pers: movs.filter((x) => x.TurnoCajaId == null), etiquetaDe: () => '' }); assert.deepEqual(m.map((x) => x.tipo).sort(), ['DEVOLUCION_PERS', 'PRESTAMO_PERS']);
+  // nadie se presta a sí mismo; valida montos
+  assert.equal(_av({ Id: 'x' }, { Id: 'x' }), false); assert.equal(_av({ Id: 'y' }, { Id: 'x' }), true); assert.equal(_av(null, { Id: 'x' }), false);
+  assert.ok(_vp({ persona: null, monto: 1 })); assert.ok(_vp({ persona: {}, monto: 0 })); assert.ok(_vp({ persona: {}, monto: 500, efectivoCajon: 100 })); assert.equal(_vp({ persona: {}, monto: 50, efectivoCajon: 100 }), '');
+  assert.ok(_vd({ debe: 100, monto: 200 })); assert.equal(_vd({ debe: 100, monto: 100 }), '');
+});
