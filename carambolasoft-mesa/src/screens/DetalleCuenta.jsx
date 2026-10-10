@@ -329,7 +329,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               const n = entregadosDe(c).reduce((t, p) => t + p.Cantidad, 0);
               return (
                 <button key={c.Id} className={`ms-tab ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => setActivaId(c.Id)}>
-                  <b>👤 {c.NombreLibre}</b><small>{n} prod.</small><em>{fmt(totalDe(c))}</em>
+                  <b>👤 {c.NombreLibre}</b><small>{n} prod.{esBillar && tiempoDeC(c) > 0 ? ` · ⏱ ${fmt(tiempoDeC(c))}` : ''}</small><em>{fmt(totalDe(c))}</em>
                 </button>
               );
             })}
