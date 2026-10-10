@@ -345,3 +345,41 @@ test('estadísticas: kpi, comparación con periodo anterior, origen, calor y fia
   assert.equal(r.fiadosEdad.viejo, 120000); assert.equal(r.kpi.nViejos, 1); assert.ok(r.alertas.some((a) => a.tipo === 'fiado'));
   assert.equal(_rp('hoy', { ahora }).fin - _rp('hoy', { ahora }).ini, 86400000);
 });
+
+// ---- Importar desde el POS ----
+import { planImportacion as _plan, hora24 as _h24, infoFiado as _inf, validarBackup as _vb } from '../src/cuenta/importarPos.js';
+test('importar POS: omite tiempo/ocultos, une clientes repetidos, promo vencida fuera, fraccionados ligados', () => {
+  const b = {
+    nextFactura: 423,
+    productos: [
+      { id: 'P001', n: 'Aguardiente Verde Media', cat: 'Licores', p: 39000, c: 21878, s: 3, sm: 1, fav: true, promo: { p: 33000, ini: '2026-08-07', fin: '2026-08-07' } },
+      { id: 'P002', n: 'Aguardiente Verde Copa', cat: 'Licores', p: 4000, c: 1800, s: 0, sm: 0, frac: { origen: 'P001', rinde: 12 } },
+      { id: 'P003', n: 'Tiempo Mesa Billar', cat: 'Juegos', p: 0, c: 0, s: 0, tiempo: true },
+      { id: 'P004', n: 'inventario inmuebles sillas', cat: 'Juegos', p: 0, c: 0, s: 5, oculto: true },
+      { id: 'P005', n: 'Tinto', cat: 'Bebidas calientes', p: 1500, c: 0, s: 0, finito: true, promo: { p: 1000, ini: '2026-01-01', fin: '2099-01-01' } },
+    ],
+    clientes: [{ id: 'c1', n: 'Luis', ap: 'Lucho', vis: 4 }, { id: 'c2', n: 'Juan yerno', ap: 'Juan yerno', vis: 1 }, { id: 'c3', n: 'JUAN YERNO', ap: 'Juan yerno', vis: 2 }],
+    ventas: [],
+    historial: [{ fecha: '2026-07-14', ventas: [
+      { id: 'v1', cliId: 'c1', cuenta: 'Luis', factura: 'F-0100', total: 30000, totalOrig: 50000, metodo: 'Fiado', pagado: false, fecha: '2026-07-14', hora: '11:26 p. m.', items: [{ n: 'Aguardiente Verde Media', q: 1, pr: 39000 }] },
+      { id: 'v2', cliId: 'c3', cuenta: 'JUAN', factura: 'F-0101', total: 8000, metodo: 'Fiado', pagado: false, fecha: '2026-07-15', hora: '9:05 a. m.', items: [{ n: 'Cerveza', q: 2, pr: 4000 }, { n: 'x', q: 2, pr: 1500 }] },
+      { id: 'v3', cliId: 'c1', factura: 'F-0102', total: 5000, metodo: 'Fiado', pagado: true },
+      { id: 'v4', cliId: 'c1', factura: 'F-0103', total: 9000, metodo: 'Efectivo' },
+    ] }],
+  };
+  const p = _plan(b, { productos: [{ Id: 'x1', Nombre: 'tinto' }], clientes: [], facturas: [] }, '2026-10-09');
+  assert.equal(_vb(b), ''); assert.ok(_vb({}));
+  assert.deepEqual(p.omitidos, ['Tiempo Mesa Billar', 'inventario inmuebles sillas']);
+  assert.equal(p.resumen.productos, 3); assert.equal(p.resumen.productosActualizan, 1);
+  assert.equal(p.productos[0].datos.Promo, null); assert.ok(p.productos.find((x) => x.pos === 'P005').datos.Promo);
+  assert.equal(p.productos.find((x) => x.pos === 'P005').datos.ControlaStock, false);
+  assert.equal(p.productos[1].fracOrigenPos, 'P001'); assert.equal(p.productos[1].datos.Fraccion.Rinde, 12);
+  assert.equal(p.resumen.clientes, 2); assert.equal(p.resumen.clientesUnidos, 1); assert.equal(p.clientes[0].datos.Apodo, 'Lucho'); assert.equal(p.clientes[1].datos.Apodo, '');
+  assert.equal(p.resumen.fiados, 2); assert.equal(p.resumen.fiadoTotal, 38000);
+  const v1 = p.fiados.find((f) => f.posId === 'v1'); assert.equal(v1.orig, 50000); assert.equal(v1.abon, 20000); assert.equal(v1.saldo, 30000);
+  const v2 = p.fiados.find((f) => f.posId === 'v2'); assert.equal(v2.clientePos, 'c2'); assert.equal(v2.orig, 11000);   // c3 era repetido de c2; orig = suma de productos
+  assert.equal(p.ultimoNumero, 423 - 1 > 103 ? 422 : 103); assert.equal(p.ultimoNumero, 422);
+  assert.equal(_plan(b, { facturas: [{ OrigenPosId: 'v1' }, { OrigenPosId: 'v2' }] }, '2026-10-09').resumen.fiados, 0);   // reimportar no duplica
+  assert.equal(_h24('11:26 p. m.'), '23:26:00'); assert.equal(_h24('12:05 a. m.'), '00:05:00'); assert.equal(_h24('9:05 a. m.'), '09:05:00');
+  assert.equal(_inf({ total: 7000, items: [] }).orig, 7000);
+});

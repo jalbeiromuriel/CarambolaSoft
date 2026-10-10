@@ -1,4 +1,5 @@
 // src/screens/Inventario.jsx — Inventario (solo Admin): productos, reabastecer, márgenes, simulador de precio y promociones.
+import ImportarPos from './ImportarPos.jsx';
 import { createPortal } from 'react-dom';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Encabezado from '../components/Encabezado.jsx';
@@ -66,6 +67,7 @@ export default function Inventario() {
           {nOff > 0 && <button className={'iv-b ' + (verOff ? 'o' : '')} onClick={() => setVerOff(!verOff)}>{verOff ? '← Ver activos' : `Ver desactivados (${nOff})`}</button>}
           <button className="iv-b o" onClick={() => setModal({ tipo: 'repo' })}>📋 Lista de reposición</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'audpromo' })}>🏷️ Auditoría promos</button>
+          <button className="iv-b" onClick={() => setModal({ tipo: 'importar' })}>📂 Importar del POS</button>
           <button className="iv-b ro" onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes ({bajos.length} bajo {objetivo}%)</button>
         </div>
         <div className="iv-cats">
@@ -105,6 +107,7 @@ export default function Inventario() {
       </div>
 
       {modal?.tipo === 'off' && <Desactivar p={modal.prod} productos={productos} cerrar={() => setModal(null)} listo={() => guardar(modal.prod, { Activo: false }, `${modal.prod.Nombre} desactivado`)} />}
+      {modal?.tipo === 'importar' && <ImportarPos cerrar={() => setModal(null)} listo={async (msg) => { setModal(null); await cargar(); decir(msg); }} />}
       {modal?.tipo === 'cats' && <Categorias categorias={categorias} productos={productos} cerrar={() => setModal(null)} cambio={async (msg) => { await cargar(); if (msg) decir(msg); }} />}
       {modal?.tipo === 'sim' && <Simulador p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} aplicar={(precio) => guardar(modal.prod, { PrecioVenta: precio }, `${modal.prod.Nombre}: nuevo precio ${fmt(precio)} ✓`)} />}
       {modal?.tipo === 'promo' && <Promo p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} guardar={(promo) => guardar(modal.prod, { Promo: promo }, promo ? 'Promoción aplicada ✓' : 'Promoción eliminada')} />}

@@ -25,7 +25,7 @@ export function rangoPeriodo(filtro, { ahora = Date.now(), desde = '', hasta = '
 }
 
 const enRango = (x, ini, fin) => { const t = fechaDe(x); return t >= ini && t < fin; };
-const vigentes = (facturas) => facturas.filter((f) => f.EstadoPago !== 'ANULADO');
+const vigentes = (facturas) => facturas.filter((f) => f.EstadoPago !== 'ANULADO' && !f.Migrado);   // los fiados importados del POS no son ventas nuevas
 const suma = (l, f) => l.reduce((t, x) => t + f(x), 0);
 const variacion = (act, prev) => (prev > 0 ? ((act - prev) / prev) * 100 : null);   // null = sin periodo anterior con qué comparar
 
