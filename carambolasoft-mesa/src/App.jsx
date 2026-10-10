@@ -14,6 +14,7 @@ import { SesionContext } from './components/Sesion.jsx';
 import { PrimerUso, Login, CambioObligatorio } from './screens/Auth.jsx';
 import Caja from './screens/Caja.jsx';
 import Maquinas from './screens/Maquinas.jsx';
+import Prestamos from './screens/Prestamos.jsx';
 import Estadisticas from './screens/Estadisticas.jsx';
 import Inventario from './screens/Inventario.jsx';
 import Clientes from './screens/Clientes.jsx';
@@ -118,6 +119,7 @@ return (
       {ruta.pantalla === 'caja' && esAdmin(usuario.Rol) && <Caja />}
       {ruta.pantalla === 'estadisticas' && esAdmin(usuario.Rol) && <Estadisticas />}
       {ruta.pantalla === 'maquinas' && esAdmin(usuario.Rol) && <Maquinas />}
+      {ruta.pantalla === 'prestamos' && esAdmin(usuario.Rol) && <Prestamos />}
       {ruta.pantalla === 'adm' && esAdmin(usuario.Rol) && <Usuarios />}
       {ruta.pantalla === 'contador' && (
         <Contador irACuenta={(cuentaId) => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'cuenta', cuentaId }); }} salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />

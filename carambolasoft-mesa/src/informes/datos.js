@@ -57,8 +57,8 @@ export function detalleVentas({ facturas = [], pedidos = [], productos = [], eti
 }
 
 /** Todo lo del cierre/turno listo para pintar: resumen, arqueo (si está sellado) y detalle. */
-export function datosCierre({ facturas, abonos, gastos, maq = [], pedidos, productos, etiquetaDe, cierre = null, notas = [] }) {
-  const resumen = resumenTurno({ facturas, abonos, gastos, maq });
+export function datosCierre({ facturas, abonos, gastos, maq = [], pers = [], pedidos, productos, etiquetaDe, cierre = null, notas = [] }) {
+  const resumen = resumenTurno({ facturas, abonos, gastos, maq, pers });
   return {
     resumen, cierre, sellado: !!cierre, notas,
     arqueo: cierre ? { esperado: cierre.EfectivoEsperado ?? resumen.efectivoEsperado, contado: cierre.EfectivoReportado, ...arqueo(cierre.EfectivoEsperado ?? resumen.efectivoEsperado, cierre.EfectivoReportado) } : null,

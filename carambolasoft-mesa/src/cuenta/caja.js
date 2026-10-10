@@ -20,9 +20,9 @@ const cero = () => Object.fromEntries([...METODOS_CAJA, 'FIADO'].map((m) => [m, 
  * Resumen del turno abierto.
  * - porMetodo: lo vendido por método (FIADO = lo que quedó por cobrar al vender).
  * - cobrosFiado: abonos recibidos en el turno, por método.
- * - efectivoEsperado = efectivo vendido + abonos en efectivo − gastos en efectivo − préstamos al fondo de máquinas + devoluciones del fondo.
+ * - efectivoEsperado = efectivo vendido + abonos en efectivo − gastos en efectivo − préstamos al fondo de máquinas + devoluciones del fondo − préstamos al personal + devoluciones del personal.
  */
-export function resumenTurno({ facturas = [], abonos = [], gastos = [], maq = [] }) {
+export function resumenTurno({ facturas = [], abonos = [], gastos = [], maq = [], pers = [] }) {
   const porMetodo = cero(), cobrosFiado = cero(), gastosPorMetodo = cero();
   for (const f of facturas) for (const p of partesFactura(f)) porMetodo[p.metodo] = (porMetodo[p.metodo] ?? 0) + p.monto;
   for (const a of abonos) cobrosFiado[a.MetodoPago] = (cobrosFiado[a.MetodoPago] ?? 0) + a.Monto;
@@ -32,11 +32,13 @@ export function resumenTurno({ facturas = [], abonos = [], gastos = [], maq = []
   const totalGastos = suma(gastos, (g) => g.Monto);
   const totalPrestamos = suma(maq.filter((x) => x.Tipo === 'PRESTAMO'), (p) => p.Monto);       // la caja le presta al fondo de máquinas
   const totalDevoluciones = suma(maq.filter((x) => x.Tipo === 'DEVOLUCION'), (p) => p.Monto);  // el fondo le devuelve a la caja
+  const totalPrestPers = suma(pers.filter((x) => x.Tipo === 'PRESTAMO'), (p) => p.Monto);       // la caja le presta al personal
+  const totalDevPers = suma(pers.filter((x) => x.Tipo === 'DEVOLUCION'), (p) => p.Monto);       // el personal le devuelve a la caja
   return {
     nVentas: facturas.length, porMetodo, totalVendido, fiado: porMetodo.FIADO,
     cobrosFiado, totalCobros, nCobros: new Set(abonos.map((a) => `${a.FechaHora}|${a.MetodoPago}`)).size,
-    gastosPorMetodo, totalGastos, nGastos: gastos.length, totalPrestamos, totalDevoluciones,
-    efectivoEsperado: porMetodo.EFECTIVO + cobrosFiado.EFECTIVO - gastosPorMetodo.EFECTIVO - totalPrestamos + totalDevoluciones,
+    gastosPorMetodo, totalGastos, nGastos: gastos.length, totalPrestamos, totalDevoluciones, totalPrestPers, totalDevPers,
+    efectivoEsperado: porMetodo.EFECTIVO + cobrosFiado.EFECTIVO - gastosPorMetodo.EFECTIVO - totalPrestamos + totalDevoluciones - totalPrestPers + totalDevPers,
   };
 }
 
@@ -47,7 +49,7 @@ export function arqueo(esperado, contado) {
 }
 
 /** Movimientos del turno, recientes primero: ventas (+), abonos (+) y gastos (−). */
-export function movimientos({ facturas = [], abonos = [], gastos = [], maq = [], nombreMaquina = () => 'Máquina', etiquetaDe }) {
+export function movimientos({ facturas = [], abonos = [], gastos = [], maq = [], pers = [], nombreMaquina = () => 'Máquina', etiquetaDe }) {
   const m = [];
   for (const f of facturas) m.push({ tipo: 'VENTA', id: f.Id, fecha: f.FechaHora, monto: f.TotalPagar ?? 0, titulo: etiquetaDe(f), detalle: partesFactura(f).map((p) => p.metodo) });
   const porPago = new Map();
@@ -58,6 +60,7 @@ export function movimientos({ facturas = [], abonos = [], gastos = [], maq = [],
   for (const p of porPago.values()) m.push({ ...p, titulo: etiquetaDe({ abono: p }), detalle: [p.metodo] });
   for (const g of gastos) m.push({ tipo: 'GASTO', id: g.Id, fecha: g.FechaHora, monto: g.Monto, titulo: g.Concepto, detalle: [g.MetodoPago, g.Categoria] });
   for (const p of maq.filter((x) => x.Tipo === 'PRESTAMO' || x.Tipo === 'DEVOLUCION')) m.push({ tipo: p.Tipo, id: p.Id, fecha: p.FechaHora, monto: p.Monto, titulo: p.Tipo === 'PRESTAMO' ? 'Préstamo a máquinas' : 'Devolución de máquinas', detalle: ['EFECTIVO', 'Máquinas'] });
+  for (const p of pers) m.push({ tipo: p.Tipo === 'PRESTAMO' ? 'PRESTAMO_PERS' : 'DEVOLUCION_PERS', id: p.Id, fecha: p.FechaHora, monto: p.Monto, titulo: `${p.Tipo === 'PRESTAMO' ? 'Préstamo a' : 'Devolución de'} ${p.PersonaNombre}`, detalle: ['EFECTIVO', 'Personal'] });
   return m.sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
 }
 

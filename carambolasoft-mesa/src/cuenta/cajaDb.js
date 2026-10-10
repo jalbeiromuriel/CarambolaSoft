@@ -6,15 +6,15 @@ const abierto = (r) => r.TurnoCajaId == null;   // turno abierto = aún sin sell
 
 /** Todo lo del turno abierto + lo necesario para nombrar cada movimiento. */
 export async function cargarTurno() {
-  const [facturas, abonos, gastos, cuentas, mesas, clientes, pedidos, productos, cierres, usuarios, notas, maquinas, maqMovs] = await Promise.all([
+  const [facturas, abonos, gastos, cuentas, mesas, clientes, pedidos, productos, cierres, usuarios, notas, maquinas, maqMovs, persMovs] = await Promise.all([
     getAll('FACTURAS'), getAll('ABONOS_FIADO'), getAll('GASTOS_CAJA'), getAll('CUENTAS'), getAll('MESAS_BILLAR'),
-    getAll('CLIENTES'), getAll('PEDIDOS_CUENTAS'), getAll('PRODUCTOS'), getAll('CIERRE_DIA'), getAll('USUARIOS'), getAll('CIERRE_NOTAS'), getAll('MAQUINAS'), getAll('MAQUINAS_MOVIMIENTOS'),
+    getAll('CLIENTES'), getAll('PEDIDOS_CUENTAS'), getAll('PRODUCTOS'), getAll('CIERRE_DIA'), getAll('USUARIOS'), getAll('CIERRE_NOTAS'), getAll('MAQUINAS'), getAll('MAQUINAS_MOVIMIENTOS'), getAll('PRESTAMOS_PERSONAL'),
   ]);
-  const t = { facturas: facturas.filter(abierto), abonos: abonos.filter(abierto), gastos: gastos.filter(abierto), maq: maqMovs.filter((x) => (x.Tipo === 'PRESTAMO' || x.Tipo === 'DEVOLUCION') && abierto(x)) };
+  const t = { facturas: facturas.filter(abierto), abonos: abonos.filter(abierto), gastos: gastos.filter(abierto), maq: maqMovs.filter((x) => (x.Tipo === 'PRESTAMO' || x.Tipo === 'DEVOLUCION') && abierto(x)), pers: persMovs.filter(abierto) };
   const sellados = cierres.filter((c) => c.Confirmado);
   const abiertas = cuentas.filter((c) => c.Estado === 'ABIERTA');
   return {
-    ...t, notas: notas.sort((a, b) => (a.FechaHora ?? '').localeCompare(b.FechaHora ?? '')), vacio: !t.facturas.length && !t.abonos.length && !t.gastos.length && !t.maq.length, maquinas, maqMovs, cuentas, mesas, clientes, productos, usuarios, abiertas, abonosTodos: abonos, facturasTodas: facturas, gastosTodos: gastos, pedidos,
+    ...t, notas: notas.sort((a, b) => (a.FechaHora ?? '').localeCompare(b.FechaHora ?? '')), vacio: !t.facturas.length && !t.abonos.length && !t.gastos.length && !t.maq.length && !t.pers.length, maquinas, maqMovs, persMovs, cuentas, mesas, clientes, productos, usuarios, abiertas, abonosTodos: abonos, facturasTodas: facturas, gastosTodos: gastos, pedidos,
     resumen: resumenTurno(t),
     vendido: inventarioVendido({ ...t, pedidos, productos }),
     cierres: sellados.sort((a, b) => (b.FechaCierre ?? '').localeCompare(a.FechaCierre ?? '')),
@@ -35,18 +35,19 @@ export async function cerrarCaja({ usuario, contado, nota }) {
   if (t.abiertas.length) throw new Error('Hay cuentas abiertas: ciérralas antes de cerrar caja.');
   const r = t.resumen, ahora = new Date().toISOString();
   const ar = arqueo(r.efectivoEsperado, contado);
-  const primera = [...t.facturas.map((f) => f.FechaHora), ...t.gastos.map((g) => g.FechaHora), ...t.maq.map((p) => p.FechaHora)].filter(Boolean).sort()[0];
+  const primera = [...t.facturas.map((f) => f.FechaHora), ...t.gastos.map((g) => g.FechaHora), ...t.maq.map((p) => p.FechaHora), ...t.pers.map((p) => p.FechaHora)].filter(Boolean).sort()[0];
   const turno = await put('TURNOS_CAJA', { UsuarioId: usuario?.Id ?? null, FechaApertura: primera ?? ahora, FechaCierre: ahora, BaseEfectivo: 0, EfectivoRealEntregado: contado });
   for (const f of t.facturas) await put('FACTURAS', { ...f, TurnoCajaId: turno.Id });
   for (const a of t.abonos) await put('ABONOS_FIADO', { ...a, TurnoCajaId: turno.Id });
   for (const g of t.gastos) await put('GASTOS_CAJA', { ...g, TurnoCajaId: turno.Id });
   // movimientos del fondo de máquinas del turno quedan sellados con él (ya no se editan)
   for (const x of t.maqMovs.filter(abierto)) await put('MAQUINAS_MOVIMIENTOS', { ...x, TurnoCajaId: turno.Id });
+  for (const x of t.pers) await put('PRESTAMOS_PERSONAL', { ...x, TurnoCajaId: turno.Id });   // los préstamos al personal del turno quedan sellados
   const suma = (k) => t.facturas.reduce((s, f) => s + (f[k] ?? 0), 0);
   return put('CIERRE_DIA', {
     TurnoCajaId: turno.Id, Numero: t.cierres.length + 1, Fecha: ahora.slice(0, 10), FechaCierre: ahora, UsuarioId: usuario?.Id ?? null, UsuarioNombre: usuario?.Nombre ?? '',
     TotalTiempo: suma('SubtotalTiempo'), TotalLicor: suma('SubtotalLicor'), TotalOtros: suma('SubtotalSnacks') + suma('SubtotalOtros'),
-    TotalGeneral: r.totalVendido, TotalFiado: r.fiado, TotalGastos: r.totalGastos, TotalPremiosMaq: r.totalPrestamos - r.totalDevoluciones, TotalCobrosFiado: r.totalCobros,
+    TotalGeneral: r.totalVendido, TotalFiado: r.fiado, TotalGastos: r.totalGastos, TotalPremiosMaq: r.totalPrestamos - r.totalDevoluciones, TotalCobrosFiado: r.totalCobros, TotalPrestamosPersonal: r.totalPrestPers, TotalDevolucionesPersonal: r.totalDevPers,
     EfectivoEsperado: r.efectivoEsperado, EfectivoReportado: contado, Descuadre: ar.diferencia, Nota: nota?.trim() || '',
     PorMetodo: r.porMetodo, NVentas: r.nVentas, Confirmado: true,
   });
