@@ -23,6 +23,9 @@ export function infoFiado(v) {
   return { orig: Math.max(orig, saldo), saldo, abon: Math.max(0, orig - saldo) };
 }
 
+/** En el POS no llevan stock Juegos (garita) y Granizados, salvo los marcados `finito`. El Tinto y la Aromática SÍ llevan (cajas de 50). */
+const sinLimite = (p) => ['Juegos', 'Granizados'].includes(p.cat) && !p.finito;
+
 export function validarBackup(b) {
   if (!b || typeof b !== 'object' || !Array.isArray(b.productos) || !Array.isArray(b.clientes)) return 'No parece un backup del POS (faltan productos o clientes).';
   return '';
@@ -43,7 +46,7 @@ export function planImportacion(b, { productos = [], clientes = [], facturas = [
       pos: p.id, existenteId: ex?.Id ?? null, catNombre: p.cat, fracOrigenPos: p.frac?.origen ?? null,
       datos: {
         Nombre: p.n.trim(), PrecioVenta: p.p ?? 0, CostoCompra: p.c ?? 0, StockActual: p.s ?? 0, StockMinimo: p.sm ?? 0,
-        Favorito: !!p.fav, ControlaStock: !p.finito, Activo: true, Codigo: p.id,
+        Favorito: !!p.fav, ControlaStock: !sinLimite(p), Activo: true, Codigo: p.id,
         Promo: promoVigente ? { Precio: p.promo.p, Ini: p.promo.ini, Fin: p.promo.fin, HoraIni: p.promo.horaIni ?? null, HoraFin: p.promo.horaFin ?? null } : null,
         ...(p.frac ? { Fraccion: { OrigenId: null, Rinde: p.frac.rinde } } : {}),
       },
