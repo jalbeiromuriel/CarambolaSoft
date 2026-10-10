@@ -444,3 +444,26 @@ test('dividir cuenta: partes iguales, validación y reparto de subtotales', () =
   assert.equal(r.reduce((s, f) => s + f.SubtotalTiempo, 0), 9000); assert.equal(r.reduce((s, f) => s + f.SubtotalLicor, 0), 4000);
   const raro = _rs({ a: 100, b: 33, c: 1 }, [50, 50, 34]); raro.forEach((f, i) => assert.equal(Object.values(f).reduce((s, v) => s + v, 0), [50, 50, 34][i]));
 });
+
+import { ingresosPorMesa } from '../src/cuenta/porMesa.js';
+test('ingresosPorMesa: tiempo y consumo por mesa, venta dividida una sola vez, garita aparte', () => {
+  const mesas = [{ Id: 'm1', Numero: 1, Tipo: 'POOL' }, { Id: 'm2', Numero: 2, Tipo: 'CARAMBOLA' }];
+  const cuentas = [
+    { Id: 'c1', MesaId: 'm1', TipoCuenta: 'BILLAR', TarifaPorHora: 6000, MsAcumulados: 3600000 },
+    { Id: 'c1b', MesaId: 'm1', TipoCuenta: 'BILLAR', TarifaPorHora: 6000, MsAcumulados: 1800000 },
+    { Id: 'cH', MesaId: null, TipoCuenta: 'BILLAR' },
+    { Id: 'g', MesaId: null, TipoCuenta: 'GARITA' },
+    { Id: 'c2', MesaId: 'm2', TipoCuenta: 'BILLAR', TarifaPorHora: 6000, MsAcumulados: 7200000 },
+  ];
+  const facturas = [
+    { Id: 'f1', CuentaId: 'c1', CuentasIncluidas: ['c1b'], SubtotalTiempo: 9000, SubtotalLicor: 8000, SubtotalSnacks: 0, SubtotalOtros: 0 },
+    { Id: 'f1x', CuentaId: 'cH', DivisionDeFacturaId: 'f1', SubtotalTiempo: 1000, SubtotalLicor: 2000, SubtotalSnacks: 500, SubtotalOtros: 0 },
+    { Id: 'fg', CuentaId: 'g', SubtotalTiempo: 3000, SubtotalLicor: 0, SubtotalSnacks: 1000, SubtotalOtros: 0 },
+    { Id: 'f2', CuentaId: 'c2', SubtotalTiempo: 12000, SubtotalLicor: 0, SubtotalSnacks: 0, SubtotalOtros: 0 },
+  ];
+  const r = ingresosPorMesa({ facturas, cuentas, mesas, dias: 1, horasAtencion: 10 });
+  const m1 = r.filas.find((x) => x.clave === 'm1'), g = r.filas.find((x) => x.clave === 'garita');
+  assert.equal(m1.tiempo, 10000); assert.equal(m1.consumo, 10500); assert.equal(m1.cuentas, 2);
+  assert.equal(Math.round(m1.horas * 10), 15); assert.equal(g.total, 4000); assert.equal(g.ocupacion, null);
+  assert.equal(r.masRentable.clave, 'm1'); assert.equal(r.menosUsada.clave, 'm1'); assert.equal(r.filas[0].clave, 'm1'); assert.equal(r.filas.at(-1).clave, 'garita');
+});
