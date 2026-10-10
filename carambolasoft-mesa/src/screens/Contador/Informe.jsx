@@ -12,7 +12,7 @@ const cop = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const num2 = (n) => n.toFixed(2);
 
 /** Arma todo lo que muestra el informe a partir del estado final del chico. */
-export function construirInforme({ mesa, cuenta, modo, jugadores, durSeg, ganador, reto, retoInicial, consumo }) {
+export function construirInforme({ mesa, cuenta, modo, jugadores, durSeg, ganador, reto, retoInicial, consumo, tiempoReal = null }) {
   const filas = ranking(jugadores.map((j) => ({ ...j, ...estadisticas(j.marcas), puntajeOrden: estadisticas(j.marcas).puntaje, puntaje: estadisticas(j.marcas).puntaje })));
   const totalC = filas.reduce((s, j) => s + j.puntaje, 0);
   const totalE = filas.reduce((s, j) => s + j.entradas, 0);
@@ -30,8 +30,9 @@ export function construirInforme({ mesa, cuenta, modo, jugadores, durSeg, ganado
   else if (ganador.ids[0]) textoGanador = filas.find((j) => j.Id === ganador.ids[0])?.nombre ?? '—';
 
   const tarifa = cuenta.TarifaPorHora ?? 0;
-  const tiempoSeg = Math.max(0, (Date.now() - new Date(cuenta.HoraApertura).getTime()) / 1000);
-  const tiempoValor = tarifa ? valorTiempo(tiempoSeg, tarifa) : 0;
+  // El tiempo sale del taxímetro de la mesa (chicos, reparto y redondeo a $100); sin él, de la hora de apertura
+  const tiempoSeg = tiempoReal ? tiempoReal.segundos : Math.max(0, (Date.now() - new Date(cuenta.HoraApertura).getTime()) / 1000);
+  const tiempoValor = tiempoReal ? tiempoReal.valor : tarifa ? valorTiempo(tiempoSeg, tarifa) : 0;
   const total = consumo.reduce((s, c) => s + c.valor, 0) + tiempoValor;
 
   return {

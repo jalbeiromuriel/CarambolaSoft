@@ -118,6 +118,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const totalC = cuentasCobro.reduce((t, c) => t + totalDe(c), 0);
   const resumenC = resumenPorCategoria(pedidosCobro, productos, categorias);
   const esBillar = cuenta.TipoCuenta === 'BILLAR';
+  const taxi = esBillar ? grupo.find((c) => c.TarifaPorHora > 0) ?? null : null;   // el reloj es de la mesa: lo lleva la cuenta que lo inició, pero se ve y se maneja desde cualquiera
   const resumen = resumenPorCategoria(entregados, productos, categorias);
 
   // ── Catálogo
@@ -171,14 +172,17 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
   // ── Taxímetro por chico
   async function cambiarChico() {
-    if (estaCorriendo(cuenta) && grupo.length > 1) { setFinChico({ modo: 'dividir', destinoId: cuenta.Id }); return; }   // con varias cuentas pregunta cómo se cobra, como el POS
-    await put('CUENTAS', estaCorriendo(cuenta) ? terminarChico(cuenta) : iniciarChico(cuenta));
+    if (!taxi) return;
+    if (estaCorriendo(taxi) && grupo.length > 1) { setFinChico({ modo: 'dividir', destinoId: cuenta.Id }); return; }   // con varias cuentas pregunta cómo se cobra, como el POS
+    await put('CUENTAS', estaCorriendo(taxi) ? terminarChico(taxi) : iniciarChico(taxi));
     await cargar();
   }
   async function confirmarFinChico() {
-    for (const c of repartirChico(grupo, cuenta, finChico, Date.now())) await put('CUENTAS', c);
+    for (const c of repartirChico(grupo, taxi, finChico, Date.now())) await put('CUENTAS', c);
+    const luego = finChico.luego;
     setFinChico(null);
     await cargar();
+    if (luego) luego();
   }
 
   // ── Cuentas de la mesa
@@ -221,7 +225,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   }
 
   // ── Cobro: las reglas viven en cuenta/cobro.js
-  const abrirCobro = () => setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0 });
+  const abrirCobro = () => {
+    // la cuenta que lleva el reloj no puede cobrarse sola con el chico sin repartir: primero se pregunta cómo se reparte el tiempo
+    if (taxi && grupo.length > 1 && cuenta.Id === taxi.Id && estaCorriendo(taxi)) { setFinChico({ modo: 'dividir', destinoId: cuenta.Id, luego: abrirCobroDirecto }); return; }
+    abrirCobroDirecto();
+  };
+  const abrirCobroDirecto = () => setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0 });
 
   async function confirmarCobro() {
     const plan = planCobro({ ...cobro, total: totalC, tieneCliente: !!pagador.ClienteId });
@@ -320,7 +329,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               const n = entregadosDe(c).reduce((t, p) => t + p.Cantidad, 0);
               return (
                 <button key={c.Id} className={`ms-tab ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => setActivaId(c.Id)}>
-                  <b>👤 {c.NombreLibre}</b><small>{n} prod.</small><em>{fmt(totalDe(c))}</em>
+                  <b>👤 {c.NombreLibre}</b><small>{n} prod.{esBillar && tiempoDeC(c) > 0 ? ` · ⏱ ${fmt(tiempoDeC(c))}` : ''}</small><em>{fmt(totalDe(c))}</em>
                 </button>
               );
             })}
@@ -344,20 +353,20 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             </div>
           )}
 
-          {esBillar && cuenta.TarifaPorHora > 0 && (
-            <div className={`ms-bil ${estaCorriendo(cuenta) ? 'run' : ''}`}>
+          {esBillar && taxi && (
+            <div className={`ms-bil ${estaCorriendo(taxi) ? 'run' : ''}`}>
               <div>
-                <div className="ms-lab verde">🎱 Taxímetro · {fmt(cuenta.TarifaPorHora)}/h</div>
-                <div className="ms-cr">{hms(msChicoActual(cuenta, ahora))}</div>
-                <small>{estaCorriendo(cuenta) ? 'chico en juego' : 'chico detenido'}</small>
+                <div className="ms-lab verde">🎱 Taxímetro de la mesa · {fmt(taxi.TarifaPorHora)}/h</div>
+                <div className="ms-cr">{hms(msChicoActual(taxi, ahora))}</div>
+                <small>{estaCorriendo(taxi) ? 'chico en juego' : 'chico detenido'} · acumulado {hms(msJugados(taxi, ahora))}</small>
               </div>
               <div className="ms-acum">
-                <small>Tiempo acumulado · {hms(msJugados(cuenta, ahora))}</small>
+                <small>Tiempo de la mesa</small>
                 <strong>{fmt(tiempoMesa)}</strong>
-                {tiempoMesa !== subTiempo && <small>esta cuenta {fmt(subTiempo)}</small>}
+                {grupo.length > 1 && <small>Total de la mesa · {grupo.length} cuentas <b style={{ color: '#e6e9f2' }}>{fmt(totalMesa)}</b></small>}
               </div>
-              <button className={estaCorriendo(cuenta) ? 'fin' : 'ini'} onClick={cambiarChico}>
-                {estaCorriendo(cuenta) ? '■ Terminar chico' : '▶ Iniciar'}
+              <button className={estaCorriendo(taxi) ? 'fin' : 'ini'} onClick={cambiarChico}>
+                {estaCorriendo(taxi) ? '■ Terminar chico' : '▶ Iniciar'}
               </button>
             </div>
           )}
@@ -582,7 +591,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       )}
 
       {finChico && (() => {
-        const ms = msChicoActual(cuenta, ahora), min = Math.ceil(ms / 60000), tarifa = tarifaDe(cuenta), n = grupo.length;
+        const ms = msChicoActual(taxi, ahora), min = Math.ceil(ms / 60000), tarifa = tarifaDe(taxi), n = grupo.length;
         return (
           <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setFinChico(null)}>
             <div className="pn-modal">

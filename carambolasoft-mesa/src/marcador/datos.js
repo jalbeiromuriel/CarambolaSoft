@@ -12,6 +12,7 @@
 // ============================================================
 import { put, get, getAll, porIndice, nuevoGuid, leerMeta, escribirMeta, borrarLocal } from '../db/repository.js';
 import { ganadores, recordDeMarcas, retoDelParche } from './logica.js';
+import { tiemposMesa, msJugados } from '../cuenta/tiempo.js';
 
 const ahora = () => new Date().toISOString();
 const porHora = (a, b) => (a.MarcaTiempo < b.MarcaTiempo ? -1 : a.MarcaTiempo > b.MarcaTiempo ? 1 : 0);
@@ -208,6 +209,29 @@ export async function leerConsumo(cuentaId, { conPrecios = false } = {}) {
     grupos.set(p.ProductoId, g);
   }
   return [...grupos.values()].map((g) => (conPrecios ? g : { productoId: g.productoId, nombre: g.nombre, cantidad: g.cantidad }));
+}
+
+/** Cuentas abiertas de una mesa de billar (el consumo y el tiempo del informe son de la mesa completa). */
+export async function cuentasDeMesa(mesaId) {
+  return (await porIndice('CUENTAS', 'porEstado', 'ABIERTA')).filter((c) => c.MesaId === mesaId);
+}
+
+/** Consumo de toda la mesa: suma por producto entre todas sus cuentas abiertas. */
+export async function leerConsumoMesa(mesaId, opciones) {
+  const cuentas = await cuentasDeMesa(mesaId);
+  const g = new Map();
+  for (const c of cuentas) for (const x of await leerConsumo(c.Id, opciones)) {
+    const a = g.get(x.productoId) ?? { ...x, cantidad: 0, ...(opciones?.conPrecios ? { valor: 0 } : {}) };
+    a.cantidad += x.cantidad; if (opciones?.conPrecios) a.valor += x.valor; g.set(x.productoId, a);
+  }
+  return [...g.values()];
+}
+
+/** Tiempo de la mesa: el del taxímetro (con el reparto y el redondeo a $100), no la hora de apertura. */
+export async function tiempoDeMesa(mesaId) {
+  const cuentas = await cuentasDeMesa(mesaId);
+  const taxi = cuentas.find((c) => c.TarifaPorHora);
+  return { valor: tiemposMesa(cuentas).reduce((t, x) => t + x, 0), segundos: taxi ? Math.round(msJugados(taxi) / 1000) : 0 };
 }
 
 /** Récord a tumbar que había cuando empezó el chico. */
