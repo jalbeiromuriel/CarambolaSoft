@@ -1,7 +1,7 @@
 /* Mesa y cuenta — hereda las variables de .pn (Panel.css). Todo bajo .ms */
 .ms-sub{display:flex;gap:12px;align-items:center;padding:16px 22px 12px}
 .ms-volver{padding:9px 16px;border:1px solid var(--line);border-radius:10px;color:#cbd0dc;background:#0b0f19;cursor:pointer}
-.ms-sub h2{font-family:Georgia,serif !important;font-weight:400;color:var(--oro);font-size:19px;margin:0}
+.ms-sub h2{font-family:Georgia,serif !important;font-weight:400;color:var(--oro);font-size:var(--fs-title);margin:0}
 .ms-sub span{color:var(--mut);font-size:12px}
 .ms-grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;padding:0 22px 22px;align-items:start}
 @media (max-width:980px){.ms-grid{grid-template-columns:1fr}}
@@ -19,7 +19,7 @@
 .ms-bil small{color:var(--mut);font-size:var(--fs-label)}
 .ms-cr{font-size:26px;font-weight:800;color:var(--ver);font-variant-numeric:tabular-nums}
 .ms-acum{text-align:right}.ms-acum strong{display:block;font-size:20px;color:var(--ver)}
-.ms-bil button{border:0;border-radius:9px;padding:11px 16px;font-weight:800;font-size:12px;cursor:pointer;min-height:44px}
+.ms-bil button{border:0;border-radius:9px;padding:11px 16px;font-weight:800;font-size:var(--fs-body);cursor:pointer;min-height:var(--btn-h)}
 .ms-bil .ini{background:var(--ver);color:#052e16}.ms-bil .fin{background:var(--rojo);color:#2a0a10}
 .ms-busca{position:relative;margin-bottom:10px}
 .ms-busca input{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:#0e1422;color:var(--tx);font-size:14px}
@@ -66,7 +66,7 @@
 .cb-cats span{border:1px solid var(--line);border-radius:99px;padding:3px 9px}
 .cb-lab{font-size:var(--fs-min);letter-spacing:3px;color:var(--mut);text-transform:uppercase;margin:14px 0 7px}
 .cb-met{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.cb-met button{padding:12px 6px;border:1px solid var(--line);border-radius:10px;background:#0e1422;color:var(--tx);font-size:12.5px;cursor:pointer;min-height:44px}
+.cb-met button{padding:12px 6px;border:1px solid var(--line);border-radius:10px;background:#0e1422;color:var(--tx);font-size:var(--fs-body);cursor:pointer;min-height:var(--btn-h)}
 .cb-met button.on{border-color:var(--oro);background:#e8c06a14;color:var(--oro);font-weight:700}
 .cb-met button.fi{color:var(--rojo)}.cb-met button.fi.on{border-color:var(--rojo);background:#fb71851a}
 .cb-met button:disabled{opacity:.35;cursor:not-allowed}
