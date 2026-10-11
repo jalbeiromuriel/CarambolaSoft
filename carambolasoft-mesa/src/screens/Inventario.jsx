@@ -68,7 +68,7 @@ export default function Inventario() {
           <button className="iv-b o" onClick={() => setModal({ tipo: 'repo' })}>📋 Reposición</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'audpromo' })}>🏷️ Auditoría promos</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'importar' })}>📂 Importar POS</button>
-          <button className="iv-b ro" onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes ({bajos.length} bajo {objetivo}%)</button>
+          <button className="iv-b ro" title={`${bajos.length} producto(s) con margen bajo ${objetivo}%`} onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes · {bajos.length}</button>
         </div>
         <div className="iv-cats">
           {['todos', ...nombresCat].map((c) => <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c === 'todos' ? 'Todos' : c}</button>)}

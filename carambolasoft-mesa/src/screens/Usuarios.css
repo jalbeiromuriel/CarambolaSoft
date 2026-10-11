@@ -3,7 +3,7 @@
 .us-alerta{border:1px solid #fbbf2477;background:#fbbf2412;color:#fbbf24;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px}
 .us-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .us-q{flex:1;min-width:200px;padding:11px 14px;font-size:14px;color:#fff;background:#0e1422;border:1px solid var(--line);border-radius:10px;outline:none}
-.us-f{border:1px solid var(--line);border-radius:10px;padding:11px 14px;color:#aab;background:#0e1422;cursor:pointer;font-size:13px}.us-f.on{border-color:var(--oro);color:var(--oro)}
+.us-f{border:1px solid var(--line);border-radius:10px;padding:0 16px;min-height:var(--btn-h);color:#aab;background:#0e1422;cursor:pointer;font-size:var(--fs-sec)}.us-f.on{border-color:var(--oro);color:var(--oro)}
 .us-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#0b0f19}
 .us-tabla{width:100%;border-collapse:collapse;min-width:760px}
 .us-tabla th{text-align:left;font-size:var(--fs-min);letter-spacing:3px;color:var(--mut);text-transform:uppercase;padding:12px 16px;background:#0e1422;font-weight:500}.us-tabla th.der{text-align:right}
