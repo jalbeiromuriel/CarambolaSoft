@@ -1,4 +1,8 @@
 :root {
+  /* Escala tipográfica v1 (aprobada) */
+  --fs-hero: 54px; --fs-fig: 28px; --fs-title: 24px; --fs-h3: 18px;
+  --fs-body: 16px; --fs-sec: 14px; --fs-label: 13px; --fs-min: 12px;
+  --btn-h: 48px;
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
