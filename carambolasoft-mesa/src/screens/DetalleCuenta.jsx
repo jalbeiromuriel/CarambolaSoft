@@ -42,6 +42,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [q, setQ] = useState('');
   const [cobro, setCobro] = useState(null);
   const [recibo, setRecibo] = useState(null);
+  const [retirar, setRetirar] = useState(false); // quitar de la mesa a alguien que no jugó
   const [cierre, setCierre] = useState(false); // "Cerrar mesa" con cuentas sin cobrar
   const [nueva, setNueva] = useState(null);   // { sel, creando, error }
   const [vincular, setVincular] = useState(null); // { sel, creando, error } — ligar un cliente a la cuenta abierta
@@ -176,6 +177,19 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       : { ...pedido, EstadoPedido: 'CANCELADO' });
     if (prod && prod.ControlaStock !== false) await devolverStock(prod, 1);
     await cargar();
+  }
+
+  // Retirar a quien abrió pero no jugó: sus pedidos quedan CANCELADOS (el stock vuelve) y su cuenta CANCELADA; nunca se borra
+  async function retirarCuenta() {
+    const prods = entregadosDe(cuenta);
+    for (const pe of prods) {
+      await put('PEDIDOS_CUENTAS', { ...pe, EstadoPedido: 'CANCELADO' });
+      const pr = productos.find((p) => p.Id === pe.ProductoId);
+      if (pr && pr.ControlaStock !== false) await devolverStock(pr, pe.Cantidad);
+    }
+    await put('CUENTAS', { ...cuenta, Estado: 'CANCELADA', HoraCierre: new Date().toISOString() });
+    const quedan = grupo.filter((c) => c.Id !== cuenta.Id);
+    setRetirar(false); setActivaId(quedan[0].Id); decir(`${cuenta.NombreLibre} retirado ✓`); await cargar();
   }
 
   async function favorito(prod) {
@@ -328,12 +342,10 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} cuentas={recibo.cuentas}
         telefono={esAdmin(usuario?.Rol) ? cliente?.Telefono : null} texto={textoReciboCuenta(recibo.d, cuenta.NombreLibre, recibo.cuentas)} cerrar={() => setRecibo(null)} />}
 
-      <div className="ms-sub">
+      <div className={`ms-mesa ms-uno ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
         <button className="ms-volver" onClick={volver}>← Volver</button>
-        <h2>{titulo}</h2><span>· {grupo.length} {grupo.length === 1 ? 'cuenta' : 'cuentas'}</span>
-      </div>
-
-      <div className={`ms-mesa ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
+        <div className="mb-tit"><h2>{titulo}</h2><span>{grupo.length} {grupo.length === 1 ? 'cuenta' : 'cuentas'}</span></div>
+        <div className="mb-vs" />
         {esBillar && taxi && (<>
           <div className="mb-id">🎱 TAXÍMETRO<small>{fmt(taxi.TarifaPorHora)} por hora</small></div>
           <div className="mb-cc"><div className="mb-cr">{hms(msChicoActual(taxi, ahora))}</div>
@@ -373,11 +385,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
           {esGarita && reloj && (
             <div className={`ms-bil ga ${er.enAviso ? 'al' : 'run'}`}>
-              <div>
+              <div className="ga-id">
                 <div className="ms-lab rosa">⏱ Garita · {fmt(reloj.Valor)}/persona/hora</div>
-                <div className="ms-cr">{hms(er.transcurrido)}</div>
                 <small>{er.enAviso ? '⏰ ¡Cumple la hora! cobra otra' : `aviso en ${mmss(er.faltaAviso)}`} · hora {reloj.Cobros}</small>
               </div>
+              <div className="ms-cr ga-cr">{hms(er.transcurrido)}</div>
+              <div className="mb-sp" />
               <div className="ms-acum">
                 <small>👥 {grupo.length} {grupo.length === 1 ? 'persona' : 'personas'}</small>
                 <strong>{fmt(grupo.length * reloj.Valor)}/h</strong>
@@ -431,6 +444,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             {!cuenta.ClienteId && <button className="ms-vinc" onClick={() => setVincular({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>+ Vincular cliente</button>}
             {deuda > 0 && <> · <span className="rojo">Fía {fmt(deuda)}</span></>}
           </div>
+          {grupo.length > 1 && (esGarita || totalDe(cuenta) === 0) && <button className="ms-ret" onClick={() => setRetirar(true)}>{esGarita ? '↩ Retirar de la garita' : '↩ Quitar esta cuenta'}</button>}
 
           <div className="ms-res">
             <div className="ms-lab chico">Resumen por categoría</div>
@@ -513,7 +527,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <div className="cb-tl">TOTAL A COBRAR</div>
             <div className="cb-cats">
               {subTiempoC > 0 && <span>🎱 Tiempo {fmt(subTiempoC)}</span>}
-              {resumenC.map((r) => <span key={r.clave}>{r.emoji} {r.nombre} {fmt(r.totalC)}</span>)}
+              {resumenC.map((r) => <span key={r.clave}>{r.emoji} {r.nombre} {fmt(r.total)}</span>)}
             </div>
 
             {!cobro.mixto && (
@@ -652,6 +666,17 @@ export default function DetalleCuenta({ cuentaId, volver }) {
                 setAvisoSel(null); decir('Hora cobrada ✓'); await cargar();
               }}>COBRAR {avisoSel.ids.size} {avisoSel.ids.size === 1 ? 'PERSONA' : 'PERSONAS'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {retirar && (
+        <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setRetirar(false)}>
+          <div className="pn-modal">
+            <h3>{esGarita ? 'Retirar de la garita' : 'Quitar cuenta'} · {cuenta.NombreLibre}</h3>
+            <p className="au-nota">{esGarita ? 'No jugó: se anula la hora que se le había cargado' : 'Se anula esta cuenta'} ({fmt(totalDe(cuenta))}) y deja de contar en la mesa. Queda en el historial como cancelada.</p>
+            <div className="pn-acc"><button className="no" onClick={() => setRetirar(false)}>VOLVER</button>
+              <button className="si" onClick={retirarCuenta}>↩ RETIRAR</button></div>
           </div>
         </div>
       )}
