@@ -160,3 +160,10 @@
 .mb-tit{display:flex;flex-direction:column;min-width:0}
 .mb-tit h2{font-family:Georgia,serif !important;font-weight:400;color:var(--oro);font-size:var(--fs-title);margin:0;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mb-tit span{color:var(--mut);font-size:var(--fs-label)}
+
+.ms-bil.ga{gap:22px;flex-wrap:wrap}
+.ms-bil.ga .ga-id{min-width:0}
+.ms-bil.ga .ms-lab{margin:0 0 4px;line-height:1.3;white-space:nowrap}
+.ms-bil.ga .ga-cr{font-size:36px;line-height:1}
+.ms-bil.ga .ms-acum small{display:block}
+.ms-bil.ga .ms-acum strong{line-height:1.1}

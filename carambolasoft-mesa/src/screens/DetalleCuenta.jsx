@@ -371,11 +371,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
           {esGarita && reloj && (
             <div className={`ms-bil ga ${er.enAviso ? 'al' : 'run'}`}>
-              <div>
+              <div className="ga-id">
                 <div className="ms-lab rosa">⏱ Garita · {fmt(reloj.Valor)}/persona/hora</div>
-                <div className="ms-cr">{hms(er.transcurrido)}</div>
                 <small>{er.enAviso ? '⏰ ¡Cumple la hora! cobra otra' : `aviso en ${mmss(er.faltaAviso)}`} · hora {reloj.Cobros}</small>
               </div>
+              <div className="ms-cr ga-cr">{hms(er.transcurrido)}</div>
+              <div className="mb-sp" />
               <div className="ms-acum">
                 <small>👥 {grupo.length} {grupo.length === 1 ? 'persona' : 'personas'}</small>
                 <strong>{fmt(grupo.length * reloj.Valor)}/h</strong>
