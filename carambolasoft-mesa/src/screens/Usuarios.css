@@ -1,5 +1,5 @@
 .us-tit{display:flex;align-items:center;gap:12px;margin:6px 0 14px}.us-tit h2{font-family:Georgia,serif !important;font-weight:400;color:var(--oro);font-size:22px;margin:0}.us-tit i{flex:1;height:1px;background:var(--line)}
-.us-nuevo{border:0;border-radius:10px;padding:10px 16px;font-weight:800;font-size:12px;letter-spacing:1px;background:linear-gradient(#f0cf85,#c9a24a);color:#1a1405;cursor:pointer;min-height:42px}
+.us-nuevo{border:0;border-radius:10px;padding:10px 16px;font-weight:800;font-size:var(--fs-body);letter-spacing:1px;background:linear-gradient(#f0cf85,#c9a24a);color:#1a1405;cursor:pointer;min-height:var(--btn-h)}
 .us-alerta{border:1px solid #fbbf2477;background:#fbbf2412;color:#fbbf24;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px}
 .us-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .us-q{flex:1;min-width:200px;padding:11px 14px;font-size:14px;color:#fff;background:#0e1422;border:1px solid var(--line);border-radius:10px;outline:none}
@@ -14,5 +14,5 @@
 .us-pill.a{color:var(--oro);border-color:#e8c06a77;background:#e8c06a12}.us-pill.e{color:#38bdf8;border-color:#38bdf877;background:#38bdf812}
 .us-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:var(--ver)}.us-dot.t{background:#fbbf24}.us-dot.o{background:#566077}
 .us-acc{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
-.us-acc button{border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12px;color:#cbd0dc;background:#0e1422;cursor:pointer;min-height:36px}
+.us-acc button{border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:var(--fs-sec);color:#cbd0dc;background:#0e1422;cursor:pointer;min-height:var(--btn-h)}
 .us-acc button.r{color:var(--rojo);border-color:#fb718566}
