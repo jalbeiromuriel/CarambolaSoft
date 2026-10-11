@@ -16,6 +16,8 @@ import Caja from './screens/Caja.jsx';
 import Maquinas from './screens/Maquinas.jsx';
 import Prestamos from './screens/Prestamos.jsx';
 import Estadisticas from './screens/Estadisticas.jsx';
+import Configuracion from './screens/Configuracion.jsx';
+import { cargarAjustes } from './cuenta/ajustesDb.js';
 import Inventario from './screens/Inventario.jsx';
 import Clientes from './screens/Clientes.jsx';
 import Usuarios from './screens/Usuarios.jsx';
@@ -89,6 +91,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       await sembrar();
+      try { await cargarAjustes(); } catch { /* usa los valores base */ }
       await recargarUsuarios();
       try {
         const id = sessionStorage.getItem('cs.usuario');
@@ -120,6 +123,7 @@ return (
       {ruta.pantalla === 'estadisticas' && esAdmin(usuario.Rol) && <Estadisticas />}
       {ruta.pantalla === 'maquinas' && esAdmin(usuario.Rol) && <Maquinas />}
       {ruta.pantalla === 'prestamos' && esAdmin(usuario.Rol) && <Prestamos />}
+      {ruta.pantalla === 'config' && esAdmin(usuario.Rol) && <Configuracion />}
       {ruta.pantalla === 'adm' && esAdmin(usuario.Rol) && <Usuarios />}
       {ruta.pantalla === 'contador' && (
         <Contador irACuenta={(cuentaId) => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'cuenta', cuentaId }); }} salir={() => { history.replaceState(null, '', window.location.pathname); setRuta({ pantalla: 'tablero' }); }} />

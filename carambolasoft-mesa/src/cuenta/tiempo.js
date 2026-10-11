@@ -58,6 +58,7 @@ export function repartirChico(grupo, taxi, { modo = 'dividir', destinoId = null 
   });
 }
 
+import { ajustes } from './ajustes.js';
 export const UNIDAD_REDONDEO = 100;   // el tiempo de la mesa se cobra en múltiplos de $100, hacia arriba
 export const redondearArriba = (v, u = UNIDAD_REDONDEO) => (u > 0 ? Math.ceil(Math.round(v) / u) * u : Math.round(v));
 
@@ -65,7 +66,7 @@ export const redondearArriba = (v, u = UNIDAD_REDONDEO) => (u > 0 ? Math.ceil(Ma
  * Tiempo a cobrar por cuenta de una mesa: se suma el de todas, el total se sube al siguiente múltiplo de $100 (una sola vez
  * para toda la mesa) y la diferencia queda en la cuenta del taxímetro. Devuelve un arreglo alineado con `grupo`.
  */
-export function tiemposMesa(grupo, ahora = Date.now(), unidad = UNIDAD_REDONDEO) {
+export function tiemposMesa(grupo, ahora = Date.now(), unidad = ajustes.redondeo) {
   const exacto = grupo.map((c) => { const t = tarifaDe(c); return t ? (Math.ceil(msCobrables(c, ahora) / 60000) * t) / 60 : 0; });
   const total = redondearArriba(Math.round(exacto.reduce((t, x) => t + x, 0) * 1000) / 1000 - 1e-6, unidad);   // 1e-6: que 11.600,000 no suba a 11.700
   let i = grupo.findIndex((c, k) => c.TarifaPorHora && exacto[k] > 0);

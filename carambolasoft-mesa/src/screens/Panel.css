@@ -134,3 +134,5 @@
 .pn-acc2 .v{color:#35d07f;border-color:#35d07f77}.pn-acc2 .r{color:#ff8a8a;border-color:#ff5d7377}
 .cb-foto{margin-top:10px;width:100%;border:1px dashed #35d07f99;background:transparent;color:#35d07f;border-radius:9px;padding:9px;font-size:12.5px;cursor:pointer}
 .pn-f>:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pn-logo{flex:0 0 auto;white-space:nowrap}.pn-nav{flex:1 1 auto;justify-content:center;min-width:0}
+.pn-who-n{white-space:nowrap}.pn-nav button{padding:0 11px}
