@@ -155,3 +155,8 @@
 .pn-multi button{display:flex;align-items:center;gap:10px}.pn-chk{width:22px;height:22px;border-radius:6px;border:2px solid #3a4568;display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:#1a1405;flex:none}
 .pn-multi button.on .pn-chk{background:var(--oro);border-color:var(--oro)}
 .pn-van{margin-top:10px}.pn-chips{display:flex;flex-wrap:wrap;gap:8px}.pn-chip{background:#e8c06a22;border:1px solid var(--oro);color:var(--oro);border-radius:20px;padding:6px 14px;font-weight:600}.pn-chip i{font-style:normal;margin-left:8px;cursor:pointer;opacity:.7}
+
+.ms-uno{margin-top:14px;gap:18px}
+.mb-tit{display:flex;flex-direction:column;min-width:0}
+.mb-tit h2{font-family:Georgia,serif !important;font-weight:400;color:var(--oro);font-size:var(--fs-title);margin:0;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mb-tit span{color:var(--mut);font-size:var(--fs-label)}

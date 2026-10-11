@@ -328,12 +328,10 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} cuentas={recibo.cuentas}
         telefono={esAdmin(usuario?.Rol) ? cliente?.Telefono : null} texto={textoReciboCuenta(recibo.d, cuenta.NombreLibre, recibo.cuentas)} cerrar={() => setRecibo(null)} />}
 
-      <div className="ms-sub">
+      <div className={`ms-mesa ms-uno ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
         <button className="ms-volver" onClick={volver}>← Volver</button>
-        <h2>{titulo}</h2><span>· {grupo.length} {grupo.length === 1 ? 'cuenta' : 'cuentas'}</span>
-      </div>
-
-      <div className={`ms-mesa ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
+        <div className="mb-tit"><h2>{titulo}</h2><span>{grupo.length} {grupo.length === 1 ? 'cuenta' : 'cuentas'}</span></div>
+        <div className="mb-vs" />
         {esBillar && taxi && (<>
           <div className="mb-id">🎱 TAXÍMETRO<small>{fmt(taxi.TarifaPorHora)} por hora</small></div>
           <div className="mb-cc"><div className="mb-cr">{hms(msChicoActual(taxi, ahora))}</div>
