@@ -1,6 +1,7 @@
 // src/screens/Panel.jsx
 // Panel principal — réplica mejorada del POS Mero Parche (v6.28).
 // Fuente de verdad: IndexedDB. Mesa = dorado, Billar = verde. Garita y Venta rápida: Fase 1b.
+import { ajustes } from '../cuenta/ajustes.js';
 import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
 import SelectorCliente, { personasDe, sumarVisita } from '../components/SelectorCliente.jsx';
@@ -20,7 +21,7 @@ import { useSesion } from '../components/Sesion.jsx';
 import { esAdmin } from '../cuenta/auth.js';
 import './Panel.css';
 
-const TARIFA_BILLAR = 6000; // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
+const TARIFA_BILLAR = 6000; // (valor base; el vigente sale de ajustes.tarifaBillar)  // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const hora = (iso) => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
@@ -76,7 +77,7 @@ export default function Panel({ irACuenta, irAContador }) {
     return { pedidos: items.reduce((t, p) => t + p.Cantidad, 0), total: consumo + tiempo };
   }
 
-  function abrirModal(m) { setError(''); setSel({ cliente: null, nombre: '', lista: [] }); setCreando(false); setTarifa(String(TARIFA_BILLAR)); setModal(m); }
+  function abrirModal(m) { setError(''); setSel({ cliente: null, nombre: '', lista: [] }); setCreando(false); setTarifa(String(ajustes.tarifaBillar)); setModal(m); }
 
   async function abrirCuenta() {
     const personas = personasDe(sel, true);

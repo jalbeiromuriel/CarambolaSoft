@@ -8,5 +8,6 @@ export const SECCIONES = [
   { id: 'maquinas',     t: 'Máquinas',     ic: '🎰', listo: true },
   { id: 'prestamos',    t: 'Préstamos',    ic: '🤝', listo: true },
   { id: 'estadisticas', t: 'Estadísticas', ic: '📊', listo: true },
+  { id: 'config',       t: 'Ajustes', ic: '⚙️', listo: true },
   { id: 'adm',          t: 'Administración', ic: '⚙', listo: true, enMenu: true },
 ];

@@ -1,5 +1,6 @@
 // src/cuenta/garitaDb.js — Escrituras de la garita (IndexedDB). La lógica pura vive en garita.js.
 import { put, get, getAll } from '../db/repository.js';
+import { ajustes } from './ajustes.js';
 import { PRODUCTO_GARITA_ID, nuevoReloj, avanzarReloj } from './garita.js';
 
 /** Suma `horas` al pedido "Garita" de la cuenta (lo crea si no existe). Es un servicio: no mueve stock. */
@@ -29,7 +30,7 @@ export async function agregarPersona(relojId, { cliente, etiqueta }) {
 
 /** Abre la garita: reloj nuevo + primera persona. */
 export async function abrirGarita(persona) {
-  const reloj = await put('GARITAS_RELOJ', nuevoReloj());
+  const reloj = await put('GARITAS_RELOJ', nuevoReloj(Date.now(), ajustes.precioGarita));
   return agregarPersona(reloj.Id, persona);
 }
 

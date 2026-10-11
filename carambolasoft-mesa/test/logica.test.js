@@ -506,3 +506,12 @@ import { duracionMin } from '../src/cuenta/tiempo.js';
 test('duracionMin: minutos legibles en horas', () => {
   assert.equal(duracionMin(45), '45 min'); assert.equal(duracionMin(180), '3 h 00 min'); assert.equal(duracionMin(185), '3 h 05 min'); assert.equal(duracionMin(0), '0 min');
 });
+
+test('validarAjustes: acepta los valores base y rechaza rangos absurdos', async () => {
+  const { validarAjustes, AJUSTES_BASE } = await import('../src/cuenta/ajustes.js');
+  assert.equal(validarAjustes(AJUSTES_BASE), null);
+  assert.ok(validarAjustes({ ...AJUSTES_BASE, tarifaBillar: 10 }));
+  assert.ok(validarAjustes({ ...AJUSTES_BASE, redondeo: 77 }));
+  assert.ok(validarAjustes({ ...AJUSTES_BASE, avisoGaritaMin: 0 }));
+  assert.ok(validarAjustes({ ...AJUSTES_BASE, horasAtencion: 30 }));
+});

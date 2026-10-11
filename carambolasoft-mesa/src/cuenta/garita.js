@@ -1,9 +1,10 @@
 // src/cuenta/garita.js — Garita: un reloj compartido, cada persona paga $1.000 por hora.
 // Cobra al entrar y en cada aviso (a los 55 min de cada hora). Lógica pura, sin IndexedDB.
 export const HORA_MS = 3600000;
+import { ajustes } from './ajustes.js';
 export const AVISO_MS = 5 * 60000;          // el aviso salta 5 min antes de cumplir la hora
 export const NUEVO_MS = 10 * 60000;         // quien entró hace menos de esto no se marca por defecto
-export const VALOR_HORA = 1000;
+export const VALOR_HORA = 1000;   // valor base; el vigente sale de ajustes.precioGarita
 export const PRODUCTO_LIBRE_ID = '00000000-0000-0000-0000-000000000202'; // "Venta libre": ítem sin producto en venta rápida
 export const PRODUCTO_GARITA_ID = '00000000-0000-0000-0000-000000000201';
 
@@ -18,7 +19,7 @@ const t = (iso) => new Date(iso).getTime();
 
 /** ms transcurridos del reloj, ms que faltan para el aviso (negativo = ya pasó) y si está en aviso. */
 export function estadoReloj(reloj, ahora = Date.now()) {
-  const faltaAviso = t(reloj.ProximoCobroUtc) - AVISO_MS - ahora;
+  const faltaAviso = t(reloj.ProximoCobroUtc) - ajustes.avisoGaritaMin * 60000 - ahora;
   return { transcurrido: Math.max(0, ahora - t(reloj.InicioUtc)), faltaAviso, enAviso: faltaAviso <= 0 };
 }
 
