@@ -102,6 +102,11 @@ export function abrirEnvase(p, origen) {
 /** Texto de stock: "11 sueltas · 3 env." o "14 u". */
 export const textoStock = (p, origen) => (esFraccionado(p) ? `${p.StockActual ?? 0} sueltas · ${envasesDe(p, origen)} env.` : `${p.StockActual ?? 0} u`);
 
+/** Presentación de compra opcional ("Caja × 30"): se compra por caja, pero se vende y se cuenta por unidad. */
+export const presentacionDe = (p) => { const u = Math.floor(Number(p?.Presentacion?.Unidades)); return u >= 2 ? { nombre: p.Presentacion.Nombre || 'Caja', unidades: u } : null; };
+/** "caja"/"cajas", "canasta"/"canastas"… según la cantidad. */
+export const nombrePresentacion = (pr, n) => pr.nombre.toLowerCase() + (n === 1 ? '' : 's');
+
 /**
  * Lista de reposición. Cuenta lo ENTREGADO entre desde y hasta (YYYY-MM-DD, fecha local).
  * Los fraccionados (copas) se cuentan en su envase: vendido ÷ rinde.
@@ -124,8 +129,10 @@ export function reposicion(productos, pedidos, desde, hasta) {
     .filter((p) => p.Activo !== false && p.ControlaStock !== false && !esFraccionado(p))
     .map((p) => {
       const v = Math.round((vendido.get(p.Id) ?? 0) * 100) / 100, stock = p.StockActual ?? 0, minimo = p.StockMinimo ?? 0;
-      const pedir = Math.max(0, Math.ceil(v + minimo - stock - 1e-9));
-      return { p, vendido: v, stock, minimo, pedir, costo: p.CostoCompra ?? 0 };
+      const crudo = Math.max(0, Math.ceil(v + minimo - stock - 1e-9));
+      const pres = presentacionDe(p);
+      const pedir = pres ? Math.ceil(crudo / pres.unidades) * pres.unidades : crudo;   // por caja: se pide la caja completa
+      return { p, vendido: v, stock, minimo, pedir, costo: p.CostoCompra ?? 0, pres };
     })
     .sort((a, b) => b.pedir - a.pedir || a.p.Nombre.localeCompare(b.p.Nombre, 'es'));
 }
@@ -138,7 +145,7 @@ export function reposicion(productos, pedidos, desde, hasta) {
 export function armarPedido(filas, quitados = {}, costos = {}) {
   const lineas = filas
     .filter((f) => f.pedir > 0 && !quitados[f.p.Id])
-    .map((f) => { const costo = costos[f.p.Id] ?? f.costo; return { p: f.p, nombre: f.p.Nombre, cant: f.pedir, costo, total: f.pedir * costo }; });
+    .map((f) => { const costo = costos[f.p.Id] ?? f.costo, pres = f.pres ?? presentacionDe(f.p); return { p: f.p, nombre: f.p.Nombre, cant: f.pedir, costo, total: f.pedir * costo, pres, cajas: pres ? f.pedir / pres.unidades : null }; });
   return { lineas, total: lineas.reduce((a, l) => a + l.total, 0) };
 }
 
@@ -146,7 +153,7 @@ const pesos = (n) => '$' + Math.round(n ?? 0).toLocaleString('es-CO');
 /** Texto del pedido para WhatsApp: cantidades por producto y total estimado. */
 export function textoPedido(lineas, total, fecha) {
   const l = ['*MERO PARCHE — Pedido*', fecha, ''];
-  for (const x of lineas) l.push(`• ${x.cant} × ${x.nombre}`);
+  for (const x of lineas) l.push(x.cajas ? `• ${x.cajas} ${nombrePresentacion(x.pres, x.cajas)} × ${x.nombre} (${x.cant} u)` : `• ${x.cant} × ${x.nombre}`);
   l.push('', `Total estimado: *${pesos(total)}*`);
   return l.join('\n');
 }
