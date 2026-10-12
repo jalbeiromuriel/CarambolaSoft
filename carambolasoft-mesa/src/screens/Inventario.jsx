@@ -9,6 +9,7 @@ import * as inv from '../cuenta/inventario.js';
 import { getAll, put, leerMeta, escribirMeta } from '../db/repository.js';
 import { abrirEnvaseDb } from '../cuenta/inventarioDb.js';
 import { imprimirComo, nombrePdf } from '../cuenta/imprimir.js';
+import { HojaPedido } from '../informes/Hoja.jsx';
 import './Panel.css';
 import './Inventario.css';
 
@@ -406,23 +407,30 @@ function AuditoriaPromos({ productos, categorias, cerrar }) {
 const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const haceDias = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return isoLocal(d); };
 const RANGOS = [['Hoy', 0], ['Últimos 7 días', 7], ['Últimos 15 días', 15], ['Últimos 30 días', 30]];
-/** Qué pedir al proveedor según lo vendido. Hoja blanca; Imprimir → PDF (carta vertical). */
+/** Qué pedir al proveedor según lo vendido. Marcas lo que realmente se repone; el costo editable solo estima el pedido. Hoja blanca; Imprimir → PDF; Tirilla (80 mm) y WhatsApp. */
 function ListaReposicion({ productos, cerrar }) {
   const [pedidos, setPedidos] = useState([]);
   const [desde, setDesde] = useState(haceDias(15));
   const [hasta, setHasta] = useState(haceDias(0));
   const [cambios, setCambios] = useState({});   // Id → cantidad a pedir editada a mano
+  const [costos, setCostos] = useState({});     // Id → costo unitario escrito a mano (solo para este pedido)
+  const [quitados, setQuitados] = useState({}); // Id → true: desmarcado, no se pide hoy
+  const [tirilla, setTirilla] = useState(false);
   useEffect(() => { getAll('PEDIDOS_CUENTAS').then(setPedidos); }, []);
   const filas = useMemo(() => inv.reposicion(productos, pedidos, desde, hasta).map((f) => {
     const pedir = cambios[f.p.Id] ?? f.pedir;
-    return { ...f, pedir, total: pedir * f.costo };
-  }), [productos, pedidos, desde, hasta, cambios]);
-  const aPedir = filas.filter((f) => f.pedir > 0);
-  const inversion = aPedir.reduce((a, f) => a + f.total, 0);
+    const costo = costos[f.p.Id] ?? f.costo;
+    return { ...f, pedir, costo, costoBase: f.costo, marcada: pedir > 0 && !quitados[f.p.Id], total: pedir * costo };
+  }), [productos, pedidos, desde, hasta, cambios, costos, quitados]);
+  const { lineas, total: inversion } = useMemo(() => inv.armarPedido(filas, quitados), [filas, quitados]);
+  const conPedir = filas.filter((f) => f.pedir > 0);
+  const todas = conPedir.length > 0 && conPedir.every((f) => f.marcada);
+  const marcarTodas = (v) => setQuitados(v ? {} : Object.fromEntries(conPedir.map((f) => [f.p.Id, true])));
   const ahora = new Date();
   const fechaCorta = (i) => fmtFecha(i);
+  const fechaLarga = ahora.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
   return createPortal(
-    <div className="pn-velo iv-aud-velo" onClick={(e) => e.target === e.currentTarget && cerrar()}>
+    <div className={`pn-velo iv-aud-velo${tirilla ? ' iv-rp-bajo' : ''}`} onClick={(e) => e.target === e.currentTarget && cerrar()}>
       <div className="iv-aud">
         <div className="iv-aud-acc"><button onClick={() => imprimirComo(nombrePdf('Reposición', hoyIso()))}>🖨 Imprimir / PDF</button><button onClick={cerrar}>Cerrar</button></div>
         <div className="iv-rp-filtro">
@@ -431,26 +439,33 @@ function ListaReposicion({ productos, cerrar }) {
           <span>Desde</span><input type="date" value={desde} max={hasta} onChange={(e) => e.target.value && setDesde(e.target.value)} />
           <span>Hasta</span><input type="date" value={hasta} min={desde} onChange={(e) => e.target.value && setHasta(e.target.value)} />
         </div>
+        <div className="iv-rp-barra">
+          <div>A pedir: <b>{lineas.length}</b> de {conPedir.length} productos · Inversión estimada: <b className="tot">{fmt(inversion)}</b></div>
+          <button disabled={lineas.length === 0} onClick={() => setTirilla(true)}>🧾 Tirilla / WhatsApp</button>
+        </div>
         <header><h2>MERO PARCHE</h2><div>Licores &amp; Billar · Medellín</div></header>
         <h3>LISTA DE REPOSICIÓN</h3>
-        <div className="iv-aud-meta">Ventas del {fechaCorta(desde)} al {fechaCorta(hasta)} · Generada: {ahora.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })} · {ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</div>
+        <div className="iv-aud-meta">Ventas del {fechaCorta(desde)} al {fechaCorta(hasta)} · Generada: {fechaLarga} · {ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</div>
         <table>
-          <thead><tr><th>Producto</th><th className="r">Vendido</th><th className="r">Stock</th><th className="r">Mínimo</th><th className="r">Pedir</th><th className="r">Costo unid.</th><th className="r">Costo pedido</th></tr></thead>
+          <thead><tr><th className="iv-rp-ck"><input type="checkbox" title="Marcar / desmarcar todo" checked={todas} onChange={(e) => marcarTodas(e.target.checked)} /></th><th>Producto</th><th className="r">Vendido</th><th className="r">Stock</th><th className="r">Mínimo</th><th className="r">Pedir</th><th className="r">Costo unid.</th><th className="r">Costo pedido</th></tr></thead>
           <tbody>
             {filas.map((f) => (
-              <tr key={f.p.Id} className={f.pedir === 0 ? 'cero' : ''}>
+              <tr key={f.p.Id} className={f.marcada ? '' : 'cero'}>
+                <td className="iv-rp-ck">{f.pedir > 0 && <input type="checkbox" checked={f.marcada} onChange={(e) => setQuitados({ ...quitados, [f.p.Id]: !e.target.checked })} />}</td>
                 <td>{f.p.Nombre}</td><td className="r">{f.vendido}</td>
                 <td className="r">{f.stock <= 0 ? 'Sin stock' : f.stock}</td><td className="r">{f.minimo}</td>
                 <td className="r"><input className="iv-rp-n" inputMode="numeric" value={f.pedir} onChange={(e) => setCambios({ ...cambios, [f.p.Id]: Number(e.target.value.replace(/\D/g, '')) || 0 })} /></td>
-                <td className="r">{fmt(f.costo)}</td><td className="r">{fmt(f.total)}</td>
+                <td className="r"><input className={`iv-rp-n iv-rp-c${f.costo !== f.costoBase ? ' ed' : ''}`} inputMode="numeric" title={f.costo !== f.costoBase ? `Costo editado solo para este pedido (en el producto: ${fmt(f.costoBase)})` : 'Costo unitario'} value={f.costo} onChange={(e) => { const v = Number(e.target.value.replace(/\D/g, '')) || 0; setCostos({ ...costos, [f.p.Id]: v }); }} /></td>
+                <td className="r">{fmt(f.total)}</td>
               </tr>
             ))}
-            {filas.length === 0 && <tr><td colSpan="7" className="c">No hay productos.</td></tr>}
+            {filas.length === 0 && <tr><td colSpan="8" className="c">No hay productos.</td></tr>}
           </tbody>
         </table>
-        <footer>Productos por pedir: {aPedir.length} · Inversión estimada: <b>{fmt(inversion)}</b></footer>
-        <p className="iv-rp-nota">Pedir = vendido en el período + stock mínimo − stock actual. Las copas se cuentan en su botella. Puedes cambiar la cantidad de cada producto.</p>
+        <footer>Productos por pedir: {lineas.length} · Inversión estimada: <b>{fmt(inversion)}</b></footer>
+        <p className="iv-rp-nota">Pedir = vendido en el período + stock mínimo − stock actual. Las copas se cuentan en su botella. Marca solo lo que vas a pedir hoy y cambia la cantidad o el costo si hace falta: el costo escrito aquí solo estima este pedido, no cambia el del producto (ese se registra al recibir la mercancía, en Reabastecer).</p>
       </div>
+      {tirilla && <HojaPedido lineas={lineas} total={inversion} texto={inv.textoPedido(lineas, inversion, fechaLarga)} cerrar={() => setTirilla(false)} />}
     </div>, document.body
   );
 }

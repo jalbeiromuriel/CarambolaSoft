@@ -129,3 +129,24 @@ export function reposicion(productos, pedidos, desde, hasta) {
     })
     .sort((a, b) => b.pedir - a.pedir || a.p.Nombre.localeCompare(b.p.Nombre, 'es'));
 }
+
+/**
+ * Pedido real: de la lista, solo lo que tiene "pedir" > 0 y no fue desmarcado (`quitados[Id] = true`).
+ * `costos[Id]` = costo unitario escrito a mano: sirve SOLO para estimar este pedido, no cambia el producto
+ * (el costo real se registra al recibir la mercancía, en Reabastecer).
+ */
+export function armarPedido(filas, quitados = {}, costos = {}) {
+  const lineas = filas
+    .filter((f) => f.pedir > 0 && !quitados[f.p.Id])
+    .map((f) => { const costo = costos[f.p.Id] ?? f.costo; return { p: f.p, nombre: f.p.Nombre, cant: f.pedir, costo, total: f.pedir * costo }; });
+  return { lineas, total: lineas.reduce((a, l) => a + l.total, 0) };
+}
+
+const pesos = (n) => '$' + Math.round(n ?? 0).toLocaleString('es-CO');
+/** Texto del pedido para WhatsApp: cantidades por producto y total estimado. */
+export function textoPedido(lineas, total, fecha) {
+  const l = ['*MERO PARCHE — Pedido*', fecha, ''];
+  for (const x of lineas) l.push(`• ${x.cant} × ${x.nombre}`);
+  l.push('', `Total estimado: *${pesos(total)}*`);
+  return l.join('\n');
+}

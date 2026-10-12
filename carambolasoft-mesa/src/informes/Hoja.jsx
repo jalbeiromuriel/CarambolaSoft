@@ -4,12 +4,14 @@ import { METODOS_CAJA } from '../cuenta/caja.js';
 import { fmt, nombreMetodo, enlaceWhatsApp } from './datos.js';
 import { useEffect } from 'react';
 import { formatearNumero } from '../cuenta/cuentasPago.js';
+import { imprimirComo, nombrePdf, fechaLocalIso } from '../cuenta/imprimir.js';
 import './informes.css';
 
 const fechaLarga = (d = new Date()) => d.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
 const horaCorta = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) : '');
 
-export function Hoja({ cerrar, texto, telefono, ticket, children }) {
+/** `archivo` = nombre base del PDF (se le agrega la fecha); sin él, Chrome propone el título de la pestaña. */
+export function Hoja({ cerrar, texto, telefono, ticket, archivo, children }) {
   // Tiquete: mientras esté abierto, la página de impresión es angosta (80 mm); al cerrar vuelve a carta.
   useEffect(() => {
     if (!ticket) return undefined;
@@ -22,7 +24,7 @@ export function Hoja({ cerrar, texto, telefono, ticket, children }) {
     <div className={`pn-velo inf-velo${ticket ? ' inf-velo-tk' : ''}`} onClick={(e) => e.target === e.currentTarget && cerrar()}>
       <div className={`inf-hoja${ticket ? ' inf-ticket' : ''}`}>
         <div className="inf-acc">
-          <button onClick={() => window.print()}>🖨 Imprimir / Guardar PDF</button>
+          <button onClick={() => (archivo ? imprimirComo(nombrePdf(archivo, fechaLocalIso())) : window.print())}>🖨 Imprimir / Guardar PDF</button>
           {texto && <button onClick={() => window.open(enlaceWhatsApp(texto, telefono), '_blank', 'noopener')}>📲 WhatsApp</button>}
           <button onClick={cerrar}>Cerrar</button>
         </div>
@@ -218,6 +220,20 @@ export function HojaCopiaFactura({ d, telefono, texto, cerrar }) {
       <div className="tk-fila"><span>Pagado</span><span>{fmt(d.pagado)}</span></div>
       <div className="inf-caja"><small>Saldo</small><b>{fmt(d.saldo)}</b></div>
       <div className="tk-gracias">Copia de consulta · no es una nueva venta<br />Impreso {fechaHora(new Date().toISOString())}</div>
+    </Hoja>
+  );
+}
+
+/** Tirilla del pedido a proveedor (80 mm): solo lo que realmente se va a reponer. */
+export function HojaPedido({ lineas, total, texto, cerrar }) {
+  const ahora = new Date();
+  return (
+    <Hoja ticket archivo="Pedido" cerrar={cerrar} texto={texto}>
+      <CabTicket />
+      <div className="tk-fila"><span>PEDIDO A PROVEEDOR</span><span>{fechaHora(ahora.toISOString())}</span></div>
+      <table><thead><tr><th>Producto</th><th className="r">Cant.</th><th className="r">Total</th></tr></thead>
+        <tbody>{lineas.map((l) => <tr key={l.p.Id}><td>{l.nombre}</td><td className="r">{l.cant}</td><td className="r">{fmt(l.total)}</td></tr>)}</tbody></table>
+      <div className="inf-caja"><small>Total estimado</small><b>{fmt(total)}</b></div>
     </Hoja>
   );
 }
