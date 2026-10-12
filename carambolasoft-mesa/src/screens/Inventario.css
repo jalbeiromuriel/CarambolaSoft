@@ -92,6 +92,10 @@
 .iv-rp-barra .tot{font-size:16px}
 .iv-rp-barra button{border:1px solid #000;background:#000;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-weight:700}
 .iv-rp-barra button:disabled{opacity:.35;cursor:not-allowed}
+.iv-rp-bts{display:flex;gap:8px;flex-wrap:wrap}
+.iv-rp-barra button.rec{background:#fff;color:#000}
+.iv-mod table input.iv-rc-in:not([type=range]):not([type=checkbox]){width:84px;padding:6px 8px;font-size:14px;text-align:right;border-radius:8px}
+.iv-rc-tot{margin-right:auto;align-self:center}
 .iv-rp-ck{width:28px;text-align:center}
 .iv-rp-ck input{width:16px;height:16px;cursor:pointer;accent-color:#000}
 .iv-rp-c{width:78px}

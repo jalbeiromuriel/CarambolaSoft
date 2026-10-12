@@ -318,3 +318,17 @@ test('reposición: bloques Cervezas → Tinto → Cigarrillos → resto, agotado
   const t = textoPedido(armarPedido(r).lineas, 0, 'hoy');
   assert.ok(t.indexOf('*CERVEZAS*') < t.indexOf('*TINTO*') && t.indexOf('*TINTO*') < t.indexOf('*CIGARRILLOS*') && t.indexOf('*CIGARRILLOS*') < t.indexOf('*LICORES*'));
 });
+
+test('recibir pedido: unidades, costo por unidad y margen; por caja y por unidad', async () => {
+  const { evaluarRecepcion } = await import('../src/cuenta/inventario.js');
+  const cerveza = { Id: 'c', Nombre: 'Cerveza', PrecioVenta: 4000, CostoCompra: 2300, Presentacion: { Nombre: 'Caja', Unidades: 30 } };
+  const r = evaluarRecepcion({ p: cerveza, llego: 2, costo: 75000, objetivo: 40 });   // 2 cajas a $75.000 → 60 u a $2.500
+  assert.equal(r.uds, 60); assert.equal(r.costoU, 2500); assert.equal(r.total, 150000); assert.equal(r.valida, true);
+  assert.equal(r.bajo, true);                                                            // (4000−2500)/4000 = 37,5 % < 40 %
+  assert.equal(Math.round(r.c.despues.margen), 38);
+  const doritos = { Id: 'd', Nombre: 'Doritos', PrecioVenta: 2000, CostoCompra: 950 };
+  const u = evaluarRecepcion({ p: doritos, llego: 5, costo: 950, objetivo: 40 });
+  assert.equal(u.uds, 5); assert.equal(u.costoU, 950); assert.equal(u.bajo, false);
+  assert.equal(evaluarRecepcion({ p: doritos, llego: 0, costo: 950 }).valida, false);   // lo que llega en 0 no se registra
+  assert.equal(evaluarRecepcion({ p: doritos, llego: 5, costo: 0 }).valida, false);     // sin costo no se registra
+});

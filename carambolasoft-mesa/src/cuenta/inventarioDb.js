@@ -22,3 +22,9 @@ export async function abrirEnvaseDb(prod) {
   await put('PRODUCTOS', r.prod); await put('PRODUCTOS', r.origen);
   return true;
 }
+
+/** Registra una compra recibida: suma el stock, deja el costo de compra (por unidad) y guarda el historial. Devuelve el producto guardado. */
+export async function registrarCompra(p, uds, costoU, nuevoPrecio = null) {
+  const hist = [{ Fecha: new Date().toISOString(), Costo: costoU }, ...(p.HistorialCostos ?? [])].slice(0, 10);
+  return put('PRODUCTOS', { ...p, StockActual: (p.StockActual ?? 0) + uds, CostoCompra: costoU, HistorialCostos: hist, ...(nuevoPrecio ? { PrecioVenta: nuevoPrecio } : {}) });
+}

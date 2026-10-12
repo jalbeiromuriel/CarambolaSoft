@@ -178,3 +178,15 @@ export function textoPedido(lineas, total, fecha) {
   l.push('', `Total estimado: *${pesos(total)}*`);
   return l.join('\n');
 }
+
+/**
+ * Una línea de la mercancía recibida. `llego` y `costo` vienen como los escribe el usuario: en cajas (y costo por caja)
+ * si el producto tiene presentación, o en unidades. Devuelve lo que entra al stock, el costo por unidad y el margen resultante.
+ */
+export function evaluarRecepcion({ p, llego, costo, objetivo = MARGEN_OBJETIVO }) {
+  const pres = presentacionDe(p);
+  const uds = pres ? llego * pres.unidades : llego;
+  const costoU = pres ? Math.round(costo / pres.unidades) : costo;
+  const c = costoU > 0 ? compararCompra({ precio: p.PrecioVenta, costoAntes: p.CostoCompra ?? 0, costoNuevo: costoU, objetivo }) : null;
+  return { pres, uds, costoU, total: llego * costo, c, bajo: !!c?.bajo, valida: llego > 0 && costo > 0 };
+}
