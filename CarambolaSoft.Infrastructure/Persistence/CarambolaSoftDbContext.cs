@@ -528,16 +528,13 @@ public partial class CarambolaSoftDbContext : DbContext
         {
             entity.ToTable("USUARIOS");
 
-            entity.HasIndex(e => e.Nombre, "UQ_USUARIOS_Nombre").IsUnique();
-
             entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
-            entity.Property(e => e.Nombre).HasMaxLength(60).IsUnicode(false);
+            entity.Property(e => e.Nombre).HasMaxLength(80).IsUnicode(false);
             entity.Property(e => e.Rol).HasMaxLength(10).IsUnicode(false);
-            entity.Property(e => e.Salt).HasMaxLength(40).IsUnicode(false);
-            entity.Property(e => e.PinHash).HasMaxLength(70).IsUnicode(false);
-            entity.Property(e => e.Activo).HasDefaultValue(true);
-            entity.Property(e => e.BloqueadoHasta).HasColumnType("datetime2");
-            entity.Property(e => e.UltimoLogin).HasColumnType("datetime2");
+            entity.Property(e => e.PinHash).HasMaxLength(128).IsUnicode(false);
+            entity.Property(e => e.PinSal).HasMaxLength(64).IsUnicode(false);
+            entity.Property(e => e.BloqueadoHastaUtc).HasColumnType("datetime2");
+            entity.Property(e => e.UltimoAccesoUtc).HasColumnType("datetime2");
             entity.Property(e => e.UltimaModificacion)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");

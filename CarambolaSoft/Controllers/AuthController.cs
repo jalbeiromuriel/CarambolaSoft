@@ -39,23 +39,24 @@ public class AuthController(CarambolaSoftDbContext db, IConfiguration cfg, ILogg
         var u = await db.Usuarios.FirstOrDefaultAsync(x => x.Nombre == nombre && x.Activo);
         if (u is null) { log.LogWarning("Login: usuario inexistente o inactivo ({Usuario})", nombre); return rechazo; }
 
-        if (u.BloqueadoHasta is { } hasta && hasta > DateTime.Now)
+        if (u.BloqueadoHastaUtc is { } hasta && hasta > DateTime.UtcNow)
             return StatusCode(StatusCodes.Status429TooManyRequests,
-                new { error = $"Usuario bloqueado. Intenta de nuevo en {Math.Ceiling((hasta - DateTime.Now).TotalMinutes)} min." });
+                new { error = $"Usuario bloqueado. Intenta de nuevo en {Math.Ceiling((hasta - DateTime.UtcNow).TotalMinutes)} min." });
 
-        var esperado = Encoding.UTF8.GetBytes(u.PinHash);
-        var recibido = Encoding.UTF8.GetBytes(HashPin(u.Salt, dto.Pin));
-        if (!CryptographicOperations.FixedTimeEquals(esperado, recibido))
+        // Usuario sin PIN cargado (PinHash/PinSal nulos): no puede entrar por el API.
+        var esperado = Encoding.UTF8.GetBytes(u.PinHash ?? "");
+        var recibido = Encoding.UTF8.GetBytes(HashPin(u.PinSal ?? "", dto.Pin));
+        if (u.PinHash is null || u.PinSal is null || !CryptographicOperations.FixedTimeEquals(esperado, recibido))
         {
-            u.Intentos++;
-            if (u.Intentos >= MaxIntentos) { u.Intentos = 0; u.BloqueadoHasta = DateTime.Now.Add(Bloqueo); }
+            u.IntentosFallidos++;
+            if (u.IntentosFallidos >= MaxIntentos) { u.IntentosFallidos = 0; u.BloqueadoHastaUtc = DateTime.UtcNow.Add(Bloqueo); }
             u.UltimaModificacion = DateTime.Now;
             await db.SaveChangesAsync();
             log.LogWarning("Login: PIN errado para {Usuario}", nombre);
             return rechazo;
         }
 
-        u.Intentos = 0; u.BloqueadoHasta = null; u.UltimoLogin = DateTime.Now; u.UltimaModificacion = DateTime.Now;
+        u.IntentosFallidos = 0; u.BloqueadoHastaUtc = null; u.UltimoAccesoUtc = DateTime.UtcNow; u.UltimaModificacion = DateTime.Now;
         await db.SaveChangesAsync();
 
         var clave = cfg["Jwt:Key"];
