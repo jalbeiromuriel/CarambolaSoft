@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { METODOS_CAJA } from '../cuenta/caja.js';
 import { fmt, nombreMetodo, enlaceWhatsApp } from './datos.js';
 import { nombrePresentacion } from '../cuenta/inventario.js';
-import { useEffect } from 'react';
+import { useEffect, Fragment } from 'react';
 import { formatearNumero } from '../cuenta/cuentasPago.js';
 import { imprimirComo, nombrePdf, fechaLocalIso } from '../cuenta/imprimir.js';
 import './informes.css';
@@ -233,7 +233,7 @@ export function HojaPedido({ lineas, total, texto, cerrar }) {
       <CabTicket />
       <div className="tk-fila"><span>PEDIDO A PROVEEDOR</span><span>{fechaHora(ahora.toISOString())}</span></div>
       <table><thead><tr><th>Producto</th><th className="r">Cant.</th><th className="r">Total</th></tr></thead>
-        <tbody>{lineas.map((l) => <tr key={l.p.Id}><td>{l.nombre}</td><td className="r">{l.cajas ? <>{l.cajas} {nombrePresentacion(l.pres, l.cajas)}<br /><small>({l.cant} u)</small></> : l.cant}</td><td className="r">{fmt(l.total)}</td></tr>)}</tbody></table>
+        <tbody>{lineas.map((l, i) => <Fragment key={l.p.Id}>{l.grupo && l.grupo !== lineas[i - 1]?.grupo && <tr className="tk-grupo"><td colSpan="3">{l.grupo.toUpperCase()}</td></tr>}<tr><td>{l.nombre}</td><td className="r">{l.cajas ? <>{l.cajas} {nombrePresentacion(l.pres, l.cajas)}<br /><small>({l.cant} u)</small></> : l.cant}</td><td className="r">{fmt(l.total)}</td></tr></Fragment>)}</tbody></table>
       <div className="inf-caja"><small>Total estimado</small><b>{fmt(total)}</b></div>
     </Hoja>
   );

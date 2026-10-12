@@ -95,13 +95,16 @@
 .iv-rp-ck{width:28px;text-align:center}
 .iv-rp-ck input{width:16px;height:16px;cursor:pointer;accent-color:#000}
 .iv-rp-c{width:78px}
+.iv-aud tr.iv-rp-grupo td{background:#eee;font-weight:700;letter-spacing:.08em;font-size:11px;text-transform:uppercase;border-bottom:1px solid #000;padding:4px 6px}
+.iv-aud tr.iv-rp-grupo.cero td{background:#f6f6f6;color:#888}
+.iv-rp-pres{border:0;background:none;cursor:pointer;margin-left:6px;opacity:.55;font-size:13px;padding:0}.iv-rp-pres:hover{opacity:1}
 .iv-rp-sub{font-size:11px;color:#444;margin-top:3px;font-weight:400}
 .iv-modo{display:flex;gap:6px;margin:8px 0}
 .iv-modo button{flex:1;border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:8px;padding:7px;cursor:pointer;font:inherit}
 .iv-modo button.on{border-color:var(--oro);color:var(--oro);font-weight:700}
 .iv-rp-c.ed{background:#fff7cc;border-color:#b58900}
 @media print{
-  .iv-rp-barra,.iv-rp-ck{display:none !important}
+  .iv-rp-barra,.iv-rp-ck,.iv-rp-pres{display:none !important}
   .iv-aud-velo.iv-rp-bajo{display:none !important}   /* con la tirilla abierta, solo se imprime la tirilla */
   .iv-rp-filtro{display:none}
   .iv-aud tr.cero{display:none}

@@ -107,13 +107,28 @@ export const presentacionDe = (p) => { const u = Math.floor(Number(p?.Presentaci
 /** "caja"/"cajas", "canasta"/"canastas"… según la cantidad. */
 export const nombrePresentacion = (pr, n) => pr.nombre.toLowerCase() + (n === 1 ? '' : 's');
 
+const sinTildes = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const ES_CERVEZA = /\b(cerveza|lata|coronita|poker|pilsen|heineken|club colombia)\b/;
+/** Orden de los bloques en la lista de reposición (lo que pidió el dueño); lo demás va después, de A a Z. */
+export const ORDEN_GRUPOS = ['Cervezas', 'Tinto', 'Cigarrillos', 'Licores', 'Bebidas frías', 'Snacks', 'Bebidas calientes'];
+const puestoGrupo = (g) => { const i = ORDEN_GRUPOS.findIndex((x) => sinTildes(x) === sinTildes(g)); return i < 0 ? ORDEN_GRUPOS.length : i; };
+/** Bloque de pedido del producto: Cervezas y Tinto se separan por nombre; Cigarrillos por categoría o nombre; el resto, por su categoría. */
+export function grupoReposicion(p, categoriaNombre = '') {
+  const n = sinTildes(p.Nombre), c = sinTildes(categoriaNombre);
+  if (c.includes('cigarr') || n.includes('cigarr')) return 'Cigarrillos';
+  if (ES_CERVEZA.test(n)) return 'Cervezas';
+  if (/\btinto\b/.test(n)) return 'Tinto';
+  return categoriaNombre || 'Otros';
+}
+
 /**
  * Lista de reposición. Cuenta lo ENTREGADO entre desde y hasta (YYYY-MM-DD, fecha local).
  * Los fraccionados (copas) se cuentan en su envase: vendido ÷ rinde.
  * Pedir = vendido + stock mínimo − stock actual (nunca negativo, redondeado hacia arriba).
  */
-export function reposicion(productos, pedidos, desde, hasta) {
+export function reposicion(productos, pedidos, desde, hasta, categorias = []) {
   const porId = new Map(productos.map((p) => [p.Id, p]));
+  const catNombre = new Map(categorias.map((c) => [c.Id, c.Nombre]));
   const vendido = new Map();
   for (const ped of pedidos) {
     if (ped.EstadoPedido !== 'ENTREGADO' || !ped.FechaHora) continue;
@@ -132,9 +147,11 @@ export function reposicion(productos, pedidos, desde, hasta) {
       const crudo = Math.max(0, Math.ceil(v + minimo - stock - 1e-9));
       const pres = presentacionDe(p);
       const pedir = pres ? Math.ceil(crudo / pres.unidades) * pres.unidades : crudo;   // por caja: se pide la caja completa
-      return { p, vendido: v, stock, minimo, pedir, costo: p.CostoCompra ?? 0, pres };
+      return { p, vendido: v, stock, minimo, pedir, costo: p.CostoCompra ?? 0, pres, grupo: grupoReposicion(p, catNombre.get(p.CategoriaId)) };
     })
-    .sort((a, b) => b.pedir - a.pedir || a.p.Nombre.localeCompare(b.p.Nombre, 'es'));
+    // Primero lo que hay que pedir, por bloques (ORDEN_GRUPOS); en cada bloque, agotados primero, luego lo más vendido.
+    .sort((a, b) => (b.pedir > 0) - (a.pedir > 0) || puestoGrupo(a.grupo) - puestoGrupo(b.grupo) || a.grupo.localeCompare(b.grupo, 'es')
+      || (b.stock <= 0) - (a.stock <= 0) || b.vendido - a.vendido || a.p.Nombre.localeCompare(b.p.Nombre, 'es'));
 }
 
 /**
@@ -145,7 +162,7 @@ export function reposicion(productos, pedidos, desde, hasta) {
 export function armarPedido(filas, quitados = {}, costos = {}) {
   const lineas = filas
     .filter((f) => f.pedir > 0 && !quitados[f.p.Id])
-    .map((f) => { const costo = costos[f.p.Id] ?? f.costo, pres = f.pres ?? presentacionDe(f.p); return { p: f.p, nombre: f.p.Nombre, cant: f.pedir, costo, total: f.pedir * costo, pres, cajas: pres ? f.pedir / pres.unidades : null }; });
+    .map((f) => { const costo = costos[f.p.Id] ?? f.costo, pres = f.pres ?? presentacionDe(f.p); return { p: f.p, nombre: f.p.Nombre, cant: f.pedir, costo, total: f.pedir * costo, pres, grupo: f.grupo, cajas: pres ? f.pedir / pres.unidades : null }; });
   return { lineas, total: lineas.reduce((a, l) => a + l.total, 0) };
 }
 
@@ -153,7 +170,11 @@ const pesos = (n) => '$' + Math.round(n ?? 0).toLocaleString('es-CO');
 /** Texto del pedido para WhatsApp: cantidades por producto y total estimado. */
 export function textoPedido(lineas, total, fecha) {
   const l = ['*MERO PARCHE — Pedido*', fecha, ''];
-  for (const x of lineas) l.push(x.cajas ? `• ${x.cajas} ${nombrePresentacion(x.pres, x.cajas)} × ${x.nombre} (${x.cant} u)` : `• ${x.cant} × ${x.nombre}`);
+  let g = null;
+  for (const x of lineas) {
+    if (x.grupo && x.grupo !== g) { g = x.grupo; l.push('', `*${g.toUpperCase()}*`); }
+    l.push(x.cajas ? `• ${x.cajas} ${nombrePresentacion(x.pres, x.cajas)} × ${x.nombre} (${x.cant} u)` : `• ${x.cant} × ${x.nombre}`);
+  }
   l.push('', `Total estimado: *${pesos(total)}*`);
   return l.join('\n');
 }
