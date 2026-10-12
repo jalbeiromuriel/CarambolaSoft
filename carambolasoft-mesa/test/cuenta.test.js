@@ -265,3 +265,14 @@ test('nombre del PDF: palabra + fecha, sin caracteres prohibidos', async () => {
   assert.equal(nombrePdf('Reposición', '2026-10-12'), 'Reposición 2026-10-12');
   assert.equal(nombrePdf('Cierre: 10/12', '2026-10-12'), 'Cierre- 10-12 2026-10-12');
 });
+
+test('pedido real: respeta lo desmarcado, el costo editado y el texto de WhatsApp', async () => {
+  const { armarPedido, textoPedido } = await import('../src/cuenta/inventario.js');
+  const f = (id, nombre, pedir, costo) => ({ p: { Id: id, Nombre: nombre }, pedir, costo });
+  const filas = [f('a', 'Doritos', 5, 950), f('b', 'Gudis', 5, 950), f('c', 'Aguardiente', 1, 21878), f('d', 'Agua', 0, 1333)];
+  const r = armarPedido(filas, { b: true }, { c: 20000 });
+  assert.deepEqual(r.lineas.map((l) => l.nombre), ['Doritos', 'Aguardiente']);   // Gudis desmarcado, Agua con pedir 0
+  assert.equal(r.total, 5 * 950 + 20000);
+  const t = textoPedido(r.lineas, r.total, '12 de octubre de 2026');
+  assert.match(t, /• 5 × Doritos/); assert.match(t, /• 1 × Aguardiente/); assert.doesNotMatch(t, /Gudis/); assert.match(t, /Total estimado: \*\$24\.750\*/);
+});
