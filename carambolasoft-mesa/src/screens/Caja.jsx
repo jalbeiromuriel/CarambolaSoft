@@ -1,6 +1,7 @@
 // src/screens/Caja.jsx — Caja (solo Admin): resumen del turno, gastos con PIN, cierre con arqueo e Inventario vendido.
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { imprimirComo, nombrePdf, fechaLocalIso } from '../cuenta/imprimir.js';
 import Encabezado from '../components/Encabezado.jsx';
 import { useSesion } from '../components/Sesion.jsx';
 import { PinAdmin } from './Auth.jsx';
@@ -213,7 +214,7 @@ function Vendido({ v, cierre, cerrar }) {
   return createPortal(
     <div className="pn-velo cj-velo" onClick={(e) => e.target === e.currentTarget && cerrar()}>
       <div className="cj-hoja">
-        <div className="cj-hoja-acc"><button onClick={() => window.print()}>🖨 Imprimir / Guardar PDF</button><button onClick={cerrar}>Cerrar</button></div>
+        <div className="cj-hoja-acc"><button onClick={() => imprimirComo(nombrePdf('Inventario vendido', fechaLocalIso()))}>🖨 Imprimir / Guardar PDF</button><button onClick={cerrar}>Cerrar</button></div>
         <h1>MERO PARCHE</h1>
         <div className="sub">INVENTARIO VENDIDO · para cuadre<br />{ahora.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })} · {cierre ? 'cierre' : 'corte'} {ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</div>
         <hr />

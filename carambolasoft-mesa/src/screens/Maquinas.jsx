@@ -177,7 +177,7 @@ export default function Maquinas() {
       {modal === 'premio' && <PremioModal maquinas={d.maquinas} saldo={saldo} cerrar={() => setModal(null)} guardado={() => hecho('Premio registrado ✓')} />}
       {CFG[modal] && <MontoModal tipo={modal} deuda={deuda} saldo={saldo} cerrar={() => setModal(null)} guardado={() => hecho('Movimiento registrado ✓')} />}
       {modal === 'admin' && <Admin maquinas={d.maquinas} cerrar={() => setModal(null)} cambio={cargar} />}
-      {modal === 'pdf' && <Hoja cerrar={() => setModal(null)} texto={textoMaq(res, saldo, deuda, porMaq, FILTROS_MAQ.find((f) => f[0] === filtro)[1])}>
+      {modal === 'pdf' && <Hoja archivo="Informe de máquinas" cerrar={() => setModal(null)} texto={textoMaq(res, saldo, deuda, porMaq, FILTROS_MAQ.find((f) => f[0] === filtro)[1])}>
         <h1>MERO PARCHE</h1><div className="sub">Informe de máquinas · {FILTROS_MAQ.find((f) => f[0] === filtro)[1]}</div>
         <table><tbody>
           <tr><td><b>Saldo del fondo</b> (base {fmt(d.base)})</td><td className="r"><b>{fmt(saldo)}</b></td></tr>
