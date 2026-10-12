@@ -25,6 +25,24 @@ public partial class Producto
 
     public DateTime UltimaModificacion { get; set; }
 
+    public decimal? CostoUltimaCompra { get; set; }
+
+    public string? Codigo { get; set; }
+
+    public bool ControlaStock { get; set; } = true;
+
+    public bool Favorito { get; set; }
+
+    /// <summary>Caja | Canasta | Paca | Bulto (null = se compra por unidad). Va junto con UnidadesPorPresentacion.</summary>
+    public string? PresentacionCompra { get; set; }
+
+    public int? UnidadesPorPresentacion { get; set; }
+
+    /// <summary>Si este producto sale de abrir otro (copa ← botella): id del origen y cuántas unidades rinde.</summary>
+    public Guid? FraccionOrigenId { get; set; }
+
+    public int? FraccionRinde { get; set; }
+
     public virtual Categoria Categoria { get; set; } = null!;
 
     public virtual ICollection<PedidosCuenta> PedidosCuenta { get; set; } = new List<PedidosCuenta>();

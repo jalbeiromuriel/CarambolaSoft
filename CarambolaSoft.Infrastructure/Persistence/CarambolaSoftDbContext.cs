@@ -14,6 +14,8 @@ public partial class CarambolaSoftDbContext : DbContext
 
     public virtual DbSet<AbonosFiado> AbonosFiados { get; set; }
 
+    public virtual DbSet<CambioPrecio> CambiosPrecio { get; set; }
+
     public virtual DbSet<Categoria> Categorias { get; set; }
 
     public virtual DbSet<CierreDium> CierreDia { get; set; }
@@ -489,6 +491,9 @@ public partial class CarambolaSoftDbContext : DbContext
             entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
             entity.Property(e => e.Activo).HasDefaultValue(true);
             entity.Property(e => e.CostoCompra).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.CostoUltimaCompra).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.Codigo).HasMaxLength(10).IsUnicode(false);
+            entity.Property(e => e.PresentacionCompra).HasMaxLength(20).IsUnicode(false);
             entity.Property(e => e.Nombre)
                 .HasMaxLength(100)
                 .IsUnicode(false);
@@ -501,6 +506,20 @@ public partial class CarambolaSoftDbContext : DbContext
                 .HasForeignKey(d => d.CategoriaId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_PRODUCTOS_CATEGORIAS");
+        });
+
+        modelBuilder.Entity<CambioPrecio>(entity =>
+        {
+            entity.ToTable("CAMBIOS_PRECIO");
+
+            entity.Property(e => e.PrecioAntes).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.PrecioDespues).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.FechaHora).HasColumnType("datetime2");
+            entity.Property(e => e.UsuarioNombre).HasMaxLength(60).IsUnicode(false);
+            entity.Property(e => e.Motivo).HasMaxLength(30).IsUnicode(false);
+            entity.Property(e => e.UltimaModificacion)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
         });
 
         modelBuilder.Entity<Promocione>(entity =>
