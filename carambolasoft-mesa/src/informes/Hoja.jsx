@@ -40,7 +40,7 @@ export function Hoja({ cerrar, texto, telefono, ticket, archivo, children }) {
 export function HojaCierre({ d, usuarioNombre, cerrar, texto }) {
   const r = d.resumen, c = d.cierre, ahora = c?.FechaCierre ? new Date(c.FechaCierre) : new Date();
   return (
-    <Hoja cerrar={cerrar} texto={texto}>
+    <Hoja cerrar={cerrar} texto={texto} archivo={d.sellado ? 'Cierre de caja' : 'Resumen del turno'}>
       <div className="inf-cab">
         <div><h1>MERO PARCHE</h1><div className="sub">Licores &amp; Billar · Santa Cruz, Medellín</div></div>
         <div className="der"><b>{d.sellado ? `CIERRE DE CAJA${c.Numero ? ' #' + String(c.Numero).padStart(4, '0') : ''}` : 'RESUMEN DEL TURNO (sin cerrar)'}</b>
@@ -93,7 +93,7 @@ export function HojaCierre({ d, usuarioNombre, cerrar, texto }) {
 export function HojaInformeDia({ i, sugerido, usuarioNombre, cerrar, texto }) {
   const ahora = new Date();
   return (
-    <Hoja cerrar={cerrar} texto={texto}>
+    <Hoja cerrar={cerrar} texto={texto} archivo="Informe del día">
       <h1>MERO PARCHE — INFORME DEL DÍA</h1>
       <div className="sub">Período: turno actual (sin cerrar) · Generado: {fechaLarga(ahora)} · {horaCorta(ahora.toISOString())} · {usuarioNombre}</div>
       <h2>Productos vendidos y ganancia</h2>
@@ -135,7 +135,7 @@ function DondePagar({ cuentas }) {
 export function HojaReciboCuenta({ d, nombre, apodo, sitio, cuentas, telefono, texto, cerrar }) {
   const ahora = new Date();
   return (
-    <Hoja ticket cerrar={cerrar} texto={texto} telefono={telefono}>
+    <Hoja ticket archivo="Recibo de cuenta" cerrar={cerrar} texto={texto} telefono={telefono}>
       <CabTicket />
       <div className="tk-fila"><span>{sitio}</span><span>{fechaHora(ahora.toISOString())}</span></div>
       <div className="tk-quien"><b>{nombre}</b>{apodo && <div className="sub">“{apodo}”</div>}</div>
@@ -154,7 +154,7 @@ export function HojaReciboCuenta({ d, nombre, apodo, sitio, cuentas, telefono, t
 export function HojaReciboFiado({ d, cuentas, telefono, texto, cerrar }) {
   const ahora = new Date();
   return (
-    <Hoja ticket cerrar={cerrar} texto={texto} telefono={telefono}>
+    <Hoja ticket archivo="Recibo de fiado" cerrar={cerrar} texto={texto} telefono={telefono}>
       <CabTicket />
       <div className="tk-fila"><span>Tipo</span><span>CUENTA PENDIENTE (FIADO)</span></div>
       <div className="tk-fila"><span /> <span>{fechaHora(ahora.toISOString())}</span></div>
@@ -186,7 +186,7 @@ export function HojaReciboFiado({ d, cuentas, telefono, texto, cerrar }) {
 export function HojaCartera({ c, cerrar, texto }) {
   const ahora = new Date();
   return (
-    <Hoja cerrar={cerrar} texto={texto}>
+    <Hoja archivo="Fiados pendientes" cerrar={cerrar} texto={texto}>
       <div className="inf-cab"><div><h1>MERO PARCHE</h1><div className="sub">Reporte de fiados pendientes · Generado: {fechaLarga(ahora)}</div></div></div>
       <div className="inf-caja"><small>Cartera pendiente total</small><b>{fmt(c.total)}</b><span className="sub">{c.clientes.length} {c.clientes.length === 1 ? 'cliente' : 'clientes'} con deuda</span></div>
       {c.clientes.length === 0 && <div className="sub" style={{ textAlign: 'center' }}>Nadie debe nada. 🎉</div>}
@@ -207,7 +207,7 @@ export function HojaCartera({ c, cerrar, texto }) {
 /** Copia de consulta de una factura (tiquete angosto). Sello COPIA · PAGADA / COPIA · PENDIENTE. */
 export function HojaCopiaFactura({ d, telefono, texto, cerrar }) {
   return (
-    <Hoja ticket cerrar={cerrar} texto={texto} telefono={telefono}>
+    <Hoja ticket archivo="Copia de factura" cerrar={cerrar} texto={texto} telefono={telefono}>
       <CabTicket />
       <div className="tk-sello">COPIA · {d.estado}</div>
       <div className="tk-fila"><span>Factura</span><b>{d.numero}</b></div>
