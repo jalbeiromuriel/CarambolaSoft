@@ -296,3 +296,25 @@ test('presentación de compra: cajas completas en la reposición, en el pedido y
   const t = textoPedido(ped.lineas, ped.total, 'hoy');
   assert.match(t, /• 1 caja × Cerveza \(30 u\)/); assert.match(t, /• 5 × Doritos/);
 });
+
+test('reposición: bloques Cervezas → Tinto → Cigarrillos → resto, agotados primero y lo más vendido', async () => {
+  const { grupoReposicion, reposicion, armarPedido, textoPedido } = await import('../src/cuenta/inventario.js');
+  const cats = [{ Id: 'L', Nombre: 'Licores' }, { Id: 'S', Nombre: 'Snacks' }, { Id: 'C', Nombre: 'Cigarrillos' }, { Id: 'BC', Nombre: 'Bebidas calientes' }, { Id: 'BF', Nombre: 'Bebidas frías' }];
+  assert.equal(grupoReposicion({ Nombre: 'Cerveza Águila Light Vidrio' }, 'Licores'), 'Cervezas');
+  assert.equal(grupoReposicion({ Nombre: 'Lata' }, 'Licores'), 'Cervezas');
+  assert.equal(grupoReposicion({ Nombre: 'Coronita botella 210 ml' }, 'Licores'), 'Cervezas');
+  assert.equal(grupoReposicion({ Nombre: 'Aguardiente Antioqueño Verde Media' }, 'Licores'), 'Licores');   // "aguardiente" no es cerveza
+  assert.equal(grupoReposicion({ Nombre: 'Tinto' }, 'Bebidas calientes'), 'Tinto');
+  assert.equal(grupoReposicion({ Nombre: 'Aromatica' }, 'Bebidas calientes'), 'Bebidas calientes');
+  assert.equal(grupoReposicion({ Nombre: 'Marlboro Fusion por unidad' }, 'Cigarrillos'), 'Cigarrillos');
+  const P = (Id, Nombre, CategoriaId, StockActual, StockMinimo = 5) => ({ Id, Nombre, CategoriaId, StockActual, StockMinimo, CostoCompra: 1000 });
+  const prods = [P('a', 'Doritos', 'S', 0), P('b', 'Aguardiente Verde Media', 'L', 0), P('c', 'Cigarrillo Boston', 'C', 1), P('d', 'Tinto', 'BC', 1),
+    P('e', 'Cerveza Poker', 'L', 4), P('f', 'Cerveza Águila', 'L', 0), P('g', 'Gatorade', 'BF', 9)];   // Gatorade: stock sobre el mínimo, no se pide
+  const d = (dia) => new Date(dia + 'T12:00:00').toISOString();
+  const ped = [{ ProductoId: 'e', Cantidad: 30, EstadoPedido: 'ENTREGADO', FechaHora: d('2026-10-10') }, { ProductoId: 'f', Cantidad: 2, EstadoPedido: 'ENTREGADO', FechaHora: d('2026-10-10') }];
+  const r = reposicion(prods, ped, '2026-10-01', '2026-10-12', cats);
+  assert.deepEqual(r.map((x) => x.p.Id), ['f', 'e', 'd', 'c', 'b', 'a', 'g']);   // Cervezas (agotada antes que la más vendida) → Tinto → Cigarrillos → Licores → Snacks → sin pedido
+  assert.deepEqual(r.slice(0, 6).map((x) => x.grupo), ['Cervezas', 'Cervezas', 'Tinto', 'Cigarrillos', 'Licores', 'Snacks']);
+  const t = textoPedido(armarPedido(r).lineas, 0, 'hoy');
+  assert.ok(t.indexOf('*CERVEZAS*') < t.indexOf('*TINTO*') && t.indexOf('*TINTO*') < t.indexOf('*CIGARRILLOS*') && t.indexOf('*CIGARRILLOS*') < t.indexOf('*LICORES*'));
+});

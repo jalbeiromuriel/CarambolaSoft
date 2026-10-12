@@ -152,7 +152,7 @@ test('reposición: vendido + mínimo − stock, fraccionados cuentan en su envas
   assert.equal(f('bot').vendido, 2.5);      // 25 copas ÷ 10
   assert.equal(f('bot').pedir, 3);          // 2.5 + 1 − 1 = 2.5 → 3
   assert.equal(r.some((x) => x.p.Id === 'copa' || x.p.Id === 'off'), false);
-  assert.equal(r[0].p.Id, 'a');             // los de más pedido primero
+  assert.equal(r[0].p.Id, 'a');             // sin categorías todo cae en un solo bloque: lo más vendido primero
 });
 
 test('caja: resumen del turno, efectivo esperado y arqueo', async () => {
