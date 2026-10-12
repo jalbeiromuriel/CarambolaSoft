@@ -21,3 +21,8 @@ Thumbs.db
 # ===== IDE =====
 .idea/
 .vscode/settings.json
+
+# ===== Usuarios con PIN reales (NUNCA al repo) =====
+seed_usuarios.sql
+appsettings.Production.json
+secrets.json

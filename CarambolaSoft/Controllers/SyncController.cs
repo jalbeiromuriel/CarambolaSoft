@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CarambolaSoft.Infrastructure.Persistence;
 using CarambolaSoft.Infrastructure.Persistence.Entities;
@@ -111,6 +112,7 @@ public class SyncController : ControllerBase
     /// PUT api/sync/productos/{id}
     /// Inventario y precios editados en el equipo. Upsert idempotente por GUID.
     /// En un producto que ya existe NO se toca StockActual (lo mueven ventas y compras en el servidor).
+    [Authorize(Roles = "ADMIN,PATRONA")]   // el inventario y los precios solo los toca un administrador
     [HttpPut("productos/{id:guid}")]
     public async Task<IActionResult> UpsertProducto(Guid id, [FromBody] ProductoSyncDto dto)
     {
@@ -168,6 +170,7 @@ public class SyncController : ControllerBase
 
     /// PUT api/sync/cambios-precio/{id}
     /// Registro de quién cambió un precio. Es un hecho histórico: si ya existe solo se actualiza Avisado.
+    [Authorize(Roles = "ADMIN,PATRONA")]
     [HttpPut("cambios-precio/{id:guid}")]
     public async Task<IActionResult> UpsertCambioPrecio(Guid id, [FromBody] CambioPrecioSyncDto dto)
     {
