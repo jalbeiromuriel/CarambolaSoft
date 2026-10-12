@@ -1,0 +1,11 @@
+/* Aviso de cambios de precio (administradores) */
+.cp-franja{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:60;display:flex;gap:10px;align-items:center;background:#2a2108;border:1px solid var(--na,#fbbf24);color:var(--na,#fbbf24);padding:8px 14px;border-radius:0 0 12px 12px;font-size:14px;box-shadow:0 6px 20px #0008;max-width:96vw}
+.cp-franja button{border:1px solid var(--na,#fbbf24);background:transparent;color:var(--na,#fbbf24);border-radius:8px;padding:5px 12px;cursor:pointer;font:inherit}
+.cp-modal{max-width:680px;width:96vw}
+.cp-hint{font-size:13px;color:#aab;margin:0 0 10px}
+.cp-scroll{max-height:52vh;overflow:auto}
+.cp-t{width:100%;border-collapse:collapse;font-size:14px}.cp-t th{font-size:11px;letter-spacing:2px;color:var(--mut,#8b93a7);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line,#27304a);text-transform:uppercase;font-weight:600}
+.cp-t td{padding:8px;border-bottom:1px solid #151b2b}.cp-t .n{text-align:right}.cp-t tr.ok{opacity:.6}.cp-t small{color:#8b93a7}
+.cp-t .sube{color:var(--ver,#34d399)}.cp-t .baja{color:var(--rojo,#fb7185)}
+.cp-nuevo{margin-left:8px;font-size:10px;border-radius:6px;padding:1px 6px;background:#fbbf2422;color:var(--na,#fbbf24)}
+.cp-vacio{text-align:center;color:#8b93a7;padding:22px}

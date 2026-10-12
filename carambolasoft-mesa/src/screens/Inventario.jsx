@@ -7,7 +7,9 @@ import { categoriaDe, norm, deCategoria, EMOJIS_CAT, COLORES_CAT, CONSUMOS } fro
 import { asegurarCategorias, guardarCategoria, desactivarCategoria } from '../cuenta/categoriasDb.js';
 import * as inv from '../cuenta/inventario.js';
 import { getAll, put, leerMeta, escribirMeta } from '../db/repository.js';
-import { abrirEnvaseDb, registrarCompra } from '../cuenta/inventarioDb.js';
+import { abrirEnvaseDb, registrarCompra, anotarCambioPrecio, leerCambiosPrecio } from '../cuenta/inventarioDb.js';
+import { useSesion } from '../components/Sesion.jsx';
+import { CambiosPrecioModal } from '../components/CambiosPrecio.jsx';
 import { imprimirComo, nombrePdf } from '../cuenta/imprimir.js';
 import { HojaPedido } from '../informes/Hoja.jsx';
 import './Panel.css';
@@ -21,6 +23,8 @@ const ENUMS = [['BEBIDAS_ALCOHOLICAS', 'Licores'], ['SNACKS', 'Snacks'], ['BEBID
 const esVendible = (p) => p.ControlaStock !== false;   // fuera: garita y venta libre (no son del inventario)
 
 export default function Inventario() {
+  const { usuario } = useSesion();
+  const [sinAvisar, setSinAvisar] = useState(0);   // cambios de precio que aún no se han avisado al grupo de ADM
   const [todosProd, setTodosProd] = useState([]);   // incluye desactivados
   const [verOff, setVerOff] = useState(false);
   const productos = useMemo(() => todosProd.filter((p) => p.Activo !== false), [todosProd]);   // todo el cálculo usa solo los activos
@@ -43,6 +47,7 @@ export default function Inventario() {
     setTodosProd(todos);
     setCategorias((await asegurarCategorias()).filter((c) => c.Activo !== false));
     setObjetivo((await leerMeta('negocio.margenObjetivo')) ?? inv.MARGEN_OBJETIVO);
+    setSinAvisar((await leerCambiosPrecio()).filter((c) => !c.Avisado).length);
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
   const decir = (m) => { setAviso(m); setTimeout(() => setAviso(''), 2400); };
@@ -56,7 +61,10 @@ export default function Inventario() {
   const nombresCat = useMemo(() => [...new Set(productos.map((p) => categoriaDe(p, categorias).nombre))], [productos, categorias]);
   const bajos = useMemo(() => inv.productosBajoMargen(productos, objetivo), [productos, objetivo]);
 
-  async function guardar(p, cambios, msg) { await put('PRODUCTOS', { ...p, ...cambios }); await cargar(); setModal(null); if (msg) decir(msg); }
+  async function guardar(p, cambios, msg) {
+    await put('PRODUCTOS', { ...p, ...cambios });
+    if ('PrecioVenta' in cambios) await anotarCambioPrecio({ p, antes: p.PrecioVenta, despues: cambios.PrecioVenta, usuario, motivo: 'Simulador' });
+    await cargar(); setModal(null); if (msg) decir(msg); }
 
   return (
     <>
@@ -71,6 +79,7 @@ export default function Inventario() {
           <button className="iv-b o" onClick={() => setModal({ tipo: 'repo' })}>📋 Reposición</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'audpromo' })}>🏷️ Auditoría promos</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'importar' })}>📂 Importar POS</button>
+          <button className="iv-b o" title="Cambios de precio de los últimos 30 días y aviso al grupo de ADM" onClick={() => setModal({ tipo: 'precios' })}>📣 Cambios de precio{sinAvisar > 0 ? ` (${sinAvisar})` : ''}</button>
           <button className="iv-b ro" title={`${bajos.length} producto(s) con margen bajo ${objetivo}%`} onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes · {bajos.length}</button>
         </div>
         <div className="iv-cats">
@@ -119,9 +128,10 @@ export default function Inventario() {
       {modal?.tipo === 'reab' && <Reabastecer productos={productos} objetivo={objetivo} cerrar={() => setModal(null)} listo={async (msg) => { await cargar(); setModal(null); decir(msg); }} />}
       {modal?.tipo === 'margenes' && <Margenes productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
         cambiarObjetivo={async (v) => { await escribirMeta('negocio.margenObjetivo', v); setObjetivo(v); }}
-        aplicar={async (p, precio) => { await put('PRODUCTOS', { ...p, PrecioVenta: precio }); await cargar(); decir(`${p.Nombre}: nuevo precio ${fmt(precio)} ✓`); }} />}
+        aplicar={async (p, precio) => { await put('PRODUCTOS', { ...p, PrecioVenta: precio }); await anotarCambioPrecio({ p, antes: p.PrecioVenta, despues: precio, usuario, motivo: 'Márgenes' }); await cargar(); decir(`${p.Nombre}: nuevo precio ${fmt(precio)} ✓`); }} />}
       {modal?.tipo === 'editar' && <Editar p={modal.prod} productos={productos} categorias={categorias} objetivo={objetivo} cerrar={() => setModal(null)}
-        guardar={async (datos) => { await put('PRODUCTOS', { ...(modal.prod ?? { Activo: true }), ...datos }); await cargar(); setModal(null); decir('Guardado ✓'); }} />}
+        guardar={async (datos) => { await put('PRODUCTOS', { ...(modal.prod ?? { Activo: true }), ...datos }); await anotarCambioPrecio({ p: modal.prod ?? datos, antes: modal.prod?.PrecioVenta, despues: datos.PrecioVenta, usuario, motivo: 'Editar' }); await cargar(); setModal(null); decir('Guardado ✓'); }} />}
+      {modal?.tipo === 'precios' && <CambiosPrecioModal usuario={usuario} cerrar={() => { setModal(null); cargar(); }} />}
       {aviso && <div className="iv-toast">{aviso}</div>}
     </>
   );
@@ -210,6 +220,7 @@ function Promo({ p, objetivo, cerrar, guardar }) {
 }
 
 function Reabastecer({ productos, objetivo, cerrar, listo }) {
+  const { usuario } = useSesion();
   const [id, setId] = useState('');
   const [cant, setCant] = useState(0);
   const [costo, setCosto] = useState(0);
@@ -224,6 +235,7 @@ function Reabastecer({ productos, objetivo, cerrar, listo }) {
   const c = p && costoU > 0 ? inv.compararCompra({ precio: p.PrecioVenta, costoAntes: p.CostoCompra ?? 0, costoNuevo: costoU, objetivo }) : null;
   async function registrar(nuevoPrecio) {
     await registrarCompra(p, uds, costoU, nuevoPrecio);
+    if (nuevoPrecio) await anotarCambioPrecio({ p, antes: p.PrecioVenta, despues: nuevoPrecio, usuario, motivo: 'Reabastecer' });
     listo(`Compra registrada: +${uds} ${p.Nombre}${nuevoPrecio ? ` · precio ${fmt(nuevoPrecio)}` : ''} ✓`);
   }
   if (alerta) return (
@@ -521,6 +533,7 @@ function PresentacionRapida({ p, cerrar, listo }) {
  * Suma el stock y deja el costo de cada producto; después muestra los que quedaron con margen bajo para que TÚ decidas el precio.
  */
 function RecibirPedido({ lineas, productos, objetivo, cerrar, terminado }) {
+  const { usuario } = useSesion();
   const [paso, setPaso] = useState('revisar');   // revisar → precios (si hay margen bajo) → fin
   const [ent, setEnt] = useState(() => Object.fromEntries(lineas.map((l) => [l.p.Id, { llego: l.cajas ?? l.cant, costo: Math.round(l.pres ? l.costo * l.pres.unidades : l.costo) }])));
   const [ocupado, setOcupado] = useState(false);
@@ -554,7 +567,7 @@ function RecibirPedido({ lineas, productos, objetivo, cerrar, terminado }) {
     setBajos(quedaron); setOcupado(false);
     setPaso(quedaron.length ? 'precios' : 'fin');
   }
-  async function subir(b) { await put('PRODUCTOS', { ...b.p, PrecioVenta: b.sugerido }); setHechos((h) => ({ ...h, [b.p.Id]: 'subido' })); }
+  async function subir(b) { await put('PRODUCTOS', { ...b.p, PrecioVenta: b.sugerido }); await anotarCambioPrecio({ p: b.p, antes: b.p.PrecioVenta, despues: b.sugerido, usuario, motivo: 'Recibir pedido' }); setHechos((h) => ({ ...h, [b.p.Id]: 'subido' })); }
   const pendientes = bajos.filter((b) => !hechos[b.p.Id]);
 
   if (paso === 'precios') return (
