@@ -52,6 +52,8 @@ public partial class CarambolaSoftDbContext : DbContext
 
     public virtual DbSet<TurnosCaja> TurnosCajas { get; set; }
 
+    public virtual DbSet<Usuario> Usuarios { get; set; }
+
     public virtual DbSet<VwCierreNocturno> VwCierreNocturnos { get; set; }
 
     public virtual DbSet<VwColaSincronizacion> VwColaSincronizacions { get; set; }
@@ -517,6 +519,25 @@ public partial class CarambolaSoftDbContext : DbContext
             entity.Property(e => e.FechaHora).HasColumnType("datetime2");
             entity.Property(e => e.UsuarioNombre).HasMaxLength(60).IsUnicode(false);
             entity.Property(e => e.Motivo).HasMaxLength(30).IsUnicode(false);
+            entity.Property(e => e.UltimaModificacion)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<Usuario>(entity =>
+        {
+            entity.ToTable("USUARIOS");
+
+            entity.HasIndex(e => e.Nombre, "UQ_USUARIOS_Nombre").IsUnique();
+
+            entity.Property(e => e.Id).HasDefaultValueSql("(newsequentialid())");
+            entity.Property(e => e.Nombre).HasMaxLength(60).IsUnicode(false);
+            entity.Property(e => e.Rol).HasMaxLength(10).IsUnicode(false);
+            entity.Property(e => e.Salt).HasMaxLength(40).IsUnicode(false);
+            entity.Property(e => e.PinHash).HasMaxLength(70).IsUnicode(false);
+            entity.Property(e => e.Activo).HasDefaultValue(true);
+            entity.Property(e => e.BloqueadoHasta).HasColumnType("datetime2");
+            entity.Property(e => e.UltimoLogin).HasColumnType("datetime2");
             entity.Property(e => e.UltimaModificacion)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
