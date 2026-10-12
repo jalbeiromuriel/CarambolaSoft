@@ -276,3 +276,23 @@ test('pedido real: respeta lo desmarcado, el costo editado y el texto de WhatsAp
   const t = textoPedido(r.lineas, r.total, '12 de octubre de 2026');
   assert.match(t, /• 5 × Doritos/); assert.match(t, /• 1 × Aguardiente/); assert.doesNotMatch(t, /Gudis/); assert.match(t, /Total estimado: \*\$24\.750\*/);
 });
+
+test('presentación de compra: cajas completas en la reposición, en el pedido y en el texto', async () => {
+  const { presentacionDe, nombrePresentacion, reposicion, armarPedido, textoPedido } = await import('../src/cuenta/inventario.js');
+  assert.equal(presentacionDe({ Presentacion: { Nombre: 'Caja', Unidades: 1 } }), null);   // 1 no es caja
+  assert.equal(presentacionDe({}), null);
+  assert.deepEqual(presentacionDe({ Presentacion: { Nombre: 'Canasta', Unidades: 30 } }), { nombre: 'Canasta', unidades: 30 });
+  assert.equal(nombrePresentacion({ nombre: 'Canasta' }, 1), 'canasta'); assert.equal(nombrePresentacion({ nombre: 'Canasta' }, 2), 'canastas');
+  const prods = [
+    { Id: 'c', Nombre: 'Cerveza', StockActual: 6, StockMinimo: 10, CostoCompra: 2400, Presentacion: { Nombre: 'Caja', Unidades: 30 } },   // faltan 4 → 1 caja (30 u)
+    { Id: 'd', Nombre: 'Doritos', StockActual: 0, StockMinimo: 5, CostoCompra: 950 },
+  ];
+  const r = reposicion(prods, [], '2026-10-01', '2026-10-12');
+  const cer = r.find((f) => f.p.Id === 'c'), dor = r.find((f) => f.p.Id === 'd');
+  assert.equal(cer.pedir, 30); assert.equal(dor.pedir, 5);
+  const ped = armarPedido(r, {}, { c: 72000 / 30 });   // caja a $72.000 → $2.400 c/u
+  const l = ped.lineas.find((x) => x.p.Id === 'c');
+  assert.equal(l.cajas, 1); assert.equal(l.total, 72000); assert.equal(ped.lineas.find((x) => x.p.Id === 'd').cajas, null);
+  const t = textoPedido(ped.lineas, ped.total, 'hoy');
+  assert.match(t, /• 1 caja × Cerveza \(30 u\)/); assert.match(t, /• 5 × Doritos/);
+});

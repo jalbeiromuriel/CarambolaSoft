@@ -14,6 +14,7 @@ import './Panel.css';
 import './Inventario.css';
 
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
+const PRESENTACIONES = ['Caja', 'Canasta', 'Paca', 'Bulto'];
 const num = (v) => Number(String(v).replace(/\D/g, '')) || 0;
 const hoyIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const ENUMS = [['BEBIDAS_ALCOHOLICAS', 'Licores'], ['SNACKS', 'Snacks'], ['BEBIDAS_NO_ALCOHOLICAS', 'Bebidas'], ['OTROS', 'Otros']];
@@ -85,7 +86,7 @@ export default function Inventario() {
               return (
                 <tr key={p.Id} className={p.Activo === false ? 'off' : ''}>
                   <td className="cod">{p.Codigo}</td>
-                  <td><b>{p.Nombre}</b>{inv.esFraccionado(p) && <span className="iv-env">🔗 {p.Fraccion.Rinde}/env</span>}{p.Promo && <PromoTag promo={p.Promo} estado={ps} />}</td>
+                  <td><b>{p.Nombre}</b>{inv.esFraccionado(p) && <span className="iv-env">🔗 {p.Fraccion.Rinde}/env</span>}{inv.presentacionDe(p) && <span className="iv-env">📦 {inv.presentacionDe(p).nombre} × {inv.presentacionDe(p).unidades}</span>}{p.Promo && <PromoTag promo={p.Promo} estado={ps} />}</td>
                   <td><span className="iv-cat">{categoriaDe(p, categorias).nombre}</span></td>
                   <td className="n"><b>{fmt(p.PrecioVenta)}</b></td>
                   <td className="n mut">{fmt(p.CostoCompra ?? 0)}<span className={'iv-m ' + niv} title={p.CostoCompra > 0 ? `Margen sobre el precio. Recargo sobre el costo: +${Math.round(inv.recargoPct(p.PrecioVenta, p.CostoCompra))}%` : ''}>{p.CostoCompra > 0 ? Math.round(m) + '%' : ''}</span></td>
@@ -213,12 +214,18 @@ function Reabastecer({ productos, objetivo, cerrar, listo }) {
   const [cant, setCant] = useState(0);
   const [costo, setCosto] = useState(0);
   const [alerta, setAlerta] = useState(null);
+  const [porCaja, setPorCaja] = useState(false);   // solo si el producto tiene presentación de compra
   const p = productos.find((x) => x.Id === id);
-  const c = p && costo > 0 ? inv.compararCompra({ precio: p.PrecioVenta, costoAntes: p.CostoCompra ?? 0, costoNuevo: costo, objetivo }) : null;
+  const pres = p ? inv.presentacionDe(p) : null;
+  const modoCaja = !!pres && porCaja;
+  const uds = modoCaja ? cant * pres.unidades : cant;                        // unidades que entran al stock
+  const costoU = modoCaja ? Math.round(costo / pres.unidades) : costo;       // costo por unidad
+  const cambiarModo = (v) => { setPorCaja(v); setCant(0); setCosto(v ? Math.round((p.CostoCompra ?? 0) * pres.unidades) : (p.CostoCompra ?? 0)); };
+  const c = p && costoU > 0 ? inv.compararCompra({ precio: p.PrecioVenta, costoAntes: p.CostoCompra ?? 0, costoNuevo: costoU, objetivo }) : null;
   async function registrar(nuevoPrecio) {
-    const hist = [{ Fecha: new Date().toISOString(), Costo: costo }, ...(p.HistorialCostos ?? [])].slice(0, 10);
-    await put('PRODUCTOS', { ...p, StockActual: (p.StockActual ?? 0) + cant, CostoCompra: costo, HistorialCostos: hist, ...(nuevoPrecio ? { PrecioVenta: nuevoPrecio } : {}) });
-    listo(`Compra registrada: +${cant} ${p.Nombre}${nuevoPrecio ? ` · precio ${fmt(nuevoPrecio)}` : ''} ✓`);
+    const hist = [{ Fecha: new Date().toISOString(), Costo: costoU }, ...(p.HistorialCostos ?? [])].slice(0, 10);
+    await put('PRODUCTOS', { ...p, StockActual: (p.StockActual ?? 0) + uds, CostoCompra: costoU, HistorialCostos: hist, ...(nuevoPrecio ? { PrecioVenta: nuevoPrecio } : {}) });
+    listo(`Compra registrada: +${uds} ${p.Nombre}${nuevoPrecio ? ` · precio ${fmt(nuevoPrecio)}` : ''} ✓`);
   }
   if (alerta) return (
     <Modal titulo="⚠ Margen bajo" cerrar={cerrar} rojo>
@@ -231,20 +238,22 @@ function Reabastecer({ productos, objetivo, cerrar, listo }) {
   return (
     <Modal titulo="📦 Reabastecer" cerrar={cerrar}>
       <label>Producto</label>
-      <select value={id} onChange={(e) => { setId(e.target.value); const x = productos.find((y) => y.Id === e.target.value); setCosto(x?.CostoCompra ?? 0); }}>
+      <select value={id} onChange={(e) => { setId(e.target.value); setPorCaja(false); setCant(0); const x = productos.find((y) => y.Id === e.target.value); setCosto(x?.CostoCompra ?? 0); }}>
         <option value="">— Elige —</option>{[...productos].filter((x) => !inv.esFraccionado(x)).sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es')).map((x) => <option key={x.Id} value={x.Id}>{x.Nombre} · stock {x.StockActual ?? 0}</option>)}
       </select>
-      <label>Cantidad que llega</label>
+      {pres && <div className="iv-modo"><button className={!porCaja ? 'on' : ''} onClick={() => cambiarModo(false)}>Por unidad</button><button className={porCaja ? 'on' : ''} onClick={() => cambiarModo(true)}>Por {pres.nombre.toLowerCase()} de {pres.unidades}</button></div>}
+      <label>{modoCaja ? `${pres.nombre}s que llegan` : 'Cantidad que llega'}</label>
       <input className="iv-in" inputMode="numeric" placeholder="0" value={cant || ''} onChange={(e) => setCant(num(e.target.value))} />
-      <label>Costo de compra por unidad</label>
+      <label>{modoCaja ? `Costo de compra por ${pres.nombre.toLowerCase()}` : 'Costo de compra por unidad'}</label>
       <input className="iv-hi" inputMode="numeric" placeholder="✎ Escribe el costo" value={costo ? '$' + costo.toLocaleString('es-CO') : ''} onChange={(e) => setCosto(num(e.target.value))} />
+      {modoCaja && cant > 0 && costo > 0 && <div className="iv-hint">= {uds} unidades · {fmt(costoU)} c/u</div>}
       {c && <>
         <div className="iv-cmp"><div><small>Antes</small><b>{fmt(c.antes.gana)}</b><span>ganancia/u · margen {Math.round(c.antes.margen)}%</span></div>
           <div className={c.bajo ? 'r' : ''}><small>Después</small><b>{fmt(c.despues.gana)}</b><span>ganancia/u · margen {Math.round(c.despues.margen)}%</span></div></div>
         {c.bajo && <div className="iv-al r">⚠ El margen queda en <b>{Math.round(c.despues.margen)}%</b>, bajo el objetivo de {objetivo}%. Precio sugerido: <b>{fmt(c.sugerido)}</b></div>}
       </>}
       <div className="pn-acc"><button className="no" onClick={cerrar}>Cancelar</button>
-        <button className="si" disabled={!p || cant <= 0 || costo <= 0} onClick={() => (c.bajo ? setAlerta(true) : registrar(null))}>✓ Registrar compra</button></div>
+        <button className="si" disabled={!p || uds <= 0 || costoU <= 0} onClick={() => (c.bajo ? setAlerta(true) : registrar(null))}>✓ Registrar compra</button></div>
     </Modal>
   );
 }
@@ -271,11 +280,11 @@ function Margenes({ productos, objetivo, cerrar, cambiarObjetivo, aplicar }) {
 }
 
 function Editar({ p, productos, categorias, objetivo, cerrar, guardar }) {
-  const [d, setD] = useState({ Nombre: p?.Nombre ?? '', CategoriaId: p?.CategoriaId ?? categorias.find((c) => c.Nombre === 'Licores')?.Id ?? categorias[0]?.Id ?? '', PrecioVenta: p?.PrecioVenta ?? 0, CostoCompra: p?.CostoCompra ?? 0, StockActual: p?.StockActual ?? 0, StockMinimo: p?.StockMinimo ?? 0, OrigenId: p?.Fraccion?.OrigenId ?? '', Rinde: p?.Fraccion?.Rinde ?? 0 });
+  const [d, setD] = useState({ Nombre: p?.Nombre ?? '', CategoriaId: p?.CategoriaId ?? categorias.find((c) => c.Nombre === 'Licores')?.Id ?? categorias[0]?.Id ?? '', PrecioVenta: p?.PrecioVenta ?? 0, CostoCompra: p?.CostoCompra ?? 0, StockActual: p?.StockActual ?? 0, StockMinimo: p?.StockMinimo ?? 0, OrigenId: p?.Fraccion?.OrigenId ?? '', Rinde: p?.Fraccion?.Rinde ?? 0, PresNombre: p?.Presentacion?.Nombre ?? '', PresUnidades: p?.Presentacion?.Unidades ?? 0 });
   const set = (k, v) => setD({ ...d, [k]: v });
   const m = d.PrecioVenta > 0 && d.CostoCompra > 0 ? inv.margenPct(d.PrecioVenta, d.CostoCompra) : null;
-  const ok = d.Nombre.trim() && d.PrecioVenta > 0 && (!d.OrigenId || d.Rinde > 0);
-  const armar = () => { const { OrigenId, Rinde, ...base } = d; const cat = categorias.find((c) => c.Id === d.CategoriaId); return { ...base, CategoriaConsumo: cat?.Consumo ?? p?.CategoriaConsumo ?? 'OTROS', Nombre: d.Nombre.trim(), Fraccion: OrigenId ? { OrigenId, Rinde } : null }; };
+  const ok = d.Nombre.trim() && d.PrecioVenta > 0 && (!d.OrigenId || d.Rinde > 0) && (!d.PresNombre || d.PresUnidades >= 2);
+  const armar = () => { const { OrigenId, Rinde, PresNombre, PresUnidades, ...base } = d; const cat = categorias.find((c) => c.Id === d.CategoriaId); return { ...base, CategoriaConsumo: cat?.Consumo ?? p?.CategoriaConsumo ?? 'OTROS', Nombre: d.Nombre.trim(), Fraccion: OrigenId ? { OrigenId, Rinde } : null, Presentacion: !OrigenId && PresNombre && PresUnidades >= 2 ? { Nombre: PresNombre, Unidades: PresUnidades } : null }; };
   return (
     <Modal titulo={p ? 'Editar producto' : 'Nuevo producto'} cerrar={cerrar}>
       <label>Nombre</label><input className="iv-in" value={d.Nombre} onChange={(e) => set('Nombre', e.target.value)} />
@@ -293,6 +302,13 @@ function Editar({ p, productos, categorias, objetivo, cerrar, guardar }) {
           {productos.filter((x) => x.Id !== p?.Id && !inv.esFraccionado(x)).sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es')).map((x) => <option key={x.Id} value={x.Id}>{x.Nombre}</option>)}</select>
         {d.OrigenId && <><label>Rendimiento (unidades por envase)</label><input className="iv-in" inputMode="numeric" placeholder="Ej: 12 copas por botella" value={d.Rinde || ''} onChange={(e) => set('Rinde', num(e.target.value))} /></>}
       </div>
+      {!d.OrigenId && <div className="iv-fr">
+        <div className="t">📦 SE COMPRA POR (opcional)</div>
+        <p className="iv-hint" style={{ marginTop: 0 }}>Ej: la cerveza viene en caja de 30. Se sigue vendiendo y contando por unidad; la lista de reposición y Reabastecer podrán trabajar en cajas.</p>
+        <label>Presentación de compra</label>
+        <select value={d.PresNombre} onChange={(e) => set('PresNombre', e.target.value)}><option value="">— Se compra por unidad —</option>{PRESENTACIONES.map((n) => <option key={n} value={n}>{n}</option>)}</select>
+        {d.PresNombre && <><label>Unidades por {d.PresNombre.toLowerCase()}</label><input className="iv-in" inputMode="numeric" placeholder="Ej: 30" value={d.PresUnidades || ''} onChange={(e) => set('PresUnidades', num(e.target.value))} /></>}
+      </div>}
       <div className="pn-acc"><button className="no" onClick={cerrar}>Cancelar</button><button className="si" disabled={!ok} onClick={() => guardar(armar())}>✓ Guardar</button></div>
     </Modal>
   );
@@ -454,8 +470,11 @@ function ListaReposicion({ productos, cerrar }) {
                 <td className="iv-rp-ck">{f.pedir > 0 && <input type="checkbox" checked={f.marcada} onChange={(e) => setQuitados({ ...quitados, [f.p.Id]: !e.target.checked })} />}</td>
                 <td>{f.p.Nombre}</td><td className="r">{f.vendido}</td>
                 <td className="r">{f.stock <= 0 ? 'Sin stock' : f.stock}</td><td className="r">{f.minimo}</td>
-                <td className="r"><input className="iv-rp-n" inputMode="numeric" value={f.pedir} onChange={(e) => setCambios({ ...cambios, [f.p.Id]: Number(e.target.value.replace(/\D/g, '')) || 0 })} /></td>
-                <td className="r"><input className={`iv-rp-n iv-rp-c${f.costo !== f.costoBase ? ' ed' : ''}`} inputMode="numeric" title={f.costo !== f.costoBase ? `Costo editado solo para este pedido (en el producto: ${fmt(f.costoBase)})` : 'Costo unitario'} value={f.costo} onChange={(e) => { const v = Number(e.target.value.replace(/\D/g, '')) || 0; setCostos({ ...costos, [f.p.Id]: v }); }} /></td>
+                <td className="r">{f.pres
+                  ? <><input className="iv-rp-n" inputMode="numeric" value={f.pedir / f.pres.unidades} onChange={(e) => setCambios({ ...cambios, [f.p.Id]: (Number(e.target.value.replace(/\D/g, '')) || 0) * f.pres.unidades })} /><div className="iv-rp-sub">{inv.nombrePresentacion(f.pres, f.pedir / f.pres.unidades)} · {f.pedir} u</div></>
+                  : <input className="iv-rp-n" inputMode="numeric" value={f.pedir} onChange={(e) => setCambios({ ...cambios, [f.p.Id]: Number(e.target.value.replace(/\D/g, '')) || 0 })} />}</td>
+                <td className="r"><input className={`iv-rp-n iv-rp-c${f.costo !== f.costoBase ? ' ed' : ''}`} inputMode="numeric" title={f.costo !== f.costoBase ? `Costo editado solo para este pedido (en el producto: ${fmt(f.costoBase)})` : 'Costo unitario'} value={Math.round(f.costo)} onChange={(e) => { const v = Number(e.target.value.replace(/\D/g, '')) || 0; setCostos({ ...costos, [f.p.Id]: v }); }} />
+                  {f.pres && <div className="iv-rp-sub">{f.pres.nombre.toLowerCase()}: <input className="iv-rp-n iv-rp-c" inputMode="numeric" title={`Costo por ${f.pres.nombre.toLowerCase()} de ${f.pres.unidades}`} value={Math.round(f.costo * f.pres.unidades)} onChange={(e) => { const v = Number(e.target.value.replace(/\D/g, '')) || 0; setCostos({ ...costos, [f.p.Id]: v / f.pres.unidades }); }} /></div>}</td>
                 <td className="r">{fmt(f.total)}</td>
               </tr>
             ))}
@@ -463,7 +482,7 @@ function ListaReposicion({ productos, cerrar }) {
           </tbody>
         </table>
         <footer>Productos por pedir: {lineas.length} · Inversión estimada: <b>{fmt(inversion)}</b></footer>
-        <p className="iv-rp-nota">Pedir = vendido en el período + stock mínimo − stock actual. Las copas se cuentan en su botella. Marca solo lo que vas a pedir hoy y cambia la cantidad o el costo si hace falta: el costo escrito aquí solo estima este pedido, no cambia el del producto (ese se registra al recibir la mercancía, en Reabastecer).</p>
+        <p className="iv-rp-nota">Pedir = vendido en el período + stock mínimo − stock actual. Las copas se cuentan en su botella. Los productos que se compran por caja se piden en cajas completas. Marca solo lo que vas a pedir hoy y cambia la cantidad o el costo si hace falta: el costo escrito aquí solo estima este pedido, no cambia el del producto (ese se registra al recibir la mercancía, en Reabastecer).</p>
       </div>
       {tirilla && <HojaPedido lineas={lineas} total={inversion} texto={inv.textoPedido(lineas, inversion, fechaLarga)} cerrar={() => setTirilla(false)} />}
     </div>, document.body
