@@ -79,8 +79,9 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    // La documentación/pruebas (Scalar) quedan abiertas SOLO en desarrollo; los endpoints siguen protegidos.
+    app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference().AllowAnonymous();
 }
 
 app.UseHttpsRedirection();
