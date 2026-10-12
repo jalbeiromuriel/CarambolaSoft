@@ -491,7 +491,7 @@ function ListaReposicion({ productos, categorias, objetivo, recargar, cerrar }) 
         <p className="iv-rp-nota">Pedir = vendido en el período + stock mínimo − stock actual. Las copas se cuentan en su botella. Los productos que se compran por caja se piden en cajas completas. Marca solo lo que vas a pedir hoy y cambia la cantidad o el costo si hace falta: el costo escrito aquí solo estima este pedido, no cambia el del producto (ese se registra al recibir la mercancía, en Reabastecer).</p>
       </div>
       {presDe && <PresentacionRapida p={presDe} cerrar={() => setPresDe(null)} listo={async () => { setPresDe(null); await recargar(); }} />}
-      {recibir && <RecibirPedido lineas={lineas} objetivo={objetivo} cerrar={() => setRecibir(false)} terminado={async () => { setRecibir(false); setCambios({}); setCostos({}); setQuitados({}); await recargar(); }} />}
+      {recibir && <RecibirPedido lineas={lineas} productos={productos} objetivo={objetivo} cerrar={() => setRecibir(false)} terminado={async () => { setRecibir(false); setCambios({}); setCostos({}); setQuitados({}); await recargar(); }} />}
       {tirilla && <HojaPedido lineas={lineas} total={inversion} texto={inv.textoPedido(lineas, inversion, fechaLarga)} cerrar={() => setTirilla(false)} />}
     </div>, document.body
   );
@@ -520,18 +520,28 @@ function PresentacionRapida({ p, cerrar, listo }) {
  * Recibir pedido: de lo marcado en la lista, registra lo que de verdad llegó (cantidad y costo) en un solo paso.
  * Suma el stock y deja el costo de cada producto; después muestra los que quedaron con margen bajo para que TÚ decidas el precio.
  */
-function RecibirPedido({ lineas, objetivo, cerrar, terminado }) {
+function RecibirPedido({ lineas, productos, objetivo, cerrar, terminado }) {
   const [paso, setPaso] = useState('revisar');   // revisar → precios (si hay margen bajo) → fin
   const [ent, setEnt] = useState(() => Object.fromEntries(lineas.map((l) => [l.p.Id, { llego: l.cajas ?? l.cant, costo: Math.round(l.pres ? l.costo * l.pres.unidades : l.costo) }])));
   const [ocupado, setOcupado] = useState(false);
+  const [extras, setExtras] = useState([]);       // productos que llegaron y no estaban en el pedido
   const [bajos, setBajos] = useState([]);       // { p (ya con el costo nuevo), sugerido, margen }
   const [hechos, setHechos] = useState({});     // Id → 'subido' | 'dejado'
   const [resumen, setResumen] = useState({ n: 0, total: 0 });
-  const filas = lineas.map((l) => ({ l, ...ent[l.p.Id], ...inv.evaluarRecepcion({ p: l.p, llego: ent[l.p.Id].llego, costo: ent[l.p.Id].costo, objetivo }) }));
+  const todas = [...lineas, ...extras];
+  const filas = todas.map((l) => { const e = ent[l.p.Id]; return { l, ...e, ...inv.evaluarRecepcion({ p: l.p, llego: e.quitada ? 0 : e.llego, costo: e.costo, objetivo }) }; });
   const aRegistrar = filas.filter((f) => f.valida);
-  const falta = filas.some((f) => f.llego > 0 && f.costo <= 0);
+  const falta = filas.some((f) => f.llego > 0 && !f.quitada && f.costo <= 0);
   const total = aRegistrar.reduce((a, f) => a + f.total, 0);
   const poner = (id, k, v) => setEnt({ ...ent, [id]: { ...ent[id], [k]: num(v) } });
+  const alternarQuitada = (id) => setEnt({ ...ent, [id]: { ...ent[id], quitada: !ent[id].quitada } });   // "no llegó": no se registra, y se puede deshacer
+  const disponibles = productos.filter((x) => x.Activo !== false && x.ControlaStock !== false && !inv.esFraccionado(x) && !todas.some((l) => l.p.Id === x.Id)).sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es'));
+  const agregar = (id) => {
+    const x = productos.find((y) => y.Id === id); if (!x) return;
+    const pres = inv.presentacionDe(x), costo = x.CostoCompra ?? 0;
+    setEnt({ ...ent, [id]: { llego: 0, costo: Math.round(pres ? costo * pres.unidades : costo) } });
+    setExtras([...extras, { p: x, pres, cant: 0, cajas: pres ? 0 : null, costo, extra: true }]);
+  };
 
   async function registrar() {
     setOcupado(true);
@@ -572,16 +582,18 @@ function RecibirPedido({ lineas, objetivo, cerrar, terminado }) {
   );
   return (
     <Modal titulo="✓ Recibir pedido" cerrar={cerrar} ancho={760}>
-      <p className="iv-hint" style={{ marginTop: 0 }}>Escribe lo que <b>de verdad llegó</b> y lo que costó. Lo que dejes en 0 no se registra. Al confirmar, el stock y el costo de cada producto se actualizan.</p>
+      <p className="iv-hint" style={{ marginTop: 0 }}>Escribe lo que <b>de verdad llegó</b> y lo que costó. Si algo <b>no llegó</b>, pulsa ✕ (o déjalo en 0): no se registra y sigue en la lista para el próximo pedido. Al confirmar, el stock y el costo de cada producto se actualizan.</p>
       <div className="iv-scroll"><table className="iv-t">
-        <thead><tr><th>Producto</th><th className="n">Pedido</th><th className="n">Llegó</th><th className="n">Costo</th><th className="n">Margen</th></tr></thead>
+        <thead><tr><th>Producto</th><th className="n">Pedido</th><th className="n">Llegó</th><th className="n">Costo</th><th className="n">Margen</th><th /></tr></thead>
         <tbody>{filas.map((f) => (
-          <tr key={f.l.p.Id}><td>{f.l.p.Nombre}</td>
-            <td className="n">{f.pres ? `${f.l.cajas} ${inv.nombrePresentacion(f.pres, f.l.cajas)}` : f.l.cant}</td>
+          <tr key={f.l.p.Id} className={f.quitada ? 'no' : ''}><td>{f.l.p.Nombre}{f.l.extra && <span className="iv-env">no pedido</span>}</td>
+            <td className="n">{f.l.extra ? '—' : f.pres ? `${f.l.cajas} ${inv.nombrePresentacion(f.pres, f.l.cajas)}` : f.l.cant}</td>
             <td className="n"><input className="iv-rc-in" inputMode="numeric" value={f.llego || ''} placeholder="0" onChange={(e) => poner(f.l.p.Id, 'llego', e.target.value)} />{f.pres && <small className="mut"> {f.uds} u</small>}</td>
             <td className="n"><input className="iv-rc-in" inputMode="numeric" value={f.costo || ''} placeholder="0" title={f.pres ? `Costo por ${f.pres.nombre.toLowerCase()}` : 'Costo por unidad'} onChange={(e) => poner(f.l.p.Id, 'costo', e.target.value)} />{f.pres && <small className="mut"> {fmt(f.costoU)} c/u</small>}</td>
-            <td className="n">{f.c ? <span className={`iv-m ${f.bajo ? 'bajo' : 'ok'}`}>{Math.round(f.c.despues.margen)}%</span> : '—'}</td></tr>))}
+            <td className="n">{f.c && !f.quitada ? <span className={`iv-m ${f.bajo ? 'bajo' : 'ok'}`}>{Math.round(f.c.despues.margen)}%</span> : '—'}</td>
+            <td><button className="iv-rc-x" title={f.quitada ? 'Volver a incluirlo' : 'No llegó: no se registra'} onClick={() => alternarQuitada(f.l.p.Id)}>{f.quitada ? '↺' : '✕'}</button></td></tr>))}
         </tbody></table></div>
+      <select value="" onChange={(e) => agregar(e.target.value)} style={{ marginTop: 10 }}><option value="">+ Agregar un producto que llegó y no estaba en el pedido</option>{disponibles.map((x) => <option key={x.Id} value={x.Id}>{x.Nombre}</option>)}</select>
       {falta && <div className="iv-al r">⚠ Falta el costo de algún producto que llegó.</div>}
       <div className="pn-acc"><span className="iv-rc-tot">Total: <b className="oro">{fmt(total)}</b></span>
         <button className="no" onClick={cerrar}>Cancelar</button>
