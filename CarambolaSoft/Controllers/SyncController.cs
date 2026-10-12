@@ -108,6 +108,96 @@ public class SyncController : ControllerBase
         return Ok(new { id });
     }
 
+    /// PUT api/sync/productos/{id}
+    /// Inventario y precios editados en el equipo. Upsert idempotente por GUID.
+    /// En un producto que ya existe NO se toca StockActual (lo mueven ventas y compras en el servidor).
+    [HttpPut("productos/{id:guid}")]
+    public async Task<IActionResult> UpsertProducto(Guid id, [FromBody] ProductoSyncDto dto)
+    {
+        if (id != dto.Id)
+            return UnprocessableEntity(new { error = "Id de ruta y de cuerpo no coinciden." });
+        if (!await _db.Categorias.AnyAsync(c => c.Id == dto.CategoriaId))
+            return UnprocessableEntity(new { error = $"Categoría {dto.CategoriaId} no existe." });
+        if (dto.FraccionOrigenId is not null && dto.FraccionOrigenId != id &&
+            !await _db.Productos.AnyAsync(p => p.Id == dto.FraccionOrigenId))
+            return UnprocessableEntity(new { error = $"Producto origen {dto.FraccionOrigenId} no existe. ¿Orden de cola roto?" });
+        if (dto.PrecioVenta < 0 || dto.CostoCompra < 0)
+            return UnprocessableEntity(new { error = "Precio y costo no pueden ser negativos." });
+        // Las dos columnas de presentación van juntas (CK_PRODUCTOS_Presentacion) y una caja trae al menos 2 unidades.
+        if ((dto.PresentacionCompra is null) != (dto.UnidadesPorPresentacion is null) || dto.UnidadesPorPresentacion < 2)
+            return UnprocessableEntity(new { error = "PresentacionCompra y UnidadesPorPresentacion van juntas (mínimo 2 unidades)." });
+        if ((dto.FraccionOrigenId is null) != (dto.FraccionRinde is null) || dto.FraccionRinde < 1)
+            return UnprocessableEntity(new { error = "FraccionOrigenId y FraccionRinde van juntas (rinde mínimo 1)." });
+
+        var existente = await _db.Productos.FindAsync(id);
+        if (existente is null)
+        {
+            var nuevo = new Producto { Id = id };
+            AplicarProducto(nuevo, dto, conStock: true);
+            nuevo.EsSincronizado = true;
+            _db.Productos.Add(nuevo);
+            await _db.SaveChangesAsync();
+            return Created($"/api/sync/productos/{id}", new { id });
+        }
+
+        AplicarProducto(existente, dto, conStock: false);
+        existente.EsSincronizado = true;
+        await _db.SaveChangesAsync();
+        return Ok(new { id });
+    }
+
+    private static void AplicarProducto(Producto p, ProductoSyncDto d, bool conStock)
+    {
+        p.CategoriaId = d.CategoriaId;
+        p.Nombre = d.Nombre;
+        p.PrecioVenta = d.PrecioVenta;
+        p.CostoCompra = d.CostoCompra;
+        p.CostoUltimaCompra = d.CostoUltimaCompra;
+        p.StockMinimo = d.StockMinimo;
+        p.Activo = d.Activo;
+        p.Codigo = d.Codigo;
+        p.ControlaStock = d.ControlaStock;
+        p.Favorito = d.Favorito;
+        p.PresentacionCompra = d.PresentacionCompra;
+        p.UnidadesPorPresentacion = d.UnidadesPorPresentacion;
+        p.FraccionOrigenId = d.FraccionOrigenId;
+        p.FraccionRinde = d.FraccionRinde;
+        if (conStock) p.StockActual = d.StockActual;
+        p.UltimaModificacion = DateTime.Now;   // misma hora local que GETDATE() del servidor
+    }
+
+    /// PUT api/sync/cambios-precio/{id}
+    /// Registro de quién cambió un precio. Es un hecho histórico: si ya existe solo se actualiza Avisado.
+    [HttpPut("cambios-precio/{id:guid}")]
+    public async Task<IActionResult> UpsertCambioPrecio(Guid id, [FromBody] CambioPrecioSyncDto dto)
+    {
+        if (id != dto.Id)
+            return UnprocessableEntity(new { error = "Id de ruta y de cuerpo no coinciden." });
+        if (dto.PrecioAntes == dto.PrecioDespues || dto.PrecioAntes < 0 || dto.PrecioDespues < 0)
+            return UnprocessableEntity(new { error = "El cambio de precio no es válido." });
+        if (!await _db.Productos.AnyAsync(p => p.Id == dto.ProductoId))
+            return UnprocessableEntity(new { error = $"Producto {dto.ProductoId} no existe. ¿Orden de cola roto?" });
+
+        var existente = await _db.CambiosPrecio.FindAsync(id);
+        if (existente is null)
+        {
+            _db.CambiosPrecio.Add(new CambioPrecio
+            {
+                Id = id, ProductoId = dto.ProductoId, PrecioAntes = dto.PrecioAntes, PrecioDespues = dto.PrecioDespues,
+                FechaHora = dto.FechaHora, UsuarioId = dto.UsuarioId, UsuarioNombre = dto.UsuarioNombre,
+                Motivo = dto.Motivo, Avisado = dto.Avisado, EsSincronizado = true, UltimaModificacion = DateTime.Now
+            });
+            await _db.SaveChangesAsync();
+            return Created($"/api/sync/cambios-precio/{id}", new { id });
+        }
+
+        existente.Avisado = existente.Avisado || dto.Avisado;
+        existente.EsSincronizado = true;
+        existente.UltimaModificacion = DateTime.Now;
+        await _db.SaveChangesAsync();
+        return Ok(new { id });
+    }
+
     // ========================================================
     //  BAJADA — catálogos por UltimaModificacion
     // ========================================================
