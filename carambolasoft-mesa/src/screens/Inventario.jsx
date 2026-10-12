@@ -8,6 +8,7 @@ import { asegurarCategorias, guardarCategoria, desactivarCategoria } from '../cu
 import * as inv from '../cuenta/inventario.js';
 import { getAll, put, leerMeta, escribirMeta } from '../db/repository.js';
 import { abrirEnvaseDb } from '../cuenta/inventarioDb.js';
+import { imprimirComo, nombrePdf } from '../cuenta/imprimir.js';
 import './Panel.css';
 import './Inventario.css';
 
@@ -423,7 +424,7 @@ function ListaReposicion({ productos, cerrar }) {
   return createPortal(
     <div className="pn-velo iv-aud-velo" onClick={(e) => e.target === e.currentTarget && cerrar()}>
       <div className="iv-aud">
-        <div className="iv-aud-acc"><button onClick={() => window.print()}>🖨 Imprimir / PDF</button><button onClick={cerrar}>Cerrar</button></div>
+        <div className="iv-aud-acc"><button onClick={() => imprimirComo(nombrePdf('Reposición', hoyIso()))}>🖨 Imprimir / PDF</button><button onClick={cerrar}>Cerrar</button></div>
         <div className="iv-rp-filtro">
           <span>Ventas de</span>
           {RANGOS.map(([t, n]) => <button key={n} className={desde === haceDias(n) && hasta === haceDias(0) ? 'on' : ''} onClick={() => { setDesde(haceDias(n)); setHasta(haceDias(0)); }}>{t}</button>)}

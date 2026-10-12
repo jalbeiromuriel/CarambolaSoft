@@ -259,3 +259,9 @@ test('redondeo por franjas: $50 <1.000 · $100 <20.000 · $500 <100.000 · $1.00
   assert.equal(inv.precioParaMargen(62500, 40), 105000);  // 104.166,7 → 105.000
   assert.equal(inv.pasoRedondeo(999), 50); assert.equal(inv.pasoRedondeo(1000), 100); assert.equal(inv.pasoRedondeo(20000), 500); assert.equal(inv.pasoRedondeo(100000), 1000);
 });
+
+test('nombre del PDF: palabra + fecha, sin caracteres prohibidos', async () => {
+  const { nombrePdf } = await import('../src/cuenta/imprimir.js');
+  assert.equal(nombrePdf('Reposición', '2026-10-12'), 'Reposición 2026-10-12');
+  assert.equal(nombrePdf('Cierre: 10/12', '2026-10-12'), 'Cierre- 10-12 2026-10-12');
+});
