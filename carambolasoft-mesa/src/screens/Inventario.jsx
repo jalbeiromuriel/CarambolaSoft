@@ -7,7 +7,7 @@ import { categoriaDe, norm, deCategoria, EMOJIS_CAT, COLORES_CAT, CONSUMOS } fro
 import { asegurarCategorias, guardarCategoria, desactivarCategoria } from '../cuenta/categoriasDb.js';
 import * as inv from '../cuenta/inventario.js';
 import { getAll, put, leerMeta, escribirMeta } from '../db/repository.js';
-import { abrirEnvaseDb } from '../cuenta/inventarioDb.js';
+import { abrirEnvaseDb, registrarCompra } from '../cuenta/inventarioDb.js';
 import { imprimirComo, nombrePdf } from '../cuenta/imprimir.js';
 import { HojaPedido } from '../informes/Hoja.jsx';
 import './Panel.css';
@@ -114,7 +114,7 @@ export default function Inventario() {
       {modal?.tipo === 'cats' && <Categorias categorias={categorias} productos={productos} cerrar={() => setModal(null)} cambio={async (msg) => { await cargar(); if (msg) decir(msg); }} />}
       {modal?.tipo === 'sim' && <Simulador p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} aplicar={(precio) => guardar(modal.prod, { PrecioVenta: precio }, `${modal.prod.Nombre}: nuevo precio ${fmt(precio)} ✓`)} />}
       {modal?.tipo === 'promo' && <Promo p={modal.prod} objetivo={objetivo} cerrar={() => setModal(null)} guardar={(promo) => guardar(modal.prod, { Promo: promo }, promo ? 'Promoción aplicada ✓' : 'Promoción eliminada')} />}
-      {modal?.tipo === 'repo' && <ListaReposicion productos={productos} categorias={categorias} recargar={cargar} cerrar={() => setModal(null)} />}
+      {modal?.tipo === 'repo' && <ListaReposicion productos={productos} categorias={categorias} objetivo={objetivo} recargar={cargar} cerrar={() => setModal(null)} />}
       {modal?.tipo === 'audpromo' && <AuditoriaPromos productos={productos} categorias={categorias} cerrar={() => setModal(null)} />}
       {modal?.tipo === 'reab' && <Reabastecer productos={productos} objetivo={objetivo} cerrar={() => setModal(null)} listo={async (msg) => { await cargar(); setModal(null); decir(msg); }} />}
       {modal?.tipo === 'margenes' && <Margenes productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
@@ -223,8 +223,7 @@ function Reabastecer({ productos, objetivo, cerrar, listo }) {
   const cambiarModo = (v) => { setPorCaja(v); setCant(0); setCosto(v ? Math.round((p.CostoCompra ?? 0) * pres.unidades) : (p.CostoCompra ?? 0)); };
   const c = p && costoU > 0 ? inv.compararCompra({ precio: p.PrecioVenta, costoAntes: p.CostoCompra ?? 0, costoNuevo: costoU, objetivo }) : null;
   async function registrar(nuevoPrecio) {
-    const hist = [{ Fecha: new Date().toISOString(), Costo: costoU }, ...(p.HistorialCostos ?? [])].slice(0, 10);
-    await put('PRODUCTOS', { ...p, StockActual: (p.StockActual ?? 0) + uds, CostoCompra: costoU, HistorialCostos: hist, ...(nuevoPrecio ? { PrecioVenta: nuevoPrecio } : {}) });
+    await registrarCompra(p, uds, costoU, nuevoPrecio);
     listo(`Compra registrada: +${uds} ${p.Nombre}${nuevoPrecio ? ` · precio ${fmt(nuevoPrecio)}` : ''} ✓`);
   }
   if (alerta) return (
@@ -424,7 +423,7 @@ const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
 const haceDias = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return isoLocal(d); };
 const RANGOS = [['Hoy', 0], ['Últimos 7 días', 7], ['Últimos 15 días', 15], ['Últimos 30 días', 30]];
 /** Qué pedir al proveedor según lo vendido. Marcas lo que realmente se repone; el costo editable solo estima el pedido. Hoja blanca; Imprimir → PDF; Tirilla (80 mm) y WhatsApp. */
-function ListaReposicion({ productos, categorias, recargar, cerrar }) {
+function ListaReposicion({ productos, categorias, objetivo, recargar, cerrar }) {
   const [pedidos, setPedidos] = useState([]);
   const [desde, setDesde] = useState(haceDias(15));
   const [hasta, setHasta] = useState(haceDias(0));
@@ -432,6 +431,7 @@ function ListaReposicion({ productos, categorias, recargar, cerrar }) {
   const [costos, setCostos] = useState({});     // Id → costo unitario escrito a mano (solo para este pedido)
   const [quitados, setQuitados] = useState({}); // Id → true: desmarcado, no se pide hoy
   const [tirilla, setTirilla] = useState(false);
+  const [recibir, setRecibir] = useState(false);
   const [presDe, setPresDe] = useState(null);   // producto al que se le está poniendo la presentación de compra
   useEffect(() => { getAll('PEDIDOS_CUENTAS').then(setPedidos); }, []);
   const filas = useMemo(() => inv.reposicion(productos, pedidos, desde, hasta, categorias).map((f) => {
@@ -459,7 +459,7 @@ function ListaReposicion({ productos, categorias, recargar, cerrar }) {
         </div>
         <div className="iv-rp-barra">
           <div>A pedir: <b>{lineas.length}</b> de {conPedir.length} productos · Inversión estimada: <b className="tot">{fmt(inversion)}</b></div>
-          <button disabled={lineas.length === 0} onClick={() => setTirilla(true)}>🧾 Tirilla / WhatsApp</button>
+          <div className="iv-rp-bts"><button disabled={lineas.length === 0} onClick={() => setTirilla(true)}>🧾 Tirilla / WhatsApp</button><button className="rec" disabled={lineas.length === 0} onClick={() => setRecibir(true)}>✓ Recibir pedido</button></div>
         </div>
         <header><h2>MERO PARCHE</h2><div>Licores &amp; Billar · Medellín</div></header>
         <h3>LISTA DE REPOSICIÓN</h3>
@@ -491,6 +491,7 @@ function ListaReposicion({ productos, categorias, recargar, cerrar }) {
         <p className="iv-rp-nota">Pedir = vendido en el período + stock mínimo − stock actual. Las copas se cuentan en su botella. Los productos que se compran por caja se piden en cajas completas. Marca solo lo que vas a pedir hoy y cambia la cantidad o el costo si hace falta: el costo escrito aquí solo estima este pedido, no cambia el del producto (ese se registra al recibir la mercancía, en Reabastecer).</p>
       </div>
       {presDe && <PresentacionRapida p={presDe} cerrar={() => setPresDe(null)} listo={async () => { setPresDe(null); await recargar(); }} />}
+      {recibir && <RecibirPedido lineas={lineas} objetivo={objetivo} cerrar={() => setRecibir(false)} terminado={async () => { setRecibir(false); setCambios({}); setCostos({}); setQuitados({}); await recargar(); }} />}
       {tirilla && <HojaPedido lineas={lineas} total={inversion} texto={inv.textoPedido(lineas, inversion, fechaLarga)} cerrar={() => setTirilla(false)} />}
     </div>, document.body
   );
@@ -511,6 +512,80 @@ function PresentacionRapida({ p, cerrar, listo }) {
       <div className="pn-acc"><button className="no" onClick={cerrar}>Cancelar</button>
         {p.Presentacion && <button className="no" onClick={() => guardar(null)}>Quitar</button>}
         <button className="si" disabled={unidades < 2} onClick={() => guardar({ Nombre: nombre, Unidades: unidades })}>✓ Guardar</button></div>
+    </Modal>
+  );
+}
+
+/**
+ * Recibir pedido: de lo marcado en la lista, registra lo que de verdad llegó (cantidad y costo) en un solo paso.
+ * Suma el stock y deja el costo de cada producto; después muestra los que quedaron con margen bajo para que TÚ decidas el precio.
+ */
+function RecibirPedido({ lineas, objetivo, cerrar, terminado }) {
+  const [paso, setPaso] = useState('revisar');   // revisar → precios (si hay margen bajo) → fin
+  const [ent, setEnt] = useState(() => Object.fromEntries(lineas.map((l) => [l.p.Id, { llego: l.cajas ?? l.cant, costo: Math.round(l.pres ? l.costo * l.pres.unidades : l.costo) }])));
+  const [ocupado, setOcupado] = useState(false);
+  const [bajos, setBajos] = useState([]);       // { p (ya con el costo nuevo), sugerido, margen }
+  const [hechos, setHechos] = useState({});     // Id → 'subido' | 'dejado'
+  const [resumen, setResumen] = useState({ n: 0, total: 0 });
+  const filas = lineas.map((l) => ({ l, ...ent[l.p.Id], ...inv.evaluarRecepcion({ p: l.p, llego: ent[l.p.Id].llego, costo: ent[l.p.Id].costo, objetivo }) }));
+  const aRegistrar = filas.filter((f) => f.valida);
+  const falta = filas.some((f) => f.llego > 0 && f.costo <= 0);
+  const total = aRegistrar.reduce((a, f) => a + f.total, 0);
+  const poner = (id, k, v) => setEnt({ ...ent, [id]: { ...ent[id], [k]: num(v) } });
+
+  async function registrar() {
+    setOcupado(true);
+    const quedaron = [];
+    for (const f of aRegistrar) {
+      const guardado = await registrarCompra(f.l.p, f.uds, f.costoU);
+      if (f.bajo) quedaron.push({ p: guardado, sugerido: f.c.sugerido, margen: f.c.despues.margen });
+    }
+    setResumen({ n: aRegistrar.length, total });
+    setBajos(quedaron); setOcupado(false);
+    setPaso(quedaron.length ? 'precios' : 'fin');
+  }
+  async function subir(b) { await put('PRODUCTOS', { ...b.p, PrecioVenta: b.sugerido }); setHechos((h) => ({ ...h, [b.p.Id]: 'subido' })); }
+  const pendientes = bajos.filter((b) => !hechos[b.p.Id]);
+
+  if (paso === 'precios') return (
+    <Modal titulo="⚠ Margen bajo con el costo nuevo" cerrar={() => {}} ancho={720} rojo>
+      <p className="iv-hint" style={{ marginTop: 0 }}>Compra registrada. Estos productos quedaron por debajo del <b>{objetivo}%</b>. El sistema nunca cambia un precio solo: tú decides.</p>
+      <div className="iv-scroll"><table className="iv-t">
+        <thead><tr><th>Producto</th><th className="n">Precio</th><th className="n">Margen</th><th className="n">Sugerido</th><th /></tr></thead>
+        <tbody>{bajos.map((b) => (
+          <tr key={b.p.Id}><td>{b.p.Nombre}</td><td className="n">{fmt(hechos[b.p.Id] === 'subido' ? b.sugerido : b.p.PrecioVenta)}</td>
+            <td className="n"><span className="iv-m bajo">{Math.round(inv.margenPct(hechos[b.p.Id] === 'subido' ? b.sugerido : b.p.PrecioVenta, b.p.CostoCompra))}%</span></td>
+            <td className="n">{fmt(b.sugerido)}</td>
+            <td>{hechos[b.p.Id] ? <span className="mut">{hechos[b.p.Id] === 'subido' ? '✓ subido' : 'se deja'}</span>
+              : <div className="iv-acc"><button onClick={() => subir(b)}>⬆ Subir</button><button onClick={() => setHechos((h) => ({ ...h, [b.p.Id]: 'dejado' }))}>Dejar</button></div>}</td></tr>))}
+        </tbody></table></div>
+      <div className="pn-acc">
+        {pendientes.length > 0 && <button className="no" onClick={async () => { for (const b of pendientes) await subir(b); }}>⬆ Subir todos al sugerido</button>}
+        <button className="si" onClick={() => setPaso('fin')}>{pendientes.length ? 'Seguir sin cambiar' : 'Listo'}</button></div>
+    </Modal>
+  );
+  if (paso === 'fin') return (
+    <Modal titulo="✓ Pedido recibido" cerrar={terminado}>
+      <p className="iv-hint" style={{ marginTop: 0 }}>Se registró la compra de <b>{resumen.n}</b> producto{resumen.n === 1 ? '' : 's'} por <b className="oro">{fmt(resumen.total)}</b>. El stock y el costo ya quedaron al día.</p>
+      <div className="pn-acc"><button className="si" onClick={terminado}>Cerrar</button></div>
+    </Modal>
+  );
+  return (
+    <Modal titulo="✓ Recibir pedido" cerrar={cerrar} ancho={760}>
+      <p className="iv-hint" style={{ marginTop: 0 }}>Escribe lo que <b>de verdad llegó</b> y lo que costó. Lo que dejes en 0 no se registra. Al confirmar, el stock y el costo de cada producto se actualizan.</p>
+      <div className="iv-scroll"><table className="iv-t">
+        <thead><tr><th>Producto</th><th className="n">Pedido</th><th className="n">Llegó</th><th className="n">Costo</th><th className="n">Margen</th></tr></thead>
+        <tbody>{filas.map((f) => (
+          <tr key={f.l.p.Id}><td>{f.l.p.Nombre}</td>
+            <td className="n">{f.pres ? `${f.l.cajas} ${inv.nombrePresentacion(f.pres, f.l.cajas)}` : f.l.cant}</td>
+            <td className="n"><input className="iv-rc-in" inputMode="numeric" value={f.llego || ''} placeholder="0" onChange={(e) => poner(f.l.p.Id, 'llego', e.target.value)} />{f.pres && <small className="mut"> {f.uds} u</small>}</td>
+            <td className="n"><input className="iv-rc-in" inputMode="numeric" value={f.costo || ''} placeholder="0" title={f.pres ? `Costo por ${f.pres.nombre.toLowerCase()}` : 'Costo por unidad'} onChange={(e) => poner(f.l.p.Id, 'costo', e.target.value)} />{f.pres && <small className="mut"> {fmt(f.costoU)} c/u</small>}</td>
+            <td className="n">{f.c ? <span className={`iv-m ${f.bajo ? 'bajo' : 'ok'}`}>{Math.round(f.c.despues.margen)}%</span> : '—'}</td></tr>))}
+        </tbody></table></div>
+      {falta && <div className="iv-al r">⚠ Falta el costo de algún producto que llegó.</div>}
+      <div className="pn-acc"><span className="iv-rc-tot">Total: <b className="oro">{fmt(total)}</b></span>
+        <button className="no" onClick={cerrar}>Cancelar</button>
+        <button className="si" disabled={ocupado || aRegistrar.length === 0 || falta} onClick={registrar}>{ocupado ? 'Registrando…' : `✓ Registrar ${aRegistrar.length} producto${aRegistrar.length === 1 ? '' : 's'}`}</button></div>
     </Modal>
   );
 }
