@@ -26,6 +26,7 @@ import { get as getReg } from './db/repository.js';
 import Inactividad from './components/Inactividad.jsx';
 import AlertaGarita from './components/AlertaGarita.jsx';
 import IndicadorSync from './components/IndicadorSync.jsx';
+import AvisoPrecios from './components/CambiosPrecio.jsx';
 // ------------------------------------------------------------
 // Semillas locales (Ids fijos = idempotentes ante StrictMode).
 // Directo al store, SIN cola: son referencia local, no cambios
@@ -131,6 +132,7 @@ return (
       <AlertaGarita visible={ruta.pantalla !== 'cuenta'} irACuenta={(cuentaId) => setRuta({ pantalla: 'cuenta', cuentaId })} />
       <Inactividad cerrar={cerrarSesion} />
       <IndicadorSync />
+      <AvisoPrecios usuario={usuario} visible={ruta.pantalla === 'tablero' || ruta.pantalla === 'inventario'} clave={ruta.pantalla} />
     </div>
     </SesionContext.Provider>
   );

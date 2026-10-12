@@ -190,3 +190,14 @@ export function evaluarRecepcion({ p, llego, costo, objetivo = MARGEN_OBJETIVO }
   const c = costoU > 0 ? compararCompra({ precio: p.PrecioVenta, costoAntes: p.CostoCompra ?? 0, costoNuevo: costoU, objetivo }) : null;
   return { pres, uds, costoU, total: llego * costo, c, bajo: !!c?.bajo, valida: llego > 0 && costo > 0 };
 }
+
+// ── Cambios de precio de venta: quién, cuándo y de cuánto a cuánto (para avisar a los administradores)
+/** Lo que a este usuario le falta por enterarse: cambios hechos por OTRAS personas después de `visto` (ISO). */
+export const cambiosSinVer = (cambios, visto, usuarioId) => cambios.filter((c) => c.UsuarioId !== usuarioId && (!visto || c.Fecha > visto));
+/** Mensaje de WhatsApp para el grupo de administradores (el más viejo primero). */
+export function textoCambiosPrecio(cambios, fecha) {
+  const quienes = [...new Set(cambios.map((c) => c.Usuario).filter(Boolean))];
+  const l = ['*MERO PARCHE — Cambio de precios*', fecha + (quienes.length ? ` · ${quienes.join(' y ')}` : ''), ''];
+  for (const c of [...cambios].reverse()) l.push(`• ${c.Nombre}: ${pesos(c.Antes)} → ${pesos(c.Despues)}`);
+  return l.join('\n');
+}

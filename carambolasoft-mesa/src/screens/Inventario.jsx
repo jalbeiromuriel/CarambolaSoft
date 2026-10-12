@@ -7,7 +7,9 @@ import { categoriaDe, norm, deCategoria, EMOJIS_CAT, COLORES_CAT, CONSUMOS } fro
 import { asegurarCategorias, guardarCategoria, desactivarCategoria } from '../cuenta/categoriasDb.js';
 import * as inv from '../cuenta/inventario.js';
 import { getAll, put, leerMeta, escribirMeta } from '../db/repository.js';
-import { abrirEnvaseDb, registrarCompra } from '../cuenta/inventarioDb.js';
+import { abrirEnvaseDb, registrarCompra, anotarCambioPrecio, leerCambiosPrecio } from '../cuenta/inventarioDb.js';
+import { useSesion } from '../components/Sesion.jsx';
+import { CambiosPrecioModal } from '../components/CambiosPrecio.jsx';
 import { imprimirComo, nombrePdf } from '../cuenta/imprimir.js';
 import { HojaPedido } from '../informes/Hoja.jsx';
 import './Panel.css';
@@ -21,6 +23,8 @@ const ENUMS = [['BEBIDAS_ALCOHOLICAS', 'Licores'], ['SNACKS', 'Snacks'], ['BEBID
 const esVendible = (p) => p.ControlaStock !== false;   // fuera: garita y venta libre (no son del inventario)
 
 export default function Inventario() {
+  const { usuario } = useSesion();
+  const [sinAvisar, setSinAvisar] = useState(0);   // cambios de precio que aún no se han avisado al grupo de ADM
   const [todosProd, setTodosProd] = useState([]);   // incluye desactivados
   const [verOff, setVerOff] = useState(false);
   const productos = useMemo(() => todosProd.filter((p) => p.Activo !== false), [todosProd]);   // todo el cálculo usa solo los activos
@@ -43,6 +47,7 @@ export default function Inventario() {
     setTodosProd(todos);
     setCategorias((await asegurarCategorias()).filter((c) => c.Activo !== false));
     setObjetivo((await leerMeta('negocio.margenObjetivo')) ?? inv.MARGEN_OBJETIVO);
+    setSinAvisar((await leerCambiosPrecio()).filter((c) => !c.Avisado).length);
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
   const decir = (m) => { setAviso(m); setTimeout(() => setAviso(''), 2400); };
@@ -56,7 +61,10 @@ export default function Inventario() {
   const nombresCat = useMemo(() => [...new Set(productos.map((p) => categoriaDe(p, categorias).nombre))], [productos, categorias]);
   const bajos = useMemo(() => inv.productosBajoMargen(productos, objetivo), [productos, objetivo]);
 
-  async function guardar(p, cambios, msg) { await put('PRODUCTOS', { ...p, ...cambios }); await cargar(); setModal(null); if (msg) decir(msg); }
+  async function guardar(p, cambios, msg) {
+    await put('PRODUCTOS', { ...p, ...cambios });
+    if ('PrecioVenta' in cambios) await anotarCambioPrecio({ p, antes: p.PrecioVenta, despues: cambios.PrecioVenta, usuario, motivo: 'Simulador' });
+    await cargar(); setModal(null); if (msg) decir(msg); }
 
   return (
     <>
@@ -71,6 +79,7 @@ export default function Inventario() {
           <button className="iv-b o" onClick={() => setModal({ tipo: 'repo' })}>📋 Reposición</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'audpromo' })}>🏷️ Auditoría promos</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'importar' })}>📂 Importar POS</button>
+          <button className="iv-b o" title="Cambios de precio de los últimos 30 días y aviso al grupo de ADM" onClick={() => setModal({ tipo: 'precios' })}>📣 Cambios de precio{sinAvisar > 0 ? ` (${sinAvisar})` : ''}</button>
           <button className="iv-b ro" title={`${bajos.length} producto(s) con margen bajo ${objetivo}%`} onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes · {bajos.length}</button>
         </div>
         <div className="iv-cats">
@@ -119,9 +128,10 @@ export default function Inventario() {
       {modal?.tipo === 'reab' && <Reabastecer productos={productos} objetivo={objetivo} cerrar={() => setModal(null)} listo={async (msg) => { await cargar(); setModal(null); decir(msg); }} />}
       {modal?.tipo === 'margenes' && <Margenes productos={productos} objetivo={objetivo} cerrar={() => setModal(null)}
         cambiarObjetivo={async (v) => { await escribirMeta('negocio.margenObjetivo', v); setObjetivo(v); }}
-        aplicar={async (p, precio) => { await put('PRODUCTOS', { ...p, PrecioVenta: precio }); await cargar(); decir(`${p.Nombre}: nuevo precio ${fmt(precio)} ✓`); }} />}
+        aplicar={async (p, precio) => { await put('PRODUCTOS', { ...p, PrecioVenta: precio }); await anotarCambioPrecio({ p, antes: p.PrecioVenta, despues: precio, usuario, motivo: 'Márgenes' }); await cargar(); decir(`${p.Nombre}: nuevo precio ${fmt(precio)} ✓`); }} />}
       {modal?.tipo === 'editar' && <Editar p={modal.prod} productos={productos} categorias={categorias} objetivo={objetivo} cerrar={() => setModal(null)}
-        guardar={async (datos) => { await put('PRODUCTOS', { ...(modal.prod ?? { Activo: true }), ...datos }); await cargar(); setModal(null); decir('Guardado ✓'); }} />}
+        guardar={async (datos) => { await put('PRODUCTOS', { ...(modal.prod ?? { Activo: true }), ...datos }); await anotarCambioPrecio({ p: modal.prod ?? datos, antes: modal.prod?.PrecioVenta, despues: datos.PrecioVenta, usuario, motivo: 'Editar' }); await cargar(); setModal(null); decir('Guardado ✓'); }} />}
+      {modal?.tipo === 'precios' && <CambiosPrecioModal usuario={usuario} cerrar={() => { setModal(null); cargar(); }} />}
       {aviso && <div className="iv-toast">{aviso}</div>}
     </>
   );
@@ -210,6 +220,7 @@ function Promo({ p, objetivo, cerrar, guardar }) {
 }
 
 function Reabastecer({ productos, objetivo, cerrar, listo }) {
+  const { usuario } = useSesion();
   const [id, setId] = useState('');
   const [cant, setCant] = useState(0);
   const [costo, setCosto] = useState(0);
@@ -224,6 +235,7 @@ function Reabastecer({ productos, objetivo, cerrar, listo }) {
   const c = p && costoU > 0 ? inv.compararCompra({ precio: p.PrecioVenta, costoAntes: p.CostoCompra ?? 0, costoNuevo: costoU, objetivo }) : null;
   async function registrar(nuevoPrecio) {
     await registrarCompra(p, uds, costoU, nuevoPrecio);
+    if (nuevoPrecio) await anotarCambioPrecio({ p, antes: p.PrecioVenta, despues: nuevoPrecio, usuario, motivo: 'Reabastecer' });
     listo(`Compra registrada: +${uds} ${p.Nombre}${nuevoPrecio ? ` · precio ${fmt(nuevoPrecio)}` : ''} ✓`);
   }
   if (alerta) return (
@@ -491,7 +503,7 @@ function ListaReposicion({ productos, categorias, objetivo, recargar, cerrar }) 
         <p className="iv-rp-nota">Pedir = vendido en el período + stock mínimo − stock actual. Las copas se cuentan en su botella. Los productos que se compran por caja se piden en cajas completas. Marca solo lo que vas a pedir hoy y cambia la cantidad o el costo si hace falta: el costo escrito aquí solo estima este pedido, no cambia el del producto (ese se registra al recibir la mercancía, en Reabastecer).</p>
       </div>
       {presDe && <PresentacionRapida p={presDe} cerrar={() => setPresDe(null)} listo={async () => { setPresDe(null); await recargar(); }} />}
-      {recibir && <RecibirPedido lineas={lineas} objetivo={objetivo} cerrar={() => setRecibir(false)} terminado={async () => { setRecibir(false); setCambios({}); setCostos({}); setQuitados({}); await recargar(); }} />}
+      {recibir && <RecibirPedido lineas={lineas} productos={productos} objetivo={objetivo} cerrar={() => setRecibir(false)} terminado={async () => { setRecibir(false); setCambios({}); setCostos({}); setQuitados({}); await recargar(); }} />}
       {tirilla && <HojaPedido lineas={lineas} total={inversion} texto={inv.textoPedido(lineas, inversion, fechaLarga)} cerrar={() => setTirilla(false)} />}
     </div>, document.body
   );
@@ -520,18 +532,29 @@ function PresentacionRapida({ p, cerrar, listo }) {
  * Recibir pedido: de lo marcado en la lista, registra lo que de verdad llegó (cantidad y costo) en un solo paso.
  * Suma el stock y deja el costo de cada producto; después muestra los que quedaron con margen bajo para que TÚ decidas el precio.
  */
-function RecibirPedido({ lineas, objetivo, cerrar, terminado }) {
+function RecibirPedido({ lineas, productos, objetivo, cerrar, terminado }) {
+  const { usuario } = useSesion();
   const [paso, setPaso] = useState('revisar');   // revisar → precios (si hay margen bajo) → fin
   const [ent, setEnt] = useState(() => Object.fromEntries(lineas.map((l) => [l.p.Id, { llego: l.cajas ?? l.cant, costo: Math.round(l.pres ? l.costo * l.pres.unidades : l.costo) }])));
   const [ocupado, setOcupado] = useState(false);
+  const [extras, setExtras] = useState([]);       // productos que llegaron y no estaban en el pedido
   const [bajos, setBajos] = useState([]);       // { p (ya con el costo nuevo), sugerido, margen }
   const [hechos, setHechos] = useState({});     // Id → 'subido' | 'dejado'
   const [resumen, setResumen] = useState({ n: 0, total: 0 });
-  const filas = lineas.map((l) => ({ l, ...ent[l.p.Id], ...inv.evaluarRecepcion({ p: l.p, llego: ent[l.p.Id].llego, costo: ent[l.p.Id].costo, objetivo }) }));
+  const todas = [...lineas, ...extras];
+  const filas = todas.map((l) => { const e = ent[l.p.Id]; return { l, ...e, ...inv.evaluarRecepcion({ p: l.p, llego: e.quitada ? 0 : e.llego, costo: e.costo, objetivo }) }; });
   const aRegistrar = filas.filter((f) => f.valida);
-  const falta = filas.some((f) => f.llego > 0 && f.costo <= 0);
+  const falta = filas.some((f) => f.llego > 0 && !f.quitada && f.costo <= 0);
   const total = aRegistrar.reduce((a, f) => a + f.total, 0);
   const poner = (id, k, v) => setEnt({ ...ent, [id]: { ...ent[id], [k]: num(v) } });
+  const alternarQuitada = (id) => setEnt({ ...ent, [id]: { ...ent[id], quitada: !ent[id].quitada } });   // "no llegó": no se registra, y se puede deshacer
+  const disponibles = productos.filter((x) => x.Activo !== false && x.ControlaStock !== false && !inv.esFraccionado(x) && !todas.some((l) => l.p.Id === x.Id)).sort((a, b) => a.Nombre.localeCompare(b.Nombre, 'es'));
+  const agregar = (id) => {
+    const x = productos.find((y) => y.Id === id); if (!x) return;
+    const pres = inv.presentacionDe(x), costo = x.CostoCompra ?? 0;
+    setEnt({ ...ent, [id]: { llego: 0, costo: Math.round(pres ? costo * pres.unidades : costo) } });
+    setExtras([...extras, { p: x, pres, cant: 0, cajas: pres ? 0 : null, costo, extra: true }]);
+  };
 
   async function registrar() {
     setOcupado(true);
@@ -544,7 +567,7 @@ function RecibirPedido({ lineas, objetivo, cerrar, terminado }) {
     setBajos(quedaron); setOcupado(false);
     setPaso(quedaron.length ? 'precios' : 'fin');
   }
-  async function subir(b) { await put('PRODUCTOS', { ...b.p, PrecioVenta: b.sugerido }); setHechos((h) => ({ ...h, [b.p.Id]: 'subido' })); }
+  async function subir(b) { await put('PRODUCTOS', { ...b.p, PrecioVenta: b.sugerido }); await anotarCambioPrecio({ p: b.p, antes: b.p.PrecioVenta, despues: b.sugerido, usuario, motivo: 'Recibir pedido' }); setHechos((h) => ({ ...h, [b.p.Id]: 'subido' })); }
   const pendientes = bajos.filter((b) => !hechos[b.p.Id]);
 
   if (paso === 'precios') return (
@@ -572,16 +595,18 @@ function RecibirPedido({ lineas, objetivo, cerrar, terminado }) {
   );
   return (
     <Modal titulo="✓ Recibir pedido" cerrar={cerrar} ancho={760}>
-      <p className="iv-hint" style={{ marginTop: 0 }}>Escribe lo que <b>de verdad llegó</b> y lo que costó. Lo que dejes en 0 no se registra. Al confirmar, el stock y el costo de cada producto se actualizan.</p>
+      <p className="iv-hint" style={{ marginTop: 0 }}>Escribe lo que <b>de verdad llegó</b> y lo que costó. Si algo <b>no llegó</b>, pulsa ✕ (o déjalo en 0): no se registra y sigue en la lista para el próximo pedido. Al confirmar, el stock y el costo de cada producto se actualizan.</p>
       <div className="iv-scroll"><table className="iv-t">
-        <thead><tr><th>Producto</th><th className="n">Pedido</th><th className="n">Llegó</th><th className="n">Costo</th><th className="n">Margen</th></tr></thead>
+        <thead><tr><th>Producto</th><th className="n">Pedido</th><th className="n">Llegó</th><th className="n">Costo</th><th className="n">Margen</th><th /></tr></thead>
         <tbody>{filas.map((f) => (
-          <tr key={f.l.p.Id}><td>{f.l.p.Nombre}</td>
-            <td className="n">{f.pres ? `${f.l.cajas} ${inv.nombrePresentacion(f.pres, f.l.cajas)}` : f.l.cant}</td>
+          <tr key={f.l.p.Id} className={f.quitada ? 'no' : ''}><td>{f.l.p.Nombre}{f.l.extra && <span className="iv-env">no pedido</span>}</td>
+            <td className="n">{f.l.extra ? '—' : f.pres ? `${f.l.cajas} ${inv.nombrePresentacion(f.pres, f.l.cajas)}` : f.l.cant}</td>
             <td className="n"><input className="iv-rc-in" inputMode="numeric" value={f.llego || ''} placeholder="0" onChange={(e) => poner(f.l.p.Id, 'llego', e.target.value)} />{f.pres && <small className="mut"> {f.uds} u</small>}</td>
             <td className="n"><input className="iv-rc-in" inputMode="numeric" value={f.costo || ''} placeholder="0" title={f.pres ? `Costo por ${f.pres.nombre.toLowerCase()}` : 'Costo por unidad'} onChange={(e) => poner(f.l.p.Id, 'costo', e.target.value)} />{f.pres && <small className="mut"> {fmt(f.costoU)} c/u</small>}</td>
-            <td className="n">{f.c ? <span className={`iv-m ${f.bajo ? 'bajo' : 'ok'}`}>{Math.round(f.c.despues.margen)}%</span> : '—'}</td></tr>))}
+            <td className="n">{f.c && !f.quitada ? <span className={`iv-m ${f.bajo ? 'bajo' : 'ok'}`}>{Math.round(f.c.despues.margen)}%</span> : '—'}</td>
+            <td><button className="iv-rc-x" title={f.quitada ? 'Volver a incluirlo' : 'No llegó: no se registra'} onClick={() => alternarQuitada(f.l.p.Id)}>{f.quitada ? '↺' : '✕'}</button></td></tr>))}
         </tbody></table></div>
+      <select value="" onChange={(e) => agregar(e.target.value)} style={{ marginTop: 10 }}><option value="">+ Agregar un producto que llegó y no estaba en el pedido</option>{disponibles.map((x) => <option key={x.Id} value={x.Id}>{x.Nombre}</option>)}</select>
       {falta && <div className="iv-al r">⚠ Falta el costo de algún producto que llegó.</div>}
       <div className="pn-acc"><span className="iv-rc-tot">Total: <b className="oro">{fmt(total)}</b></span>
         <button className="no" onClick={cerrar}>Cancelar</button>

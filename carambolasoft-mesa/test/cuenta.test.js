@@ -332,3 +332,14 @@ test('recibir pedido: unidades, costo por unidad y margen; por caja y por unidad
   assert.equal(evaluarRecepcion({ p: doritos, llego: 0, costo: 950 }).valida, false);   // lo que llega en 0 no se registra
   assert.equal(evaluarRecepcion({ p: doritos, llego: 5, costo: 0 }).valida, false);     // sin costo no se registra
 });
+
+test('cambios de precio: lo no visto es de OTROS y el texto sale del más viejo al más nuevo', () => {
+  const c = [
+    { Id: '2', Fecha: '2026-10-12T12:00:00Z', Nombre: 'Corona', Antes: 5500, Despues: 6000, UsuarioId: 'a', Usuario: 'Ana' },
+    { Id: '1', Fecha: '2026-10-12T10:00:00Z', Nombre: 'Águila', Antes: 5000, Despues: 5500, UsuarioId: 'b', Usuario: 'Beto' },
+  ];
+  assert.equal(inv.cambiosSinVer(c, null, 'a').length, 1);
+  assert.equal(inv.cambiosSinVer(c, '2026-10-12T11:00:00Z', 'b').length, 1);
+  const t = inv.textoCambiosPrecio(c, '12 de octubre');
+  assert.ok(t.indexOf('Águila') < t.indexOf('Corona'));
+});
