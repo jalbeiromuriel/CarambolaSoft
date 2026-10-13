@@ -6,6 +6,7 @@ import PinPad from '../components/PinPad.jsx';
 import { crearUsuario, verificarLogin, cambiarPin, rescatar, autorizaAdmin } from '../cuenta/authDb.js';
 import { pinValido, esAdmin, estaBloqueado, msBloqueo } from '../cuenta/auth.js';
 import { mmss } from '../cuenta/garita.js';
+import { iniciarSesionApi } from '../db/apiSesion.js';
 import './Panel.css';
 import './Auth.css';
 
@@ -76,8 +77,12 @@ export function Login({ usuarios, entrar }) {
   async function ingresar() {
     if (!sel || pin.length < 4) return;
     const r = await verificarLogin(sel.Id, pin);
+    const pinDigitado = pin;
     setPin('');
-    if (r.usuario) { entrar(r.usuario); return; }
+    if (r.usuario) {
+      if (!r.usuario.DebeCambiarPin) iniciarSesionApi(r.usuario.Nombre, pinDigitado);   // sin esperar: si no hay internet, la app entra igual (offline-first)
+      entrar(r.usuario); return;
+    }
     if (r.bloqueado) { setBloq(r.bloqueado); setError(''); return; }
     setError(r.restantes ? `PIN incorrecto · te quedan ${r.restantes} ${r.restantes === 1 ? 'intento' : 'intentos'}` : r.error);
   }

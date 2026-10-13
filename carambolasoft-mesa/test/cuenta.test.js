@@ -153,7 +153,7 @@ test('auth: rescate y secciones por rol', () => {
   assert.ok(esAdmin('PATRONA') && !esAdmin('EMPLEADO'));
 });
 
-import { estadoInactividad, INACTIVIDAD_MS } from '../src/cuenta/auth.js';
+import { estadoInactividad, INACTIVIDAD_MS, sesionApiVigente } from '../src/cuenta/auth.js';
 test('auth: inactividad avisa 30 s antes y cierra a los 10 min', () => {
   const t = 1_000_000;
   assert.equal(estadoInactividad(t, t + 60000), 'activa');
@@ -342,4 +342,12 @@ test('cambios de precio: lo no visto es de OTROS y el texto sale del más viejo 
   assert.equal(inv.cambiosSinVer(c, '2026-10-12T11:00:00Z', 'b').length, 1);
   const t = inv.textoCambiosPrecio(c, '12 de octubre');
   assert.ok(t.indexOf('Águila') < t.indexOf('Corona'));
+});
+
+test('sesión del API: vigente solo con token y más de 1 minuto de margen', () => {
+  const ahora = Date.parse('2026-10-12T12:00:00Z');
+  assert.equal(sesionApiVigente(null, ahora), false);
+  assert.equal(sesionApiVigente({ token: 't', vence: '2026-10-12T12:00:30Z' }, ahora), false);
+  assert.equal(sesionApiVigente({ token: 't', vence: '2026-10-12T20:00:00Z' }, ahora), true);
+  assert.equal(sesionApiVigente({ token: '', vence: '2026-10-12T20:00:00Z' }, ahora), false);
 });
