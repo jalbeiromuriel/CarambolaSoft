@@ -32,3 +32,43 @@ export function planSubida(categorias, productos) {
   const orden = [...validos.filter((p) => !p.Fraccion?.OrigenId), ...validos.filter((p) => p.Fraccion?.OrigenId)];
   return { categorias: cats, productos: orden, omitidos };
 }
+
+/** Cambio de precio de la app → CambioPrecioSyncDto. */
+export const cambioPrecioADto = (c) => ({
+  Id: c.Id, ProductoId: c.ProductoId, PrecioAntes: Number(c.Antes) || 0, PrecioDespues: Number(c.Despues) || 0,
+  FechaHora: c.Fecha, UsuarioId: c.UsuarioId ?? null, UsuarioNombre: c.Usuario || null, Motivo: c.Motivo || null,
+  Avisado: !!c.Avisado, UltimaModificacion: c.UltimaModificacion ?? c.Fecha,
+});
+
+/** ¿Este producto es inventario subible? (con categoría válida y no de tiempo de mesa) */
+export const esProductoSubible = (p, idsCategorias) => !!p.CategoriaId && idsCategorias.has(p.CategoriaId) && p.CategoriaConsumo !== 'TIEMPO';
+
+// ── Bajada: lo que trae el servidor se mezcla con lo local SIN pisar lo que este equipo aún no ha subido.
+/** Producto del servidor (PascalCase plano) → campos de catálogo de la app. NO incluye StockActual: el stock manda en el equipo hasta que suban las ventas. */
+export function camposProductoServidor(s) {
+  return {
+    CategoriaId: s.CategoriaId, Nombre: s.Nombre, PrecioVenta: Number(s.PrecioVenta), CostoCompra: Number(s.CostoCompra),
+    CostoUltimaCompra: s.CostoUltimaCompra ?? undefined, StockMinimo: s.StockMinimo, Activo: s.Activo !== false, Codigo: s.Codigo ?? undefined,
+    ControlaStock: s.ControlaStock !== false, Favorito: !!s.Favorito,
+    Presentacion: s.PresentacionCompra && s.UnidadesPorPresentacion ? { Nombre: s.PresentacionCompra, Unidades: s.UnidadesPorPresentacion } : undefined,
+    Fraccion: s.FraccionOrigenId && s.FraccionRinde ? { OrigenId: s.FraccionOrigenId, Rinde: s.FraccionRinde } : undefined,
+  };
+}
+/** Qué guardar en local al llegar un producto del servidor: null = no tocar (el local tiene cambios sin subir). */
+export function mezclarProducto(local, servidor) {
+  const campos = camposProductoServidor(servidor);
+  if (!local) return { Id: servidor.Id, ...campos, StockActual: servidor.StockActual ?? 0, EsSincronizado: true };
+  if (local.EsSincronizado === false) return null;
+  const mezcla = { ...local, ...campos, EsSincronizado: true };
+  if (campos.Presentacion === undefined) delete mezcla.Presentacion;
+  if (campos.Fraccion === undefined) delete mezcla.Fraccion;
+  return mezcla;
+}
+/** Categoría del servidor → categoría de la app. */
+export function mezclarCategoria(local, s) {
+  const campos = { Nombre: s.Nombre, Emoji: s.Icono ?? local?.Emoji, Color: s.ColorHex ?? local?.Color, Consumo: s.CategoriaConsumo ?? local?.Consumo, Activo: s.Activo !== false };
+  if (!local) return { Id: s.Id, ...campos, EsSincronizado: true };
+  if (local.EsSincronizado === false) return null;
+  return { ...local, ...campos, EsSincronizado: true };
+}
+

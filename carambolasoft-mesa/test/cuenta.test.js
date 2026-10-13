@@ -370,3 +370,23 @@ test('sync: categoría → DTO y plan de subida (omite sin categoría y de tiemp
   assert.deepEqual(plan.productos.map((p) => p.Id), ['bot', 'copa']);
   assert.deepEqual(plan.omitidos.map((p) => p.Id), ['sin', 'mesa']);
 });
+
+import { cambioPrecioADto, mezclarProducto, mezclarCategoria, esProductoSubible } from '../src/cuenta/syncMapas.js';
+test('sync bajada: lo local sin subir gana; lo ya subido se actualiza sin tocar el stock local', () => {
+  const srv = { Id: 'p', CategoriaId: 'c', Nombre: 'Águila', PrecioVenta: 4500, CostoCompra: 2400, StockMinimo: 6, Activo: true, ControlaStock: true, Favorito: false,
+    PresentacionCompra: 'Caja', UnidadesPorPresentacion: 30, StockActual: 99 };
+  assert.equal(mezclarProducto({ Id: 'p', EsSincronizado: false, PrecioVenta: 5000 }, srv), null);
+  const m = mezclarProducto({ Id: 'p', EsSincronizado: true, PrecioVenta: 4000, StockActual: 12, Fraccion: { OrigenId: 'x', Rinde: 3 } }, srv);
+  assert.equal(m.PrecioVenta, 4500); assert.equal(m.StockActual, 12); assert.deepEqual(m.Presentacion, { Nombre: 'Caja', Unidades: 30 });
+  assert.equal(m.Fraccion, undefined);   // el servidor manda: ya no es fraccionado
+  assert.equal(mezclarProducto(null, srv).StockActual, 99);   // producto nuevo en este equipo: trae el stock del servidor
+  assert.equal(mezclarCategoria({ Id: 'c', EsSincronizado: false }, { Id: 'c', Nombre: 'X' }), null);
+  assert.equal(mezclarCategoria(null, { Id: 'c', Nombre: 'Licores', Icono: '🥃', ColorHex: '#e879f9', CategoriaConsumo: 'BEBIDAS_ALCOHOLICAS', Activo: true }).Consumo, 'BEBIDAS_ALCOHOLICAS');
+});
+test('sync: cambio de precio → DTO y producto subible', () => {
+  const d = cambioPrecioADto({ Id: 'k', ProductoId: 'p', Antes: 4000, Despues: 4500, Fecha: '2026-10-12T20:00:00Z', Usuario: 'Albeiro', Motivo: 'Editar', Avisado: false });
+  assert.equal(d.PrecioAntes, 4000); assert.equal(d.PrecioDespues, 4500); assert.equal(d.UsuarioNombre, 'Albeiro'); assert.equal(d.FechaHora, '2026-10-12T20:00:00Z');
+  assert.equal(esProductoSubible({ CategoriaId: 'c' }, new Set(['c'])), true);
+  assert.equal(esProductoSubible({ CategoriaId: 'c', CategoriaConsumo: 'TIEMPO' }, new Set(['c'])), false);
+  assert.equal(esProductoSubible({ CategoriaId: null }, new Set(['c'])), false);
+});

@@ -6,7 +6,7 @@
 // ============================================================
 
 export const DB_NAME = 'ElParcheDeJony';   // nombre técnico — NO renombrar sin migración
-export const DB_VERSION = 6;                // v4: USUARIOS · v5: CIERRE_NOTAS (aclaraciones de cierres sellados) · v6: PRESTAMOS_PERSONAL
+export const DB_VERSION = 7;                // v4: USUARIOS · v5: CIERRE_NOTAS (aclaraciones de cierres sellados) · v6: PRESTAMOS_PERSONAL · v7: CAMBIOS_PRECIO (quién cambió un precio; sube al servidor)
 
 // Espejo 1:1 de las 19 tablas SQL (keyPath = Id, GUID generado en cliente)
 export const STORES = [
@@ -32,6 +32,7 @@ export const STORES = [
   'GARITAS_RELOJ',
   'USUARIOS',
   'PRESTAMOS_PERSONAL',   // solo local por ahora: la caja le presta a un empleado/admin y se lo devuelve
+  'CAMBIOS_PRECIO',   // registro de cambios de precio de venta; sube al servidor para avisar a los administradores
   'CIERRE_NOTAS',   // solo local por ahora: aclaraciones a un cierre sellado (el cierre no se edita)
 ];
 
