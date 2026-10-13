@@ -27,6 +27,7 @@ import Inactividad from './components/Inactividad.jsx';
 import AlertaGarita from './components/AlertaGarita.jsx';
 import IndicadorSync from './components/IndicadorSync.jsx';
 import { cerrarSesionApi } from './db/apiSesion.js';
+import { iniciarSync, detenerSync } from './db/sync.js';
 import AvisoPrecios from './components/CambiosPrecio.jsx';
 // ------------------------------------------------------------
 // Semillas locales (Ids fijos = idempotentes ante StrictMode).
@@ -103,6 +104,13 @@ export default function App() {
       setListo(true);
     })();
   }, []);
+
+  // El motor corre mientras haya alguien en turno. Sin sesión del servidor (sin internet o sin API) no hace nada y la app sigue normal.
+  useEffect(() => {
+    if (!usuario || usuario._cambiar) return undefined;
+    iniciarSync();
+    return () => detenerSync();
+  }, [usuario]);
 
   if (!listo) return null;
   if (usuarios.length === 0) return <><style>{ESTILOS}</style><PrimerUso listo={entrar} /></>;

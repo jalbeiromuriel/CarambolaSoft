@@ -16,10 +16,12 @@ import {
   moverADeadLetter,
   get,
   putSincronizado,
+  getAll,
   leerMeta,
   escribirMeta,
 } from './repository.js';
 import { API_BASE, cabecerasApi, sesionApi, cerrarSesionApi } from './apiSesion.js';
+import { categoriaADto, productoADto, cambioPrecioADto, esProductoSubible, mezclarProducto, mezclarCategoria } from '../cuenta/syncMapas.js';
 
 
 // subir() y bajar() ya viven en este mismo archivo.
@@ -29,7 +31,22 @@ import { API_BASE, cabecerasApi, sesionApi, cerrarSesionApi } from './apiSesion.
 const RUTA_SYNC = {
   CUENTAS:         'cuentas',
   PEDIDOS_CUENTAS: 'pedidos',
+  CATEGORIAS:      'categorias',
+  PRODUCTOS:       'productos',
+  CAMBIOS_PRECIO:  'cambios-precio',
 };
+
+// Tablas que el motor sube HOY. Cuentas y pedidos siguen parqueados en la cola: necesitan que los turnos de
+// caja también suban al servidor (endpoint pendiente) o el servidor los rechazaría por llave foránea.
+const TABLAS_ACTIVAS = ['CATEGORIAS', 'PRODUCTOS', 'CAMBIOS_PRECIO'];
+
+// Lo que se manda por cada tabla: el registro de la app convertido al formato plano del API.
+const CUERPO = {
+  CATEGORIAS: categoriaADto,
+  PRODUCTOS: productoADto,
+  CAMBIOS_PRECIO: cambioPrecioADto,
+};
+const aCuerpo = (tabla, registro) => (CUERPO[tabla] ? CUERPO[tabla](registro) : registro);
 
 /**
  * Sube un registro individual al API.
@@ -42,7 +59,7 @@ async function subirRegistro(tabla, registro) {
   const resp = await fetch(url, {
     method: 'PUT',
     headers: cabecerasApi({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(registro),
+    body: JSON.stringify(aCuerpo(tabla, registro)),
   });
 
   return resp.status;
@@ -64,7 +81,15 @@ export async function subir() {
     frenadoPor: null, // si algo detiene el drenaje, aquí queda el motivo
   };
 
+  // Solo las tablas activas; y si un mismo registro está varias veces en la cola, basta la última (se manda el registro actual).
+  const ultimoSeq = new Map();
+  for (const it of cola) ultimoSeq.set(`${it.tabla}:${it.registroId}`, it.seq);
+  const idsCategorias = new Set((await getAll('CATEGORIAS')).map((c) => c.Id));
+
   for (const item of cola) {
+    if (!TABLAS_ACTIVAS.includes(item.tabla)) { resumen.saltados++; continue; }
+    if (ultimoSeq.get(`${item.tabla}:${item.registroId}`) !== item.seq) { await borrarDeCola(item.seq); continue; }
+
     // ── 1. ¿Hay endpoint para esta tabla? ──
     const segmento = RUTA_SYNC[item.tabla];
     if (!segmento) {
@@ -84,6 +109,9 @@ export async function subir() {
       resumen.muertos++;
       continue;
     }
+
+    // Productos que no son inventario (de tiempo de mesa o sin categoría): no existen en el servidor, se descartan de la cola.
+    if (item.tabla === 'PRODUCTOS' && !esProductoSubible(registro, idsCategorias)) { await borrarDeCola(item.seq); continue; }
 
     // ── 3. Disparar el PUT y decidir según el status ──
     let status;
@@ -109,6 +137,7 @@ export async function subir() {
     if (status === 200 || status === 201) {
       // Éxito. El server confirmó (pudo corregir precio, eso es normal).
       await borrarDeCola(item.seq);
+      await putSincronizado(item.tabla, { ...registro, EsSincronizado: true });   // ya no tiene cambios sin subir
       resumen.subidos++;
     } else if (status === 409 || status === 422) {
       // Integridad rota (FK, constraint). Reintentar no arregla nada.
@@ -131,13 +160,7 @@ export async function subir() {
 //  BAJADA — traer catálogo del server por cursor incremental
 // ============================================================
 
-const BAJADA_STORES = {
-  productos:    'PRODUCTOS',
-  categorias:   'CATEGORIAS',
-  promociones:  'PROMOCIONES',
-  mesas:        'MESAS_BILLAR',
-};
-
+// Hoy solo baja el catálogo (productos y categorías). Mesas y promociones tienen IDs locales distintos a los del servidor y no se mezclan todavía.
 const CURSOR_KEY = 'sync.cursor';
 
 // Traductor: el backend serializa en camelCase (id, nombre...) pero
@@ -179,13 +202,15 @@ export async function bajar() {
   }
 
   // 3. Guardar cada array con putSincronizado (NO encola = no loop)
-  const resumen = {};
-  for (const [clave, store] of Object.entries(BAJADA_STORES)) {
-    const lista = data[clave] ?? [];
-    for (const registro of lista) {
-      await putSincronizado(store, aPascalCase(registro));
-    }
-    resumen[clave] = lista.length;
+  // Mezcla sin pisar lo que este equipo aún no ha subido (EsSincronizado === false gana el local).
+  const resumen = { categorias: 0, productos: 0, conservados: 0 };
+  for (const srv of (data.categorias ?? []).map(aPascalCase)) {
+    const nueva = mezclarCategoria(await get('CATEGORIAS', srv.Id), srv);
+    if (nueva) { await putSincronizado('CATEGORIAS', nueva); resumen.categorias++; } else resumen.conservados++;
+  }
+  for (const srv of (data.productos ?? []).map(aPascalCase)) {
+    const nueva = mezclarProducto(await get('PRODUCTOS', srv.Id), srv);
+    if (nueva) { await putSincronizado('PRODUCTOS', nueva); resumen.productos++; } else resumen.conservados++;
   }
 
   // 4. Avanzar el cursor con el reloj del SERVER (nunca el de la tablet)

@@ -1,5 +1,5 @@
 // src/cuenta/inventarioDb.js — Stock con fraccionados contra IndexedDB.
-import { get, put, leerMeta, escribirMeta } from '../db/repository.js';
+import { get, put, getAll, leerMeta, escribirMeta } from '../db/repository.js';
 import { descargar, abrirEnvase, esFraccionado } from './inventario.js';
 
 const origenDe = (p) => (esFraccionado(p) ? get('PRODUCTOS', p.Fraccion.OrigenId) : Promise.resolve(null));
@@ -29,21 +29,36 @@ export async function registrarCompra(p, uds, costoU, nuevoPrecio = null) {
   return put('PRODUCTOS', { ...p, StockActual: (p.StockActual ?? 0) + uds, CostoCompra: costoU, HistorialCostos: hist, ...(nuevoPrecio ? { PrecioVenta: nuevoPrecio } : {}) });
 }
 
-// ── Registro de cambios de precio de venta (local, en META; se sincronizará con el backend)
-const CLAVE_PRECIOS = 'precios.cambios';
+// ── Registro de cambios de precio de venta (store CAMBIOS_PRECIO; sube al servidor con el sync)
+const CLAVE_VIEJA = 'precios.cambios';          // antes vivía en META como lista; se pasa al store una sola vez
 const claveVisto = (usuarioId) => `precios.visto.${usuarioId}`;
-export const leerCambiosPrecio = async () => (await leerMeta(CLAVE_PRECIOS)) ?? [];
+let migrando = null;
+function migrarCambiosViejos() {
+  migrando ??= (async () => {
+    const viejos = await leerMeta(CLAVE_VIEJA);
+    if (Array.isArray(viejos) && viejos.length) {
+      const ya = new Set((await getAll('CAMBIOS_PRECIO')).map((c) => c.Id));
+      for (const c of viejos) if (!ya.has(c.Id)) await put('CAMBIOS_PRECIO', c);
+    }
+    await escribirMeta(CLAVE_VIEJA, []);
+  })();
+  return migrando;
+}
+/** Más nuevo primero. */
+export async function leerCambiosPrecio() {
+  await migrarCambiosViejos();
+  return (await getAll('CAMBIOS_PRECIO')).sort((a, b) => b.Fecha.localeCompare(a.Fecha));
+}
 /** Anota un cambio de precio de venta. Si el precio no cambió de verdad (o es un producto nuevo), no hace nada. */
 export async function anotarCambioPrecio({ p, antes, despues, usuario, motivo }) {
   if (typeof antes !== 'number' || typeof despues !== 'number' || antes === despues) return;
-  const l = await leerCambiosPrecio();
-  const nuevo = { Id: crypto.randomUUID(), Fecha: new Date().toISOString(), ProductoId: p.Id, Nombre: p.Nombre, Antes: antes, Despues: despues, UsuarioId: usuario?.Id ?? null, Usuario: usuario?.Nombre ?? '', Motivo: motivo ?? '', Avisado: false };
-  await escribirMeta(CLAVE_PRECIOS, [nuevo, ...l].slice(0, 300));
+  await migrarCambiosViejos();
+  await put('CAMBIOS_PRECIO', { Id: crypto.randomUUID(), Fecha: new Date().toISOString(), ProductoId: p.Id, Nombre: p.Nombre, Antes: antes, Despues: despues, UsuarioId: usuario?.Id ?? null, Usuario: usuario?.Nombre ?? '', Motivo: motivo ?? '', Avisado: false });
 }
 /** Marca como avisados (ya se mandó el WhatsApp al grupo). */
 export async function marcarAvisados(ids) {
   const set = new Set(ids);
-  await escribirMeta(CLAVE_PRECIOS, (await leerCambiosPrecio()).map((c) => (set.has(c.Id) ? { ...c, Avisado: true } : c)));
+  for (const c of (await getAll('CAMBIOS_PRECIO')).filter((x) => set.has(x.Id))) await put('CAMBIOS_PRECIO', { ...c, Avisado: true });
 }
 export const leerVisto = (usuarioId) => leerMeta(claveVisto(usuarioId));
 export const marcarVisto = (usuarioId) => escribirMeta(claveVisto(usuarioId), new Date().toISOString());
