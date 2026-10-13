@@ -351,3 +351,22 @@ test('sesión del API: vigente solo con token y más de 1 minuto de margen', () 
   assert.equal(sesionApiVigente({ token: 't', vence: '2026-10-12T20:00:00Z' }, ahora), true);
   assert.equal(sesionApiVigente({ token: '', vence: '2026-10-12T20:00:00Z' }, ahora), false);
 });
+
+import { productoADto, categoriaADto, planSubida } from '../src/cuenta/syncMapas.js';
+test('sync: producto → DTO aplana presentación y fracción, y no manda stock negativo', () => {
+  const d = productoADto({ Id: 'p', CategoriaId: 'c', Nombre: ' Águila ', PrecioVenta: 4000, CostoCompra: 2400, StockActual: -3, StockMinimo: 6,
+    Presentacion: { Nombre: 'Caja', Unidades: 30 }, Fraccion: { OrigenId: 'o', Rinde: 12 } });
+  assert.equal(d.Nombre, 'Águila'); assert.equal(d.StockActual, 0);
+  assert.equal(d.PresentacionCompra, 'Caja'); assert.equal(d.UnidadesPorPresentacion, 30);
+  assert.equal(d.FraccionOrigenId, 'o'); assert.equal(d.FraccionRinde, 12); assert.equal(d.CostoUltimaCompra, 2400);
+  const raro = productoADto({ Id: 'p', CategoriaId: 'c', Nombre: 'X', Presentacion: { Nombre: 'Caja', Unidades: 1 }, Fraccion: { OrigenId: null, Rinde: 5 } });
+  assert.equal(raro.PresentacionCompra, null); assert.equal(raro.UnidadesPorPresentacion, null); assert.equal(raro.FraccionOrigenId, null); assert.equal(raro.FraccionRinde, null);
+});
+test('sync: categoría → DTO y plan de subida (omite sin categoría y de tiempo; origen antes que fracción)', () => {
+  assert.deepEqual(categoriaADto({ Id: 'c', Nombre: 'Licores', Emoji: '🥃', Color: '#e879f9', Consumo: 'BEBIDAS_ALCOHOLICAS' }).CategoriaConsumo, 'BEBIDAS_ALCOHOLICAS');
+  const plan = planSubida([{ Id: 'c', Nombre: 'Licores' }], [
+    { Id: 'copa', CategoriaId: 'c', Fraccion: { OrigenId: 'bot', Rinde: 10 } }, { Id: 'bot', CategoriaId: 'c' },
+    { Id: 'sin', CategoriaId: null }, { Id: 'mesa', CategoriaId: 'c', CategoriaConsumo: 'TIEMPO' }]);
+  assert.deepEqual(plan.productos.map((p) => p.Id), ['bot', 'copa']);
+  assert.deepEqual(plan.omitidos.map((p) => p.Id), ['sin', 'mesa']);
+});
