@@ -10,6 +10,7 @@ import { getAll, put, leerMeta, escribirMeta } from '../db/repository.js';
 import { abrirEnvaseDb, registrarCompra, anotarCambioPrecio, leerCambiosPrecio } from '../cuenta/inventarioDb.js';
 import { useSesion } from '../components/Sesion.jsx';
 import { CambiosPrecioModal } from '../components/CambiosPrecio.jsx';
+import { previsualizar, subirInventario } from '../db/subirInventario.js';
 import { imprimirComo, nombrePdf } from '../cuenta/imprimir.js';
 import { HojaPedido } from '../informes/Hoja.jsx';
 import './Panel.css';
@@ -79,6 +80,7 @@ export default function Inventario() {
           <button className="iv-b o" onClick={() => setModal({ tipo: 'repo' })}>📋 Reposición</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'audpromo' })}>🏷️ Auditoría promos</button>
           <button className="iv-b" onClick={() => setModal({ tipo: 'importar' })}>📂 Importar POS</button>
+          <button className="iv-b o" title="Sube categorías y productos de esta app al servidor (SQL)" onClick={() => setModal({ tipo: 'subir' })}>☁ Subir inventario</button>
           <button className="iv-b o" title="Cambios de precio de los últimos 30 días y aviso al grupo de ADM" onClick={() => setModal({ tipo: 'precios' })}>📣 Cambios de precio{sinAvisar > 0 ? ` (${sinAvisar})` : ''}</button>
           <button className="iv-b ro" title={`${bajos.length} producto(s) con margen bajo ${objetivo}%`} onClick={() => setModal({ tipo: 'margenes' })}>📉 Márgenes · {bajos.length}</button>
         </div>
@@ -131,6 +133,7 @@ export default function Inventario() {
         aplicar={async (p, precio) => { await put('PRODUCTOS', { ...p, PrecioVenta: precio }); await anotarCambioPrecio({ p, antes: p.PrecioVenta, despues: precio, usuario, motivo: 'Márgenes' }); await cargar(); decir(`${p.Nombre}: nuevo precio ${fmt(precio)} ✓`); }} />}
       {modal?.tipo === 'editar' && <Editar p={modal.prod} productos={productos} categorias={categorias} objetivo={objetivo} cerrar={() => setModal(null)}
         guardar={async (datos) => { await put('PRODUCTOS', { ...(modal.prod ?? { Activo: true }), ...datos }); await anotarCambioPrecio({ p: modal.prod ?? datos, antes: modal.prod?.PrecioVenta, despues: datos.PrecioVenta, usuario, motivo: 'Editar' }); await cargar(); setModal(null); decir('Guardado ✓'); }} />}
+      {modal?.tipo === 'subir' && <SubirInventario cerrar={() => setModal(null)} />}
       {modal?.tipo === 'precios' && <CambiosPrecioModal usuario={usuario} cerrar={() => { setModal(null); cargar(); }} />}
       {aviso && <div className="iv-toast">{aviso}</div>}
     </>
@@ -614,3 +617,37 @@ function RecibirPedido({ lineas, productos, objetivo, cerrar, terminado }) {
     </Modal>
   );
 }
+
+/** Sube categorías y productos al servidor (acción manual del administrador, con vista previa y resultado). */
+function SubirInventario({ cerrar }) {
+  const [plan, setPlan] = useState(null);
+  const [avance, setAvance] = useState(null);     // [hechas, total] mientras sube
+  const [res, setRes] = useState(null);
+  useEffect(() => { previsualizar().then(setPlan); }, []);
+  async function subir() { setRes(await subirInventario((h, t) => setAvance([h, t]))); setAvance(null); }
+  const subiendo = !!avance;
+  return createPortal(
+    <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && !subiendo && cerrar()}>
+      <div className="pn-modal">
+        <h3>☁ Subir inventario al servidor</h3>
+        {!plan ? <p>Revisando…</p> : !res ? (<>
+          <p>Se subirán <b>{plan.categorias.length}</b> categorías y <b>{plan.productos.length}</b> productos a <code>{plan.servidor}</code>.
+            Lo que ya exista en el servidor se actualiza (el stock del servidor no se pisa).</p>
+          {plan.omitidos.length > 0 && <p className="iv-hint">No se suben {plan.omitidos.length} (sin categoría o de tiempo de mesa): {plan.omitidos.slice(0, 6).map((p) => p.Nombre).join(', ')}{plan.omitidos.length > 6 ? '…' : ''}</p>}
+          {!plan.conSesion && <p className="iv-hint" style={{ color: 'var(--na, #fbbf24)' }}>⚠ No hay sesión con el servidor. Cierra sesión y entra de nuevo con el API prendido.</p>}
+          {subiendo && <p>Subiendo… {avance[0]} de {avance[1]}</p>}
+          <div className="pn-acc">
+            <button className="no" disabled={subiendo} onClick={cerrar}>Cancelar</button>
+            <button className="si" disabled={subiendo || !plan.conSesion || (plan.categorias.length + plan.productos.length) === 0} onClick={subir}>{subiendo ? 'Subiendo…' : 'Subir ahora'}</button>
+          </div>
+        </>) : (<>
+          <p>✅ Subidos: <b>{res.subidas}</b>{res.fallos.length > 0 && <> · ❌ Con error: <b>{res.fallos.length}</b></>}</p>
+          {res.detenido && <p className="iv-hint" style={{ color: 'var(--na, #fbbf24)' }}>⚠ Se detuvo: {res.detenido}</p>}
+          {res.fallos.length > 0 && <ul className="iv-hint" style={{ maxHeight: '30vh', overflow: 'auto' }}>{res.fallos.map((f, i) => <li key={i}><b>{f.nombre}</b>: {f.error}</li>)}</ul>}
+          <div className="pn-acc"><button className="si" onClick={cerrar}>Listo</button></div>
+        </>)}
+      </div>
+    </div>, document.body
+  );
+}
+

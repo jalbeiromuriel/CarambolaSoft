@@ -113,8 +113,11 @@ public partial class CarambolaSoftDbContext : DbContext
                 .HasMaxLength(9)
                 .IsUnicode(false);
             entity.Property(e => e.Icono)
-                .HasMaxLength(10)
+                .HasMaxLength(32);                       // nvarchar(32): guarda el emoji tal cual
+            entity.Property(e => e.CategoriaConsumo)
+                .HasMaxLength(30)
                 .IsUnicode(false);
+            entity.Property(e => e.Activo).HasDefaultValue(true);
             entity.Property(e => e.Nombre)
                 .HasMaxLength(50)
                 .IsUnicode(false);

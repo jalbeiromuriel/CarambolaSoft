@@ -69,3 +69,13 @@ public record CambioPrecioSyncDto(
     DateTime UltimaModificacion
 );
 
+public record CategoriaSyncDto(
+    Guid Id,
+    string Nombre,
+    string? Icono,
+    string? ColorHex,
+    string? CategoriaConsumo,
+    bool Activo,
+    DateTime UltimaModificacion
+);
+

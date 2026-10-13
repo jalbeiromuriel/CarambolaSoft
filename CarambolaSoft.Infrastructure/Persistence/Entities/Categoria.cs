@@ -17,5 +17,10 @@ public partial class Categoria
 
     public DateTime UltimaModificacion { get; set; }
 
+    /// <summary>Enum de factura: TIEMPO, BEBIDAS_ALCOHOLICAS, SNACKS, BEBIDAS_NO_ALCOHOLICAS, OTROS.</summary>
+    public string? CategoriaConsumo { get; set; }
+
+    public bool Activo { get; set; } = true;
+
     public virtual ICollection<Producto> Productos { get; set; } = new List<Producto>();
 }

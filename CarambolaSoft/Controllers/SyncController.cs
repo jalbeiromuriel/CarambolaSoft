@@ -109,6 +109,44 @@ public class SyncController : ControllerBase
         return Ok(new { id });
     }
 
+    private static readonly string[] Consumos = ["TIEMPO", "BEBIDAS_ALCOHOLICAS", "SNACKS", "BEBIDAS_NO_ALCOHOLICAS", "OTROS"];
+
+    /// PUT api/sync/categorias/{id}
+    /// Categorías de producto creadas en el equipo. Upsert idempotente por GUID; el nombre no se puede repetir.
+    [Authorize(Roles = "ADMIN,PATRONA")]
+    [HttpPut("categorias/{id:guid}")]
+    public async Task<IActionResult> UpsertCategoria(Guid id, [FromBody] CategoriaSyncDto dto)
+    {
+        if (id != dto.Id)
+            return UnprocessableEntity(new { error = "Id de ruta y de cuerpo no coinciden." });
+        if (string.IsNullOrWhiteSpace(dto.Nombre))
+            return UnprocessableEntity(new { error = "La categoría necesita nombre." });
+        if (dto.CategoriaConsumo is not null && !Consumos.Contains(dto.CategoriaConsumo))
+            return UnprocessableEntity(new { error = $"CategoriaConsumo '{dto.CategoriaConsumo}' no es válida." });
+        var nombre = dto.Nombre.Trim();
+        // La colación de la base (CI_AI) ya ignora mayúsculas y tildes.
+        if (await _db.Categorias.AnyAsync(c => c.Nombre == nombre && c.Id != id))
+            return UnprocessableEntity(new { error = $"Ya existe otra categoría llamada \"{nombre}\"." });
+
+        var existente = await _db.Categorias.FindAsync(id);
+        if (existente is null)
+        {
+            _db.Categorias.Add(new Categoria
+            {
+                Id = id, Nombre = nombre, Icono = dto.Icono, ColorHex = dto.ColorHex, CategoriaConsumo = dto.CategoriaConsumo,
+                Activo = dto.Activo, EsSincronizado = true, UltimaModificacion = DateTime.Now
+            });
+            await _db.SaveChangesAsync();
+            return Created($"/api/sync/categorias/{id}", new { id });
+        }
+
+        existente.Nombre = nombre; existente.Icono = dto.Icono; existente.ColorHex = dto.ColorHex;
+        existente.CategoriaConsumo = dto.CategoriaConsumo; existente.Activo = dto.Activo;
+        existente.EsSincronizado = true; existente.UltimaModificacion = DateTime.Now;
+        await _db.SaveChangesAsync();
+        return Ok(new { id });
+    }
+
     /// PUT api/sync/productos/{id}
     /// Inventario y precios editados en el equipo. Upsert idempotente por GUID.
     /// En un producto que ya existe NO se toca StockActual (lo mueven ventas y compras en el servidor).
