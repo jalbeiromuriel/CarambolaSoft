@@ -26,6 +26,7 @@ import { get as getReg } from './db/repository.js';
 import Inactividad from './components/Inactividad.jsx';
 import AlertaGarita from './components/AlertaGarita.jsx';
 import IndicadorSync from './components/IndicadorSync.jsx';
+import { cerrarSesionApi } from './db/apiSesion.js';
 import AvisoPrecios from './components/CambiosPrecio.jsx';
 // ------------------------------------------------------------
 // Semillas locales (Ids fijos = idempotentes ante StrictMode).
@@ -87,7 +88,7 @@ export default function App() {
 
   const recargarUsuarios = async () => setUsuarios(await listarUsuarios());
   const entrar = (u) => { try { sessionStorage.setItem('cs.usuario', u.Id); } catch { /* sin storage: pedirá PIN al recargar */ } setUsuario(u); recargarUsuarios(); };
-  const cerrarSesion = () => { try { sessionStorage.removeItem('cs.usuario'); } catch { /* nada */ } setUsuario(null); setRuta({ pantalla: 'tablero' }); recargarUsuarios(); };
+  const cerrarSesion = () => { cerrarSesionApi(); try { sessionStorage.removeItem('cs.usuario'); } catch { /* nada */ } setUsuario(null); setRuta({ pantalla: 'tablero' }); recargarUsuarios(); };
 
   useEffect(() => {
     (async () => {

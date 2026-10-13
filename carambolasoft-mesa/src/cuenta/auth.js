@@ -59,3 +59,6 @@ export function estadoInactividad(ultimo, ahora = Date.now(), limite = INACTIVID
   const quieto = ahora - ultimo;
   return quieto >= limite ? 'cerrar' : quieto >= limite - AVISO_INACTIVIDAD_MS ? 'aviso' : 'activa';
 }
+
+/** ¿La sesión del API (token) sigue sirviendo? Deja 1 minuto de margen antes del vencimiento. */
+export const sesionApiVigente = (s, ahora = Date.now()) => !!s?.token && new Date(s.vence).getTime() - 60000 > ahora;

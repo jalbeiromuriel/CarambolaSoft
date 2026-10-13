@@ -19,11 +19,11 @@ import {
   leerMeta,
   escribirMeta,
 } from './repository.js';
+import { API_BASE, cabecerasApi, sesionApi, cerrarSesionApi } from './apiSesion.js';
 
 
 // subir() y bajar() ya viven en este mismo archivo.
-// URL base del API. Hardcodeada en dev; a .env cuando vaya a producción.
-const API_BASE = 'https://localhost:7186';
+// URL base del API: viene de apiSesion.js (VITE_API_URL en producción; https://localhost:7186 en desarrollo).
 
 // Mapa tabla (store IndexedDB) → segmento de ruta del API.
 const RUTA_SYNC = {
@@ -41,7 +41,7 @@ async function subirRegistro(tabla, registro) {
 
   const resp = await fetch(url, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: cabecerasApi({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(registro),
   });
 
@@ -54,6 +54,8 @@ async function subirRegistro(tabla, registro) {
  */
 export async function subir() {
   const cola = await pendientesSync(); // ya viene ordenada por seq (keyPath autoincrement)
+  // Sin sesión del API (sin token) no se intenta nada: la cola queda intacta esperando.
+  if (cola.length > 0 && !sesionApi()) return { subidos: 0, muertos: 0, saltados: 0, frenadoPor: 'sin-sesion-api', sinSesion: true };
 
   const resumen = {
     subidos: 0,
@@ -89,8 +91,18 @@ export async function subir() {
       status = await subirRegistro(item.tabla, registro);
     } catch (err) {
       // fetch reventó = red caída o certificado. FRENA TODO.
+      resumen.abortadoPorRed = true;
       resumen.frenadoPor = `Red caída en seq ${item.seq}: ${err.message}`;
       console.warn(`[sync] ${resumen.frenadoPor} — drenaje detenido.`);
+      break;
+    }
+
+    if (status === 401 || status === 403) {
+      // La sesión del API venció o no tiene permiso: NO es culpa del registro. No se mata nada; se frena y queda en cola.
+      if (status === 401) cerrarSesionApi();
+      resumen.frenadoPor = status === 401 ? 'sesion-api-vencida' : `sin-permiso en seq ${item.seq}`;
+      resumen.sinSesion = status === 401;
+      resumen.abortadoPorRed = true;
       break;
     }
 
@@ -105,6 +117,7 @@ export async function subir() {
     } else {
       // 5xx u otro: problema del server, transitorio. FRENA TODO
       // para no romper el orden causal con los items siguientes.
+      resumen.abortadoPorRed = true;
       resumen.frenadoPor = `Status ${status} en seq ${item.seq}`;
       console.warn(`[sync] ${resumen.frenadoPor} — drenaje detenido.`);
       break;
@@ -152,8 +165,10 @@ export async function bajar() {
   // 2. Pedir los cambios
   let data;
   try {
-    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!sesionApi()) return { error: 'sin-sesion-api' };   // sin token no se baja nada
+    const resp = await fetch(url, { headers: cabecerasApi({ 'Accept': 'application/json' }) });
     if (!resp.ok) {
+      if (resp.status === 401) cerrarSesionApi();
       console.warn(`[sync] bajar() status ${resp.status} — cursor intacto.`);
       return { error: `status ${resp.status}` };
     }
@@ -230,6 +245,9 @@ async function _correrCiclo(motivo) {
     // 2) COMPUERTA. Si subir abortó por red/5xx → NO bajamos, reintentamos el ciclo completo luego.
     //    (DEAD_LETTER NO aborta: es fallo permanente, no transitorio → bajar() sigue.)
     //    ⚠ CONTRATO #1 — ajusta esta condición a lo que devuelva TU subir() en el break de red.
+    if (rSubir?.sinSesion) {   // sin sesión del API: no es un fallo, solo no hay nada que hacer todavía
+      return { ok: false, saltado: true, motivo: 'sin-sesion-api', disparador: motivo, subir: rSubir };
+    }
     if (rSubir?.abortadoPorRed) {
       await _registrarFallo();
       return { ok: false, saltado: true, motivo: 'subir-incompleto',
