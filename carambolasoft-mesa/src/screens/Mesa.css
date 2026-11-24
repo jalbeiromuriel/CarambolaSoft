@@ -174,3 +174,33 @@
 .ms-tabs button.on{border-color:var(--oro);background:#e8c06a14;color:var(--oro);font-weight:700}
 .ms-cta{width:100%;display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#0e1422;color:var(--tx);font-size:14px;cursor:pointer;text-align:left}
 .ms-cta.on{border-color:var(--oro)}.ms-cta span{color:var(--ver);font-weight:800}
+
+/* ── Pasar saldo a… (2026-11-24) */
+.ms-pasar{width:100%;margin-top:8px;min-height:48px;border:2px solid var(--oro);background:#e8c06a14;color:var(--oro);border-radius:9px;font-weight:800;font-size:var(--fs-body);cursor:pointer}
+.ms-pasar:disabled{opacity:.4;cursor:not-allowed}
+.pn-modal.ps{width:min(620px,100%);max-height:calc(100vh - 40px);overflow-y:auto}
+.ps-cab{color:var(--mut);font-size:var(--fs-sec);margin:-6px 0 12px}.ps-cab b{color:var(--ver)}
+.ps-pago{display:grid;grid-template-columns:1.3fr 1fr;gap:10px;margin-bottom:10px}
+.ps-pago small{display:block;font-size:var(--fs-min);letter-spacing:2px;color:var(--mut);margin-bottom:4px}
+.ps-pago .p input{background:#0c2416;border:2px solid #22c55e;color:#4ade80;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.ps-pago .s .n{min-height:48px;display:flex;align-items:center;padding:0 14px;border-radius:10px;border:1px solid #fbbf24;background:#241a05;color:#fbbf24;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.ps-met{margin-bottom:10px}
+.ps-busca{margin:4px 0 8px}
+.ps-lista{display:flex;flex-direction:column;gap:6px}
+.ps-fila{display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:#0e1422;color:#f1f5f9;font-size:var(--fs-body);cursor:pointer;text-align:left}
+.ps-fila small{color:var(--mut);font-size:var(--fs-sec)}
+.ps-fila em{font-style:normal;color:var(--ver);font-variant-numeric:tabular-nums}
+.ps-fila.on{border:2px solid var(--oro);background:#e8c06a14}
+.ps-fila:disabled{opacity:.45;cursor:not-allowed}
+.ps-nueva,.ps-volver{min-height:48px;border:1px dashed var(--oro);background:transparent;color:var(--oro);border-radius:10px;font-size:var(--fs-body);cursor:pointer;text-align:left;padding:0 14px}
+.ps-volver{border-style:solid;border-color:var(--line);color:#e4e4e7;align-self:flex-start}
+.ps-nueva:disabled{opacity:.45;cursor:not-allowed}
+.ps-aviso{border:2px solid #fbbf24;background:#241a05;border-radius:12px;padding:12px 14px;color:#e4e4e7;font-size:var(--fs-body);line-height:1.45;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.ps-aviso b{color:#fbbf24;font-size:18px}
+.ps-aviso button{align-self:flex-start;min-height:48px;padding:0 18px;border:2px solid #22d3ee;background:transparent;color:#22d3ee;border-radius:10px;font-weight:800;cursor:pointer}
+.ps-res{margin-top:12px;background:#0e1422;border-radius:10px;padding:12px 14px;font-size:var(--fs-body);line-height:1.5}
+.ps-res .v{color:var(--ver)}.ps-res .a{color:#fbbf24}.ps-res .o{color:var(--oro)}
+.ps-res small{display:block;color:var(--mut);font-size:var(--fs-sec)}
+.ms-ped.saldo b{color:#fbbf24}
+.ms-ped.saldo .s button{width:auto;padding:0 8px}
+.pn-modal.ps .pn-acc .si:disabled{opacity:.4;cursor:not-allowed}
