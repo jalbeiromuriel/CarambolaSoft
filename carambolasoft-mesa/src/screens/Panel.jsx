@@ -23,7 +23,7 @@ import { useSesion } from '../components/Sesion.jsx';
 import { esAdmin } from '../cuenta/auth.js';
 import './Panel.css';
 
-const TARIFA_BILLAR = 6000; // (valor base; el vigente sale de ajustes.tarifaBillar)  // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
+const TARIFA_BILLAR = 8000; // (valor base; el vigente sale de ajustes.tarifaBillar)  // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const hora = (iso) => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
@@ -83,13 +83,19 @@ export default function Panel({ irACuenta, irAContador }) {
   function abrirModal(m) { setError(''); setChoque(null); setSel({ cliente: null, nombre: '', lista: [] }); setCreando(false); setTarifa(String(ajustes.tarifaBillar)); setModal(m); }
 
   async function abrirCuenta() {
-    const personas = personasDe(sel, true);
-    if (personas.length === 0) { setError('Marca un cliente o escribe un nombre.'); return; }
     const esBillar = modal.tipo === 'BILLAR';
     if (esBillar && !modal.mesaId) { setError('Elige una mesa libre.'); return; }
     if (esBillar && !(Number(tarifa) > 0)) { setError('La tarifa por hora es obligatoria en billar.'); return; }
-    const rev = revisarAperturas(cuentas, personas, esBillar ? 'BILLAR' : modal.tipo === 'GARITA' ? 'GARITA' : 'LICORES');
-    if (rev.error) { setError(rev.error); setChoque(rev.cuenta); return; }
+    // Pierde y Paga: el billar se arrienda sin nombres. Una sola cuenta a nombre de la mesa;
+    // los jugadores se agregan después (Contador o Panel) y al final paga el que pierde.
+    const personas = esBillar
+      ? [{ cliente: null, etiqueta: `Mesa ${numMesa(modal.mesaId)}` }]
+      : personasDe(sel, true);
+    if (personas.length === 0) { setError('Marca un cliente o escribe un nombre.'); return; }
+    if (!esBillar) {
+      const rev = revisarAperturas(cuentas, personas, modal.tipo === 'GARITA' ? 'GARITA' : 'LICORES');
+      if (rev.error) { setError(rev.error); setChoque(rev.cuenta); return; }
+    }
     const creadas = [];
     if (modal.tipo === 'GARITA') {
       const primera = await abrirGarita(personas[0]); creadas.push(primera);
@@ -225,7 +231,9 @@ export default function Panel({ irACuenta, irAContador }) {
                 </div>
               </>
             )}
-            <SelectorCliente varios valor={sel} onChange={setSel} onModoNuevo={setCreando} error={error} setError={setError} />
+            {modal.tipo === 'BILLAR'
+              ? <p className="pn-hint">Se arrienda la mesa: el tiempo del chico arranca al abrir. Los jugadores se agregan después, en el Contador o en la mesa. Pierde y paga.</p>
+              : <SelectorCliente varios valor={sel} onChange={setSel} onModoNuevo={setCreando} error={error} setError={setError} />}
             {!creando && modal.tipo === 'BILLAR' && (
               <>
                 <label>Tarifa por hora (COP)</label>
@@ -235,7 +243,7 @@ export default function Panel({ irACuenta, irAContador }) {
             {!creando && error && <div className="pn-err">{error}{choque && <button className="pn-ir" onClick={() => { setModal(null); irACuenta(choque.Id); }}>Ir a esa cuenta →</button>}</div>}
             {!creando && <div className="pn-acc">
               <button className="no" onClick={() => setModal(null)}>CANCELAR</button>
-              <button className="si" onClick={abrirCuenta}>{modal.tipo === 'GARITA' ? 'INICIAR GARITA' : 'ABRIR'}{sel.lista?.length > 1 ? ` CON ${sel.lista.length} PERSONAS` : modal.tipo === 'GARITA' ? '' : ' CUENTA'}</button>
+              <button className="si" onClick={abrirCuenta}>{modal.tipo === 'BILLAR' ? `ABRIR MESA ${numMesa(modal.mesaId) ?? ''}` : modal.tipo === 'GARITA' ? 'INICIAR GARITA' : 'ABRIR'}{modal.tipo === 'BILLAR' ? '' : sel.lista?.length > 1 ? ` CON ${sel.lista.length} PERSONAS` : modal.tipo === 'GARITA' ? '' : ' CUENTA'}</button>
             </div>}
           </div>
         </div>
