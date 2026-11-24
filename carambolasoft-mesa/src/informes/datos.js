@@ -68,7 +68,7 @@ export function datosCierre({ facturas, abonos, gastos, maq = [], pers = [], ped
   };
 }
 
-const METODO = { EFECTIVO: 'Efectivo', NEQUI: 'Nequi', DAVIPLATA: 'Daviplata', TARJETA: 'Bancolombia', TRANSFERENCIA: 'Transferencia', FIADO: 'Fiado' };
+const METODO = { EFECTIVO: 'Efectivo', NEQUI: 'Nequi', DAVIPLATA: 'Daviplata', TARJETA: 'Bancolombia', TRANSFERENCIA: 'Transferencia', FIADO: 'Fiado', TRASPASO: 'Pasado a otra cuenta' };
 export const nombreMetodo = (m) => METODO[m] ?? m;
 
 /** Texto para WhatsApp: resumen corto del cierre. */

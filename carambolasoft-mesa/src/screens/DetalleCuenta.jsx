@@ -16,6 +16,8 @@ import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js'
 import { datosFactura, datosFacturas, leerCuentasPago } from '../cuenta/fiadosDb.js';
 import { repartirSubtotales } from '../cuenta/dividir.js';
 import DividirCobro from '../components/DividirCobro.jsx';
+import PasarSaldo from '../components/PasarSaldo.jsx';
+import { planTraspaso, lineaSaldo, esLineaSaldo, saldoTraspasado } from '../cuenta/traspaso.js';
 import { useSesion } from '../components/Sesion.jsx';
 import BotonComprobante from '../components/BotonComprobante.jsx';
 import { esDigital, textoComprobante } from '../cuenta/comprobante.js';
@@ -54,6 +56,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const carroT = useRef(null);
   const [finChico, setFinChico] = useState(null); // { modo, destinoId } — cómo se cobra el chico que termina
   const [dividir, setDividir] = useState(false); // dividir la cuenta entre varios pagadores
+  const [pasar, setPasar] = useState(false);     // "Pasar saldo a…": el resto de la cuenta pasa a la cuenta de un amigo
   const [pidePin, setPidePin] = useState(null); // { luego } — un Admin autoriza (fiar siendo Empleado)
   const [aviso, setAviso] = useState('');
   const [ahora, setAhora] = useState(Date.now());
@@ -120,10 +123,13 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const pedidosCobro = cuentasCobro.flatMap(entregadosDe);
   const subTiempoC = cuentasCobro.reduce((t, c) => t + tiempoDeC(c), 0);
   const totalC = cuentasCobro.reduce((t, c) => t + totalDe(c), 0);
-  const resumenC = resumenPorCategoria(pedidosCobro, productos, categorias);
+  const resumenC = resumenPorCategoria(pedidosCobro.filter((p) => !esLineaSaldo(p)), productos, categorias);
+  const saldoC = saldoTraspasado(pedidosCobro);   // saldos de otras cuentas que llegan a esta: se cobran, pero no son venta nueva
   const esBillar = cuenta.TipoCuenta === 'BILLAR';
   const taxi = esBillar ? grupo.find((c) => c.TarifaPorHora > 0) ?? null : null;   // el reloj es de la mesa: lo lleva la cuenta que lo inició, pero se ve y se maneja desde cualquiera
-  const resumen = resumenPorCategoria(entregados, productos, categorias);
+  const resumen = resumenPorCategoria(entregados.filter((p) => !esLineaSaldo(p)), productos, categorias);
+  const saldoRecibido = saldoTraspasado(entregados);
+  const chicoCorre = !!(esBillar && taxi && estaCorriendo(taxi));   // con el chico corriendo no se sabe la deuda: no se pasa saldo
 
   // ── Catálogo
   const cantidadEn = (id) => entregados.filter((p) => p.ProductoId === id).reduce((t, p) => t + p.Cantidad, 0);
@@ -269,7 +275,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       ...(cobro.mesa ? { CuentasIncluidas: cuentasCobro.map((c) => c.Id) } : {}),
       SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'),
       SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
-      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO'].includes(p.CategoriaConsumo)),
+      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO', 'TRASPASO'].includes(p.CategoriaConsumo)),
+      SubtotalTraspaso: saldoC,
       TotalPagar: totalC, TotalPendienteFiado: pendienteFiado, UsuarioId: usuario?.Id ?? null, AutorizoId: cobro.autorizoId ?? null,
       MetodoPago: met1, MetodoPagoSecundario: met2,
       MontoPrimario: mixto ? m1 : null, MontoSecundario: mixto ? m2 : null,
@@ -298,7 +305,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   async function confirmarDivision(pagos) {
     const suma = (fn) => pedidosCobro.filter(fn).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
     const sub = { SubtotalTiempo: subTiempoC, SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'), SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
-      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO'].includes(p.CategoriaConsumo)) };
+      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO', 'TRASPASO'].includes(p.CategoriaConsumo)), SubtotalTraspaso: saldoC };
     const partes = repartirSubtotales(sub, pagos.map((p) => p.monto));
     const { Numeros, FechaHora } = await datosFacturas(pagos.length);
     let principalId = null;
@@ -316,6 +323,53 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     }
     setDividir(false);
     await terminarCobro(FechaHora);
+  }
+
+  // ── Pasar saldo a… (cuenta/traspaso.js): se factura esta cuenta con lo que paga y el resto entra como una línea a la del amigo
+  async function confirmarTraspaso({ paga, metodo, destinoId, nueva }) {
+    const plan = planTraspaso({ total, paga, metodo, chicoCorriendo: chicoCorre, destinoId: nueva ? 'nueva' : destinoId, origenId: cuenta.Id });
+    if (plan.error) return plan.error;
+    let destino = nueva ? null : todasCuentas.find((c) => c.Id === destinoId && c.Estado === 'ABIERTA');
+    if (!nueva && !destino) return 'Esa cuenta ya no está abierta. Elige otra.';
+    if (nueva) {
+      destino = await put('CUENTAS', {
+        TipoCuenta: cuenta.TipoCuenta, MesaId: cuenta.MesaId ?? null, GrupoMesaId: cuenta.MesaId ? null : grupoDe(cuenta), GaritaRelojId: cuenta.GaritaRelojId ?? null,
+        ClienteId: nueva.cliente?.Id ?? null, NombreLibre: nueva.etiqueta,
+        HoraApertura: new Date().toISOString(), HoraCierre: null, TarifaPorHora: null, Estado: 'ABIERTA',
+      });
+      await sumarVisita(nueva.cliente);
+    }
+    const suma = (f) => entregados.filter(f).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
+    const datos = await datosFactura();
+    const { met1, met2, m1, m2, saldo } = plan;
+    const factura = await put('FACTURAS', {
+      ...datos, CuentaId: cuenta.Id, TurnoCajaId: cuenta.TurnoCajaId ?? null, SubtotalTiempo: subTiempo,
+      SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'),
+      SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
+      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO', 'TRASPASO'].includes(p.CategoriaConsumo)),
+      SubtotalTraspaso: saldoRecibido,
+      TotalPagar: total, TotalPendienteFiado: 0, UsuarioId: usuario?.Id ?? null, AutorizoId: null,
+      MetodoPago: met1, MetodoPagoSecundario: met2, MontoPrimario: met2 ? m1 : null, MontoSecundario: met2 ? m2 : null,
+      EstadoPago: 'PAGADO', TraspasoACuentaId: destino.Id,
+    });
+    await put('PEDIDOS_CUENTAS', lineaSaldo({ cuentaDestinoId: destino.Id, facturaId: factura.Id, numeroFactura: factura.Numero, nombreOrigen: cuenta.NombreLibre, saldo, fechaHora: datos.FechaHora }));
+    await put('CUENTAS', { ...terminarChico(cuenta), Estado: 'LIQUIDADA', HoraCierre: datos.FechaHora, SaldoPasadoACuentaId: destino.Id });
+    setPasar(false);
+    const quedan = grupo.filter((c) => c.Id !== cuenta.Id);
+    const aqui = nueva || grupoDe(destino) === grupoDe(cuenta);
+    decir(`Saldo de ${fmt(saldo)} pasado a ${destino.NombreLibre} ✓`);
+    if (aqui) { setActivaId(destino.Id); await cargar(); return ''; }
+    if (quedan.length) { setActivaId(quedan[0].Id); await cargar(); return ''; }
+    if (cuenta.MesaId) { const mesa = await get('MESAS_BILLAR', cuenta.MesaId); if (mesa) await put('MESAS_BILLAR', { ...mesa, Estado: 'DISPONIBLE' }); }
+    if (cuenta.GaritaRelojId) await cerrarReloj(cuenta.GaritaRelojId);
+    volver();
+    return '';
+  }
+
+  // Quitar la línea de un saldo traspasado = perder esa plata: siempre con PIN de Admin
+  async function quitarSaldo(p) {
+    await put('PEDIDOS_CUENTAS', { ...p, EstadoPedido: 'CANCELADO' });
+    decir('Saldo quitado de la cuenta'); await cargar();
   }
 
   const puedeFiar = esAdmin(usuario?.Rol) || cobro?.fiadoOk;
@@ -365,7 +419,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           <div className="ms-linea">
           <div className="ms-tabs">
             {grupo.map((c) => {
-              const n = entregadosDe(c).reduce((t, p) => t + p.Cantidad, 0);
+              const n = entregadosDe(c).filter((p) => !esLineaSaldo(p)).reduce((t, p) => t + p.Cantidad, 0);
               return (
                 <button key={c.Id} className={`ms-tab ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => setActivaId(c.Id)}>
                   <b>👤 {c.NombreLibre}</b><small>{n} prod.{esBillar && tiempoDeC(c) > 0 ? ` · ⏱ ${fmt(tiempoDeC(c))}` : ''}</small><em>{fmt(totalDe(c))}</em>
@@ -450,6 +504,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <div className="ms-lab chico">Resumen por categoría</div>
             {esBillar && subTiempo > 0 && <div><span style={{ color: colorTiempo }}>🎱 Tiempo de mesa</span><b style={{ color: colorTiempo }}>{fmt(subTiempo)}</b></div>}
             {resumen.map((r) => <div key={r.clave}><span>{r.emoji} {r.nombre}</span><b>{fmt(r.total)}</b></div>)}
+            {saldoRecibido > 0 && <div><span style={{ color: '#fbbf24' }}>⇄ Saldos de otras cuentas</span><b style={{ color: '#fbbf24' }}>{fmt(saldoRecibido)}</b></div>}
             <div className="t"><b>TOTAL</b><span>{fmt(total)}</span></div>
           </div>
 
@@ -457,6 +512,15 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           {ordenados.length === 0 && <div className="ms-vacio">Sin consumos todavía.</div>}
           {ordenados.map((p) => {
             const prod = productos.find((x) => x.Id === p.ProductoId);
+            if (esLineaSaldo(p)) return (
+              <div key={p.Id} className="ms-ped saldo">
+                <time>{horaDe(p.FechaHora)}</time>
+                <b>⇄ {p.Detalle}</b>
+                <div className="s"><button title="Quitar saldo (PIN de Admin)" aria-label={`Quitar ${p.Detalle} (pide PIN de Admin)`}
+                  onClick={() => setPidePin({ motivo: `Quitar «${p.Detalle}» de la cuenta es perder ${fmt(p.PrecioUnitarioHist)}. Un Admin digita su PIN para autorizar.`, luego: () => quitarSaldo(p) })}>🔒 ✕</button></div>
+                <span className="m">{fmt(p.PrecioUnitarioHist * p.Cantidad)}</span>
+              </div>
+            );
             return (
               <div key={p.Id} className="ms-ped">
                 <time>{horaDe(p.FechaHora)}</time>
@@ -476,6 +540,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               💳 Cobrar {fmt(total)}
             </button>
           </div>
+          {!esGarita && <button className="ms-pasar" disabled={total <= 0} onClick={() => setPasar(true)}>⇄ Pasar saldo a…</button>}
         </aside>
       </div>
 
@@ -528,6 +593,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <div className="cb-cats">
               {subTiempoC > 0 && <span>🎱 Tiempo {fmt(subTiempoC)}</span>}
               {resumenC.map((r) => <span key={r.clave}>{r.emoji} {r.nombre} {fmt(r.total)}</span>)}
+              {saldoC > 0 && <span style={{ color: '#fbbf24' }}>⇄ Saldos {fmt(saldoC)}</span>}
             </div>
 
             {!cobro.mixto && (
@@ -695,9 +761,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         </div>
       )}
 
-      {pidePin && <PinAdmin motivo="Un Empleado no puede fiar. Un Admin digita su PIN para autorizar este fiado."
+      {pidePin && <PinAdmin motivo={pidePin.motivo ?? 'Un Empleado no puede fiar. Un Admin digita su PIN para autorizar este fiado.'}
         cancelar={() => setPidePin(null)}
-        ok={(a) => { pidePin.luego(); setCobro((c) => ({ ...c, autorizoId: a.Id })); setPidePin(null); }} />}
+        ok={(a) => { pidePin.luego(a); if (cobro) setCobro((c) => ({ ...c, autorizoId: a.Id })); setPidePin(null); }} />}
+
+      {pasar && <PasarSaldo cuenta={cuenta} total={total} abiertas={todasCuentas.filter((c) => c.Estado === 'ABIERTA')} totalDe={(c) => (grupo.some((x) => x.Id === c.Id) ? totalDe(c) : consumoDe(c))}
+        chicoCorriendo={chicoCorre} terminarChico={() => { setPasar(false); cambiarChico(); }} confirmar={confirmarTraspaso} cerrar={() => setPasar(false)} />}
 
       {aviso && <div className="ms-aviso">{aviso}</div>}
     </div>
