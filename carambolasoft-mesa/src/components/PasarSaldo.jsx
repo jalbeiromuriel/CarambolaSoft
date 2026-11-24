@@ -6,6 +6,7 @@ import SelectorCliente, { personasDe } from './SelectorCliente.jsx';
 import { METODOS } from '../cuenta/cobro.js';
 import { planTraspaso } from '../cuenta/traspaso.js';
 import { agrupar } from '../cuenta/grupos.js';
+import NombreCuenta from './NombreCuenta.jsx';
 
 const fmt = (n) => '$' + Math.round(n ?? 0).toLocaleString('es-CO');
 const soloDigitos = (v) => Number(String(v).replace(/\D/g, '')) || 0;
@@ -50,7 +51,7 @@ export default function PasarSaldo({ cuenta, total, abiertas, totalDe, chicoCorr
   const Fila = ({ c, mesa }) => (
     <button className={`ps-fila ${destinoId === c.Id && !nueva ? 'on' : ''}`} disabled={chicoCorriendo}
       onClick={() => { setNueva(null); setDestinoId(c.Id); setError(''); }}>
-      <span>{chicoCorriendo ? '🔒 ' : destinoId === c.Id && !nueva ? '✓ ' : ''}{c.NombreLibre}{mesa && <small> · {mesa}</small>}</span>
+      <span>{chicoCorriendo ? '🔒 ' : destinoId === c.Id && !nueva ? '✓ ' : ''}<NombreCuenta texto={c.NombreLibre} />{mesa && <small> · {mesa}</small>}</span>
       <em>{fmt(totalDe(c))}</em>
     </button>
   );
@@ -72,7 +73,7 @@ export default function PasarSaldo({ cuenta, total, abiertas, totalDe, chicoCorr
         {!chicoCorriendo && (
           <>
             <div className="ps-pago">
-              <div className="p"><small>{cuenta.NombreLibre.toUpperCase()} PAGA AHORA</small>
+              <div className="p"><small>PAGA AHORA</small>
                 <input inputMode="numeric" placeholder="$0 (no paga nada)" value={paga ? '$' + paga.toLocaleString('es-CO') : ''}
                   onChange={(e) => { setPaga(soloDigitos(e.target.value)); setError(''); }} /></div>
               <div className="s"><small>SALDO A PASAR</small><div className="n">{fmt(saldo)}</div></div>

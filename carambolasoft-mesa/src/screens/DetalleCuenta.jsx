@@ -17,6 +17,7 @@ import { datosFactura, datosFacturas, leerCuentasPago } from '../cuenta/fiadosDb
 import { repartirSubtotales } from '../cuenta/dividir.js';
 import DividirCobro from '../components/DividirCobro.jsx';
 import PasarSaldo from '../components/PasarSaldo.jsx';
+import NombreCuenta, { partesNombre } from '../components/NombreCuenta.jsx';
 import { planTraspaso, lineaSaldo, esLineaSaldo, saldoTraspasado } from '../cuenta/traspaso.js';
 import { useSesion } from '../components/Sesion.jsx';
 import BotonComprobante from '../components/BotonComprobante.jsx';
@@ -396,7 +397,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   return (
     <div className="pn ms">
       <Encabezado activo="panel" irPanel={volver} />
-      {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} cuentas={recibo.cuentas}
+      {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre && !partesNombre(cuenta.NombreLibre).apodo ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} cuentas={recibo.cuentas}
         telefono={esAdmin(usuario?.Rol) ? cliente?.Telefono : null} texto={textoReciboCuenta(recibo.d, cuenta.NombreLibre, recibo.cuentas)} cerrar={() => setRecibo(null)} />}
 
       <div className={`ms-mesa ms-uno ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
@@ -425,7 +426,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               const n = entregadosDe(c).filter((p) => !esLineaSaldo(p)).reduce((t, p) => t + p.Cantidad, 0);
               return (
                 <button key={c.Id} className={`ms-tab ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => setActivaId(c.Id)}>
-                  <b>👤 {c.NombreLibre}</b><small>{n} prod.{esBillar && tiempoDeC(c) > 0 ? ` · ⏱ ${fmt(tiempoDeC(c))}` : ''}</small><em>{fmt(totalDe(c))}</em>
+                  <b>👤 <NombreCuenta texto={c.NombreLibre} /></b><small>{n} prod.{esBillar && tiempoDeC(c) > 0 ? ` · ⏱ ${fmt(tiempoDeC(c))}` : ''}</small><em>{fmt(totalDe(c))}</em>
                 </button>
               );
             })}
@@ -525,9 +526,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               </div>
             </>
           ) : (<>
-          <div className="ms-nom">{cuenta.NombreLibre}</div>
+          <div className="ms-nom"><NombreCuenta texto={cuenta.NombreLibre} /></div>
           <div className="ms-ap">
-            {cliente?.Apodo && cliente.Apodo !== cuenta.NombreLibre && <>“{cliente.Apodo}” · </>}
+            {cliente?.Apodo && cliente.Apodo !== cuenta.NombreLibre && !partesNombre(cuenta.NombreLibre).apodo && <>“{cliente.Apodo}” · </>}
             {cliente ? <>⭐ {cliente.Visitas ?? 0} visitas</> : <span className="rojo">Sin cliente registrado</span>}
             {!cuenta.ClienteId && <button className="ms-vinc" onClick={() => setVincular({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>+ Vincular cliente</button>}
             {deuda > 0 && <> · <span className="rojo">Fía {fmt(deuda)}</span></>}

@@ -6,7 +6,14 @@ import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import { norm } from '../cuenta/catalogo.js';
 
 /** Etiqueta de la cuenta: nombre libre, si no apodo o nombre del cliente. */
-export const etiquetaDe = ({ cliente, nombre }) => nombre.trim() || cliente?.Apodo || cliente?.Nombre || '';
+/** Nombre de la cuenta de un cliente: primero el nombre y luego el apodo («Luis Arango «Chiqui»»). */
+export const etiquetaCliente = (c) => {
+  if (!c) return '';
+  const n = (c.Nombre ?? '').trim(); const a = (c.Apodo ?? '').trim();
+  if (!n) return a;
+  return a && a.toLowerCase() !== n.toLowerCase() ? `${n} «${a}»` : n;
+};
+export const etiquetaDe = ({ cliente, nombre }) => nombre.trim() || etiquetaCliente(cliente);
 
 /** ⭐ suma una visita al cliente elegido. */
 /** Personas a abrir: modo varios → toda la lista; modo uno → la selección única. */

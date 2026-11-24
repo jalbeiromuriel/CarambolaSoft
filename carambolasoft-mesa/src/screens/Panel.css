@@ -136,3 +136,10 @@
 .pn-f>:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .pn-logo{flex:0 0 auto;white-space:nowrap}.pn-nav{flex:1 1 auto;justify-content:center;min-width:0}
 .pn-who-n{white-space:nowrap}.pn-nav button{padding:0 11px}
+
+/* Nombre primero y luego el apodo; el nombre se acomoda a la tarjeta (hasta 2 líneas) en vez de cortarse */
+.pn-c h4{white-space:normal;overflow:visible}
+.pn-c h4 .nom{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.pn-c h4 .apodo.bloque{display:block;margin-top:4px;font-size:var(--fs-body);text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apodo{font-style:normal;color:var(--oro);font-weight:600}
+.pn-tip span{overflow-wrap:anywhere}

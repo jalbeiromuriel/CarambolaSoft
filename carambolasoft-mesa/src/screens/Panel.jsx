@@ -2,6 +2,7 @@
 // Panel principal — réplica mejorada del POS Mero Parche (v6.28).
 // Fuente de verdad: IndexedDB. Mesa = dorado, Billar = verde. Garita y Venta rápida: Fase 1b.
 import { ajustes } from '../cuenta/ajustes.js';
+import NombreCuenta from '../components/NombreCuenta.jsx';
 import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
 import SelectorCliente, { personasDe, sumarVisita } from '../components/SelectorCliente.jsx';
@@ -138,7 +139,7 @@ export default function Panel({ irACuenta, irAContador }) {
             <span className="pn-n" title={g.map((x) => x.NombreLibre).join(', ')}>👥 {g.length}</span>
           </span>
         </div>
-        <h4>{c.NombreLibre}</h4>
+        <h4><NombreCuenta texto={c.NombreLibre} bloque /></h4>
         {reloj && <div className="pn-cr ga garita-r">⏱ {hms(er.transcurrido)} · {er.enAviso ? '⏰ 5 MIN ¡cobrar!' : `aviso en ${mmss(er.faltaAviso)}`}</div>}
         <div className="pn-f">
           <span>desde {hora(c.HoraApertura)} · {pedidosN} ped.
@@ -148,7 +149,7 @@ export default function Panel({ irACuenta, irAContador }) {
         </div>
         <div className="pn-tip">
           <div className="pn-tip-t">{g.length} {g.length === 1 ? 'cliente' : 'clientes'} en la mesa</div>
-          {g.map((x, i) => <div key={x.Id}><span>👤 {x.NombreLibre}</span><b>{fmt(rs[i].total)}</b></div>)}
+          {g.map((x, i) => <div key={x.Id}><span>👤 <NombreCuenta texto={x.NombreLibre} /></span><b>{fmt(rs[i].total)}</b></div>)}
         </div>
       </div>
     );

@@ -4,7 +4,7 @@ import { precioVigente, disponible } from '../cuenta/inventario.js';
 import { descontarStock } from '../cuenta/inventarioDb.js';
 import { useState, useEffect, useMemo } from 'react';
 import { put, getAll } from '../db/repository.js';
-import SelectorCliente, { sumarVisita } from './SelectorCliente.jsx';
+import SelectorCliente, { sumarVisita, etiquetaCliente } from './SelectorCliente.jsx';
 import { categoriaDe, categoriasVisibles, filtrar, masVendidos, loDeSiempre } from '../cuenta/catalogo.js';
 import { METODOS, planCobro } from '../cuenta/cobro.js';
 import { datosFactura } from '../cuenta/fiadosDb.js';
@@ -83,7 +83,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
     if (plan.error) { decir(plan.error); return; }
     const ahora = new Date().toISOString();
     const cuenta = await put('CUENTAS', {
-      TipoCuenta: 'VENTA_RAPIDA', MesaId: null, GrupoMesaId: null, ClienteId: cliente?.Id ?? null, NombreLibre: cliente ? (cliente.Apodo || cliente.Nombre) : 'Venta rápida',
+      TipoCuenta: 'VENTA_RAPIDA', MesaId: null, GrupoMesaId: null, ClienteId: cliente?.Id ?? null, NombreLibre: cliente ? etiquetaCliente(cliente) : 'Venta rápida',
       HoraApertura: ahora, HoraCierre: ahora, TarifaPorHora: null, Estado: 'LIQUIDADA',
     });
     const suma = (f) => carro.filter(f).reduce((t, l) => t + l.precio * l.cant, 0);
@@ -112,7 +112,7 @@ export default function VentaRapida({ cerrar, alCobrar }) {
       <div className="pn-modal vr">
         <h3>⚡ Venta rápida
           <span className="vr-cli">
-            {cliente ? <>👤 {cliente.Apodo || cliente.Nombre} · ⭐ {cliente.Visitas ?? 0} <button onClick={() => { setCliente(null); if (filtro === 'siempre') setFiltro('todos'); }}>✕</button></>
+            {cliente ? <>👤 {etiquetaCliente(cliente)} · ⭐ {cliente.Visitas ?? 0} <button onClick={() => { setCliente(null); if (filtro === 'siempre') setFiltro('todos'); }}>✕</button></>
               : <button onClick={() => setElegir({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>+ Cliente</button>}
           </span>
         </h3>
