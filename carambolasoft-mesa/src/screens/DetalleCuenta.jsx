@@ -16,6 +16,10 @@ import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js'
 import { datosFactura, datosFacturas, leerCuentasPago } from '../cuenta/fiadosDb.js';
 import { repartirSubtotales } from '../cuenta/dividir.js';
 import DividirCobro from '../components/DividirCobro.jsx';
+import PasarSaldo from '../components/PasarSaldo.jsx';
+import NombreCuenta, { partesNombre } from '../components/NombreCuenta.jsx';
+import { revisarAperturas, cuentaQueChoca } from '../cuenta/nombres.js';
+import { planTraspaso, lineaSaldo, esLineaSaldo, saldoTraspasado } from '../cuenta/traspaso.js';
 import { useSesion } from '../components/Sesion.jsx';
 import BotonComprobante from '../components/BotonComprobante.jsx';
 import { esDigital, textoComprobante } from '../cuenta/comprobante.js';
@@ -52,8 +56,10 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const { usuario } = useSesion();
   const [carro, setCarro] = useState({ abierto: false, fijo: false }); // carrito: la cuenta del cliente; se oculta solo a los 6 s
   const carroT = useRef(null);
+  const [verMesa, setVerMesa] = useState(false); // carrito: false = la cuenta activa · true = toda la mesa (total parcial)
   const [finChico, setFinChico] = useState(null); // { modo, destinoId } — cómo se cobra el chico que termina
   const [dividir, setDividir] = useState(false); // dividir la cuenta entre varios pagadores
+  const [pasar, setPasar] = useState(false);     // "Pasar saldo a…": el resto de la cuenta pasa a la cuenta de un amigo
   const [pidePin, setPidePin] = useState(null); // { luego } — un Admin autoriza (fiar siendo Empleado)
   const [aviso, setAviso] = useState('');
   const [ahora, setAhora] = useState(Date.now());
@@ -114,16 +120,21 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const total = subTiempo + consumoDe(cuenta);
   const tiempoMesa = tiempos.reduce((t, x) => t + x, 0);
   const totalMesa = grupo.reduce((t, c) => t + totalDe(c), 0);
+  const soloTotal = tiempoMesa === totalMesa;   // sin consumo: el tiempo y el total son lo mismo, se muestra uno solo
   // Lo que se está cobrando: la cuenta activa, o toda la mesa cuando paga una sola persona
   const cuentasCobro = cobro?.mesa ? grupo.filter((c) => totalDe(c) > 0) : [cuenta];
   const pagador = (cobro?.mesa && grupo.find((c) => c.Id === cobro.pagadorId)) || cuenta;
   const pedidosCobro = cuentasCobro.flatMap(entregadosDe);
   const subTiempoC = cuentasCobro.reduce((t, c) => t + tiempoDeC(c), 0);
   const totalC = cuentasCobro.reduce((t, c) => t + totalDe(c), 0);
-  const resumenC = resumenPorCategoria(pedidosCobro, productos, categorias);
+  const resumenC = resumenPorCategoria(pedidosCobro.filter((p) => !esLineaSaldo(p)), productos, categorias);
+  const saldoC = saldoTraspasado(pedidosCobro);   // saldos de otras cuentas que llegan a esta: se cobran, pero no son venta nueva
   const esBillar = cuenta.TipoCuenta === 'BILLAR';
   const taxi = esBillar ? grupo.find((c) => c.TarifaPorHora > 0) ?? null : null;   // el reloj es de la mesa: lo lleva la cuenta que lo inició, pero se ve y se maneja desde cualquiera
-  const resumen = resumenPorCategoria(entregados, productos, categorias);
+  const resumen = resumenPorCategoria(entregados.filter((p) => !esLineaSaldo(p)), productos, categorias);
+  const resumenMesa = resumenPorCategoria(grupo.flatMap(entregadosDe).filter((p) => !esLineaSaldo(p)), productos, categorias);   // todos los productos de la mesa, sumados
+  const saldoRecibido = saldoTraspasado(entregados);
+  const chicoCorre = !!(esBillar && taxi && estaCorriendo(taxi));   // con el chico corriendo no se sabe la deuda: no se pasa saldo
 
   // ── Catálogo
   const cantidadEn = (id) => entregados.filter((p) => p.ProductoId === id).reduce((t, p) => t + p.Cantidad, 0);
@@ -217,6 +228,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   async function crearCuenta() {
     const personas = personasDe(nueva.sel, true);
     if (personas.length === 0) { setNueva({ ...nueva, error: 'Marca un cliente o escribe un nombre.' }); return; }
+    const rev = revisarAperturas(todasCuentas.filter((c) => c.Estado === 'ABIERTA'), personas, cuenta.TipoCuenta);
+    if (rev.error) { setNueva({ ...nueva, error: rev.error }); return; }
     const creadas = [];
     for (const [i, x] of personas.entries()) {
       if (esGarita) { creadas.push(await agregarPersona(cuenta.GaritaRelojId, x)); continue; }
@@ -245,6 +258,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   async function vincularCliente() {
     const c = vincular.sel.cliente;
     if (!c) { setVincular({ ...vincular, error: 'Elige un cliente o crea uno nuevo.' }); return; }
+    const otra = cuentaQueChoca(todasCuentas.filter((x) => x.Estado === 'ABIERTA'), c.Id, cuenta.TipoCuenta, cuenta.Id);
+    if (otra) { setVincular({ ...vincular, error: `Ese cliente ya tiene otra cuenta abierta (${otra.NombreLibre}). Cóbrale o pásale el saldo primero.` }); return; }
     await put('CUENTAS', { ...cuenta, ClienteId: c.Id });
     await sumarVisita(c);
     setVincular(null); decir(`Cuenta vinculada a ${c.Nombre} ✓`); await cargar();
@@ -269,7 +284,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       ...(cobro.mesa ? { CuentasIncluidas: cuentasCobro.map((c) => c.Id) } : {}),
       SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'),
       SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
-      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO'].includes(p.CategoriaConsumo)),
+      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO', 'TRASPASO'].includes(p.CategoriaConsumo)),
+      SubtotalTraspaso: saldoC,
       TotalPagar: totalC, TotalPendienteFiado: pendienteFiado, UsuarioId: usuario?.Id ?? null, AutorizoId: cobro.autorizoId ?? null,
       MetodoPago: met1, MetodoPagoSecundario: met2,
       MontoPrimario: mixto ? m1 : null, MontoSecundario: mixto ? m2 : null,
@@ -298,7 +314,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   async function confirmarDivision(pagos) {
     const suma = (fn) => pedidosCobro.filter(fn).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
     const sub = { SubtotalTiempo: subTiempoC, SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'), SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
-      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO'].includes(p.CategoriaConsumo)) };
+      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO', 'TRASPASO'].includes(p.CategoriaConsumo)), SubtotalTraspaso: saldoC };
     const partes = repartirSubtotales(sub, pagos.map((p) => p.monto));
     const { Numeros, FechaHora } = await datosFacturas(pagos.length);
     let principalId = null;
@@ -316,6 +332,55 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     }
     setDividir(false);
     await terminarCobro(FechaHora);
+  }
+
+  // ── Pasar saldo a… (cuenta/traspaso.js): se factura esta cuenta con lo que paga y el resto entra como una línea a la del amigo
+  async function confirmarTraspaso({ paga, metodo, destinoId, nueva }) {
+    const plan = planTraspaso({ total, paga, metodo, chicoCorriendo: chicoCorre, destinoId: nueva ? 'nueva' : destinoId, origenId: cuenta.Id });
+    if (plan.error) return plan.error;
+    let destino = nueva ? null : todasCuentas.find((c) => c.Id === destinoId && c.Estado === 'ABIERTA');
+    if (!nueva && !destino) return 'Esa cuenta ya no está abierta. Elige otra.';
+    if (nueva) {
+      const rev = revisarAperturas(todasCuentas.filter((c) => c.Estado === 'ABIERTA' && c.Id !== cuenta.Id), [nueva], cuenta.TipoCuenta);
+      if (rev.error) return rev.error;
+      destino = await put('CUENTAS', {
+        TipoCuenta: cuenta.TipoCuenta, MesaId: cuenta.MesaId ?? null, GrupoMesaId: cuenta.MesaId ? null : grupoDe(cuenta), GaritaRelojId: cuenta.GaritaRelojId ?? null,
+        ClienteId: nueva.cliente?.Id ?? null, NombreLibre: nueva.etiqueta,
+        HoraApertura: new Date().toISOString(), HoraCierre: null, TarifaPorHora: null, Estado: 'ABIERTA',
+      });
+      await sumarVisita(nueva.cliente);
+    }
+    const suma = (f) => entregados.filter(f).reduce((t, p) => t + p.PrecioUnitarioHist * p.Cantidad, 0);
+    const datos = await datosFactura();
+    const { met1, met2, m1, m2, saldo } = plan;
+    const factura = await put('FACTURAS', {
+      ...datos, CuentaId: cuenta.Id, TurnoCajaId: cuenta.TurnoCajaId ?? null, SubtotalTiempo: subTiempo,
+      SubtotalLicor: suma((p) => p.CategoriaConsumo === 'BEBIDAS_ALCOHOLICAS'),
+      SubtotalSnacks: suma((p) => p.CategoriaConsumo === 'SNACKS'),
+      SubtotalOtros: suma((p) => !['BEBIDAS_ALCOHOLICAS', 'SNACKS', 'TIEMPO', 'TRASPASO'].includes(p.CategoriaConsumo)),
+      SubtotalTraspaso: saldoRecibido,
+      TotalPagar: total, TotalPendienteFiado: 0, UsuarioId: usuario?.Id ?? null, AutorizoId: null,
+      MetodoPago: met1, MetodoPagoSecundario: met2, MontoPrimario: met2 ? m1 : null, MontoSecundario: met2 ? m2 : null,
+      EstadoPago: 'PAGADO', TraspasoACuentaId: destino.Id,
+    });
+    await put('PEDIDOS_CUENTAS', lineaSaldo({ cuentaDestinoId: destino.Id, facturaId: factura.Id, numeroFactura: factura.Numero, nombreOrigen: cuenta.NombreLibre, saldo, fechaHora: datos.FechaHora }));
+    await put('CUENTAS', { ...terminarChico(cuenta), Estado: 'LIQUIDADA', HoraCierre: datos.FechaHora, SaldoPasadoACuentaId: destino.Id });
+    setPasar(false);
+    const quedan = grupo.filter((c) => c.Id !== cuenta.Id);
+    const aqui = nueva || grupoDe(destino) === grupoDe(cuenta);
+    decir(`Saldo de ${fmt(saldo)} pasado a ${destino.NombreLibre} ✓`);
+    if (aqui) { setActivaId(destino.Id); await cargar(); return ''; }
+    if (quedan.length) { setActivaId(quedan[0].Id); await cargar(); return ''; }
+    if (cuenta.MesaId) { const mesa = await get('MESAS_BILLAR', cuenta.MesaId); if (mesa) await put('MESAS_BILLAR', { ...mesa, Estado: 'DISPONIBLE' }); }
+    if (cuenta.GaritaRelojId) await cerrarReloj(cuenta.GaritaRelojId);
+    volver();
+    return '';
+  }
+
+  // Quitar la línea de un saldo traspasado = perder esa plata: siempre con PIN de Admin
+  async function quitarSaldo(p) {
+    await put('PEDIDOS_CUENTAS', { ...p, EstadoPedido: 'CANCELADO' });
+    decir('Saldo quitado de la cuenta'); await cargar();
   }
 
   const puedeFiar = esAdmin(usuario?.Rol) || cobro?.fiadoOk;
@@ -339,7 +404,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   return (
     <div className="pn ms">
       <Encabezado activo="panel" irPanel={volver} />
-      {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} cuentas={recibo.cuentas}
+      {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre && !partesNombre(cuenta.NombreLibre).apodo ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} cuentas={recibo.cuentas}
         telefono={esAdmin(usuario?.Rol) ? cliente?.Telefono : null} texto={textoReciboCuenta(recibo.d, cuenta.NombreLibre, recibo.cuentas)} cerrar={() => setRecibo(null)} />}
 
       <div className={`ms-mesa ms-uno ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
@@ -351,9 +416,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           <div className="mb-cc"><div className="mb-cr">{hms(msChicoActual(taxi, ahora))}</div>
             <span className={`mb-chip ${estaCorriendo(taxi) ? 'on' : ''}`}><i />{estaCorriendo(taxi) ? 'EN JUEGO' : 'DETENIDO'}</span></div>
           <div className="mb-vs" />
-          <div className="mb-n"><small>TIEMPO MESA</small><b className="v">{fmt(tiempoMesa)}</b></div>
+          {!soloTotal && <div className="mb-n"><small>TIEMPO MESA</small><b className="v">{fmt(tiempoMesa)}</b></div>}
         </>)}
-        <div className="mb-n"><small>TOTAL MESA{grupo.length > 1 ? ` · ${grupo.length} CUENTAS` : ''}</small><b className={esBillar && taxi ? '' : 'v'}>{fmt(totalMesa)}</b></div>
+        <div className="mb-n"><small>TOTAL MESA{grupo.length > 1 ? ` · ${grupo.length} CUENTAS` : ''}</small><b className={esBillar && taxi && !soloTotal ? '' : 'v'}>{fmt(totalMesa)}</b></div>
         <div className="mb-sp" />
         <button className="mb-b" onClick={abrirRecibo}>🧾 Recibo</button>
         <button className="mb-b oro" onClick={cerrarMesa}>{esGarita ? 'Terminar garita' : 'Cerrar mesa'}</button>
@@ -365,10 +430,10 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           <div className="ms-linea">
           <div className="ms-tabs">
             {grupo.map((c) => {
-              const n = entregadosDe(c).reduce((t, p) => t + p.Cantidad, 0);
+              const n = entregadosDe(c).filter((p) => !esLineaSaldo(p)).reduce((t, p) => t + p.Cantidad, 0);
               return (
-                <button key={c.Id} className={`ms-tab ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => setActivaId(c.Id)}>
-                  <b>👤 {c.NombreLibre}</b><small>{n} prod.{esBillar && tiempoDeC(c) > 0 ? ` · ⏱ ${fmt(tiempoDeC(c))}` : ''}</small><em>{fmt(totalDe(c))}</em>
+                <button key={c.Id} title={c.NombreLibre} className={`ms-tab ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => setActivaId(c.Id)}>
+                  <b>👤 <NombreCuenta texto={c.NombreLibre} /></b><small>{n} prod.{esBillar && tiempoDeC(c) > 0 ? ` · ⏱ ${fmt(tiempoDeC(c))}` : ''}</small><em>{fmt(totalDe(c))}</em>
                 </button>
               );
             })}
@@ -437,9 +502,40 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
         <aside className={`ms-carrito ${carro.abierto ? 'open' : ''}`} onPointerDown={() => carro.abierto && !carro.fijo && mostrarCarro()} onClick={(e) => e.stopPropagation()}>
           <div className="ms-ch"><b>🛒 Cuenta</b><span><button className={carro.fijo ? 'on' : ''} title="Dejar abierto" onClick={fijarCarro}>📌</button><button title="Ocultar" onClick={() => { clearTimeout(carroT.current); setCarro({ abierto: false, fijo: false }); }}>✕</button></span></div>
-          <div className="ms-nom">{cuenta.NombreLibre}</div>
+          {grupo.length > 1 && (
+            <div className="ms-tabs">
+              <button className={!verMesa ? 'on' : ''} onClick={() => setVerMesa(false)}>Esta cuenta</button>
+              <button className={verMesa ? 'on' : ''} onClick={() => setVerMesa(true)}>Toda la mesa</button>
+            </div>
+          )}
+          {verMesa && grupo.length > 1 ? (
+            <>
+              <div className="ms-nom">{titulo}</div>
+              <div className="ms-ap">{grupo.length} cuentas · total parcial hasta ahora</div>
+              <div className="ms-res">
+                <div className="ms-lab chico">Resumen por categoría · toda la mesa</div>
+                {esBillar && tiempoMesa > 0 && <div><span style={{ color: colorTiempo }}>🎱 Tiempo de mesa</span><b style={{ color: colorTiempo }}>{fmt(tiempoMesa)}</b></div>}
+                {resumenMesa.map((r) => <div key={r.clave}><span>{r.emoji} {r.nombre}</span><b>{fmt(r.total)}</b></div>)}
+                {saldoTraspasado(grupo.flatMap(entregadosDe)) > 0 && <div><span style={{ color: '#fbbf24' }}>⇄ Saldos de otras cuentas</span><b style={{ color: '#fbbf24' }}>{fmt(saldoTraspasado(grupo.flatMap(entregadosDe)))}</b></div>}
+                <div className="t"><b>TOTAL PARCIAL</b><span>{fmt(totalMesa)}</span></div>
+              </div>
+              <div className="ms-lab gris">Por cuenta</div>
+              {grupo.map((c) => (
+                <button key={c.Id} className={`ms-cta ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => { setActivaId(c.Id); setVerMesa(false); }}>
+                  <b>{c.ClienteId ? '⭐ ' : ''}{c.NombreLibre}</b><span>{fmt(totalDe(c))}</span>
+                </button>
+              ))}
+              <div className="ms-acc">
+                <button className="ms-cobrar" disabled={totalMesa <= 0}
+                  onClick={() => setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0, mesa: true, pagadorId: cuenta.Id })}>
+                  💳 Cobrar toda la mesa {fmt(totalMesa)}
+                </button>
+              </div>
+            </>
+          ) : (<>
+          <div className="ms-nom"><NombreCuenta texto={cuenta.NombreLibre} /></div>
           <div className="ms-ap">
-            {cliente?.Apodo && cliente.Apodo !== cuenta.NombreLibre && <>“{cliente.Apodo}” · </>}
+            {cliente?.Apodo && cliente.Apodo !== cuenta.NombreLibre && !partesNombre(cuenta.NombreLibre).apodo && <>“{cliente.Apodo}” · </>}
             {cliente ? <>⭐ {cliente.Visitas ?? 0} visitas</> : <span className="rojo">Sin cliente registrado</span>}
             {!cuenta.ClienteId && <button className="ms-vinc" onClick={() => setVincular({ sel: { cliente: null, nombre: '' }, creando: false, error: '' })}>+ Vincular cliente</button>}
             {deuda > 0 && <> · <span className="rojo">Fía {fmt(deuda)}</span></>}
@@ -450,6 +546,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <div className="ms-lab chico">Resumen por categoría</div>
             {esBillar && subTiempo > 0 && <div><span style={{ color: colorTiempo }}>🎱 Tiempo de mesa</span><b style={{ color: colorTiempo }}>{fmt(subTiempo)}</b></div>}
             {resumen.map((r) => <div key={r.clave}><span>{r.emoji} {r.nombre}</span><b>{fmt(r.total)}</b></div>)}
+            {saldoRecibido > 0 && <div><span style={{ color: '#fbbf24' }}>⇄ Saldos de otras cuentas</span><b style={{ color: '#fbbf24' }}>{fmt(saldoRecibido)}</b></div>}
             <div className="t"><b>TOTAL</b><span>{fmt(total)}</span></div>
           </div>
 
@@ -457,6 +554,15 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           {ordenados.length === 0 && <div className="ms-vacio">Sin consumos todavía.</div>}
           {ordenados.map((p) => {
             const prod = productos.find((x) => x.Id === p.ProductoId);
+            if (esLineaSaldo(p)) return (
+              <div key={p.Id} className="ms-ped saldo">
+                <time>{horaDe(p.FechaHora)}</time>
+                <b>⇄ {p.Detalle}</b>
+                <div className="s"><button title="Quitar saldo (PIN de Admin)" aria-label={`Quitar ${p.Detalle} (pide PIN de Admin)`}
+                  onClick={() => setPidePin({ motivo: `Quitar «${p.Detalle}» de la cuenta es perder ${fmt(p.PrecioUnitarioHist)}. Un Admin digita su PIN para autorizar.`, luego: () => quitarSaldo(p) })}>🔒 ✕</button></div>
+                <span className="m">{fmt(p.PrecioUnitarioHist * p.Cantidad)}</span>
+              </div>
+            );
             return (
               <div key={p.Id} className="ms-ped">
                 <time>{horaDe(p.FechaHora)}</time>
@@ -476,6 +582,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               💳 Cobrar {fmt(total)}
             </button>
           </div>
+          {!esGarita && <button className="ms-pasar" disabled={total <= 0} onClick={() => setPasar(true)}>⇄ Pasar saldo a…</button>}
+          </>)}
         </aside>
       </div>
 
@@ -528,6 +636,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             <div className="cb-cats">
               {subTiempoC > 0 && <span>🎱 Tiempo {fmt(subTiempoC)}</span>}
               {resumenC.map((r) => <span key={r.clave}>{r.emoji} {r.nombre} {fmt(r.total)}</span>)}
+              {saldoC > 0 && <span style={{ color: '#fbbf24' }}>⇄ Saldos {fmt(saldoC)}</span>}
             </div>
 
             {!cobro.mixto && (
@@ -695,9 +804,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         </div>
       )}
 
-      {pidePin && <PinAdmin motivo="Un Empleado no puede fiar. Un Admin digita su PIN para autorizar este fiado."
+      {pidePin && <PinAdmin motivo={pidePin.motivo ?? 'Un Empleado no puede fiar. Un Admin digita su PIN para autorizar este fiado.'}
         cancelar={() => setPidePin(null)}
-        ok={(a) => { pidePin.luego(); setCobro((c) => ({ ...c, autorizoId: a.Id })); setPidePin(null); }} />}
+        ok={(a) => { pidePin.luego(a); if (cobro) setCobro((c) => ({ ...c, autorizoId: a.Id })); setPidePin(null); }} />}
+
+      {pasar && <PasarSaldo cuenta={cuenta} total={total} abiertas={todasCuentas.filter((c) => c.Estado === 'ABIERTA')} totalDe={(c) => (grupo.some((x) => x.Id === c.Id) ? totalDe(c) : consumoDe(c))}
+        chicoCorriendo={chicoCorre} terminarChico={() => { setPasar(false); cambiarChico(); }} confirmar={confirmarTraspaso} cerrar={() => setPasar(false)} />}
 
       {aviso && <div className="ms-aviso">{aviso}</div>}
     </div>

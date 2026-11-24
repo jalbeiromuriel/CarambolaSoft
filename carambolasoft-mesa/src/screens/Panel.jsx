@@ -2,6 +2,8 @@
 // Panel principal — réplica mejorada del POS Mero Parche (v6.28).
 // Fuente de verdad: IndexedDB. Mesa = dorado, Billar = verde. Garita y Venta rápida: Fase 1b.
 import { ajustes } from '../cuenta/ajustes.js';
+import NombreCuenta from '../components/NombreCuenta.jsx';
+import { revisarAperturas } from '../cuenta/nombres.js';
 import { useState, useEffect, useCallback } from 'react';
 import { put, getAll, porIndice } from '../db/repository.js';
 import SelectorCliente, { personasDe, sumarVisita } from '../components/SelectorCliente.jsx';
@@ -77,7 +79,8 @@ export default function Panel({ irACuenta, irAContador }) {
     return { pedidos: items.reduce((t, p) => t + p.Cantidad, 0), total: consumo + tiempo };
   }
 
-  function abrirModal(m) { setError(''); setSel({ cliente: null, nombre: '', lista: [] }); setCreando(false); setTarifa(String(ajustes.tarifaBillar)); setModal(m); }
+  const [choque, setChoque] = useState(null);   // cuenta abierta que ya tiene el cliente: botón «Ir a esa cuenta»
+  function abrirModal(m) { setError(''); setChoque(null); setSel({ cliente: null, nombre: '', lista: [] }); setCreando(false); setTarifa(String(ajustes.tarifaBillar)); setModal(m); }
 
   async function abrirCuenta() {
     const personas = personasDe(sel, true);
@@ -85,6 +88,8 @@ export default function Panel({ irACuenta, irAContador }) {
     const esBillar = modal.tipo === 'BILLAR';
     if (esBillar && !modal.mesaId) { setError('Elige una mesa libre.'); return; }
     if (esBillar && !(Number(tarifa) > 0)) { setError('La tarifa por hora es obligatoria en billar.'); return; }
+    const rev = revisarAperturas(cuentas, personas, esBillar ? 'BILLAR' : modal.tipo === 'GARITA' ? 'GARITA' : 'LICORES');
+    if (rev.error) { setError(rev.error); setChoque(rev.cuenta); return; }
     const creadas = [];
     if (modal.tipo === 'GARITA') {
       const primera = await abrirGarita(personas[0]); creadas.push(primera);
@@ -138,7 +143,7 @@ export default function Panel({ irACuenta, irAContador }) {
             <span className="pn-n" title={g.map((x) => x.NombreLibre).join(', ')}>👥 {g.length}</span>
           </span>
         </div>
-        <h4>{c.NombreLibre}</h4>
+        <h4><NombreCuenta texto={c.NombreLibre} bloque /></h4>
         {reloj && <div className="pn-cr ga garita-r">⏱ {hms(er.transcurrido)} · {er.enAviso ? '⏰ 5 MIN ¡cobrar!' : `aviso en ${mmss(er.faltaAviso)}`}</div>}
         <div className="pn-f">
           <span>desde {hora(c.HoraApertura)} · {pedidosN} ped.
@@ -148,7 +153,7 @@ export default function Panel({ irACuenta, irAContador }) {
         </div>
         <div className="pn-tip">
           <div className="pn-tip-t">{g.length} {g.length === 1 ? 'cliente' : 'clientes'} en la mesa</div>
-          {g.map((x, i) => <div key={x.Id}><span>👤 {x.NombreLibre}</span><b>{fmt(rs[i].total)}</b></div>)}
+          {g.map((x, i) => <div key={x.Id}><span>👤 <NombreCuenta texto={x.NombreLibre} /></span><b>{fmt(rs[i].total)}</b></div>)}
         </div>
       </div>
     );
@@ -227,7 +232,7 @@ export default function Panel({ irACuenta, irAContador }) {
                 <input type="number" inputMode="numeric" value={tarifa} onChange={(e) => setTarifa(e.target.value)} />
               </>
             )}
-            {!creando && error && <div className="pn-err">{error}</div>}
+            {!creando && error && <div className="pn-err">{error}{choque && <button className="pn-ir" onClick={() => { setModal(null); irACuenta(choque.Id); }}>Ir a esa cuenta →</button>}</div>}
             {!creando && <div className="pn-acc">
               <button className="no" onClick={() => setModal(null)}>CANCELAR</button>
               <button className="si" onClick={abrirCuenta}>{modal.tipo === 'GARITA' ? 'INICIAR GARITA' : 'ABRIR'}{sel.lista?.length > 1 ? ` CON ${sel.lista.length} PERSONAS` : modal.tipo === 'GARITA' ? '' : ' CUENTA'}</button>

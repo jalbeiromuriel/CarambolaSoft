@@ -1,6 +1,7 @@
 // src/cuenta/caja.js — Reglas de la caja (funciones puras). El "turno abierto" son los registros con TurnoCajaId nulo:
 // al cerrar la caja se sellan con el Id del turno y salen del turno abierto.
 import { PRODUCTO_GARITA_ID } from './garita.js';
+import { esLineaSaldo } from './traspaso.js';
 
 export const CATEGORIAS_GASTO = ['Insumos', 'Transporte', 'Servicios', 'Adelanto empleado', 'Otros'];
 export const METODOS_CAJA = ['EFECTIVO', 'NEQUI', 'DAVIPLATA', 'TARJETA', 'TRANSFERENCIA'];   // TARJETA = Bancolombia en pantalla
@@ -14,11 +15,12 @@ export function partesFactura(f) {
 }
 
 const suma = (l, f) => l.reduce((t, x) => t + f(x), 0);
-const cero = () => Object.fromEntries([...METODOS_CAJA, 'FIADO'].map((m) => [m, 0]));
+const cero = () => Object.fromEntries([...METODOS_CAJA, 'FIADO', 'TRASPASO'].map((m) => [m, 0]));
 
 /**
  * Resumen del turno abierto.
- * - porMetodo: lo vendido por método (FIADO = lo que quedó por cobrar al vender).
+ * - porMetodo: lo vendido por método (FIADO = lo que quedó por cobrar al vender; TRASPASO = saldo que pasó a la cuenta de otro).
+ * - cobrosTraspaso: saldos de otras cuentas cobrados en el turno (ya se vendieron en la factura de origen: no son venta nueva).
  * - cobrosFiado: abonos recibidos en el turno, por método.
  * - efectivoEsperado = efectivo vendido + abonos en efectivo − gastos en efectivo − préstamos al fondo de máquinas + devoluciones del fondo − préstamos al personal + devoluciones del personal.
  */
@@ -27,7 +29,8 @@ export function resumenTurno({ facturas = [], abonos = [], gastos = [], maq = []
   for (const f of facturas) for (const p of partesFactura(f)) porMetodo[p.metodo] = (porMetodo[p.metodo] ?? 0) + p.monto;
   for (const a of abonos) cobrosFiado[a.MetodoPago] = (cobrosFiado[a.MetodoPago] ?? 0) + a.Monto;
   for (const g of gastos) gastosPorMetodo[g.MetodoPago] = (gastosPorMetodo[g.MetodoPago] ?? 0) + g.Monto;
-  const totalVendido = suma(facturas, (f) => f.TotalPagar ?? 0);
+  const cobrosTraspaso = suma(facturas, (f) => f.SubtotalTraspaso ?? 0);
+  const totalVendido = suma(facturas, (f) => f.TotalPagar ?? 0) - cobrosTraspaso;
   const totalCobros = suma(abonos, (a) => a.Monto);
   const totalGastos = suma(gastos, (g) => g.Monto);
   const totalPrestamos = suma(maq.filter((x) => x.Tipo === 'PRESTAMO'), (p) => p.Monto);       // la caja le presta al fondo de máquinas
@@ -36,6 +39,7 @@ export function resumenTurno({ facturas = [], abonos = [], gastos = [], maq = []
   const totalDevPers = suma(pers.filter((x) => x.Tipo === 'DEVOLUCION'), (p) => p.Monto);       // el personal le devuelve a la caja
   return {
     nVentas: facturas.filter((f) => !f.DivisionDeFacturaId).length, porMetodo, totalVendido, fiado: porMetodo.FIADO,
+    traspasado: porMetodo.TRASPASO, cobrosTraspaso,
     cobrosFiado, totalCobros, nCobros: new Set(abonos.map((a) => `${a.FechaHora}|${a.MetodoPago}`)).size,
     gastosPorMetodo, totalGastos, nGastos: gastos.length, totalPrestamos, totalDevoluciones, totalPrestPers, totalDevPers,
     efectivoEsperado: porMetodo.EFECTIVO + cobrosFiado.EFECTIVO - gastosPorMetodo.EFECTIVO - totalPrestamos + totalDevoluciones - totalPrestPers + totalDevPers,
@@ -66,7 +70,7 @@ export function movimientos({ facturas = [], abonos = [], gastos = [], maq = [],
 
 /**
  * Inventario vendido (para cuadrar la nevera): unidades por producto de las cuentas facturadas en el turno,
- * de mayor a menor. No cuenta tiempo, garita, pedidos cancelados ni pagos de fiado.
+ * de mayor a menor. No cuenta tiempo, garita, pedidos cancelados, pagos de fiado ni saldos traspasados.
  */
 export function inventarioVendido({ facturas = [], pedidos = [], productos = [] }) {
   const cuentas = new Set(facturas.flatMap((f) => [f.CuentaId, ...(f.CuentasIncluidas ?? [])]));
@@ -74,7 +78,7 @@ export function inventarioVendido({ facturas = [], pedidos = [], productos = [] 
   const conteo = new Map();
   for (const p of pedidos) {
     if (!cuentas.has(p.CuentaId) || p.EstadoPedido !== 'ENTREGADO') continue;
-    if (p.CategoriaConsumo === 'TIEMPO' || p.ProductoId === PRODUCTO_GARITA_ID) continue;
+    if (p.CategoriaConsumo === 'TIEMPO' || p.ProductoId === PRODUCTO_GARITA_ID || esLineaSaldo(p)) continue;
     const n = nombre.get(p.ProductoId) ?? p.Detalle;
     if (!n) continue;
     conteo.set(n, (conteo.get(n) ?? 0) + p.Cantidad);

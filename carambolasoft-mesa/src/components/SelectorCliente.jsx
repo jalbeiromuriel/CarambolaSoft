@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { put } from '../db/repository.js';
 import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import { norm } from '../cuenta/catalogo.js';
+import { etiquetaCliente, duplicadoDe } from '../cuenta/nombres.js';
+export { etiquetaCliente };
 
-/** Etiqueta de la cuenta: nombre libre, si no apodo o nombre del cliente. */
-export const etiquetaDe = ({ cliente, nombre }) => nombre.trim() || cliente?.Apodo || cliente?.Nombre || '';
+/** Etiqueta de la cuenta: nombre libre, si no primer nombre + apodo del cliente (cuenta/nombres.js). */
+export const etiquetaDe = ({ cliente, nombre }) => nombre.trim() || etiquetaCliente(cliente);
 
 /** ⭐ suma una visita al cliente elegido. */
 /** Personas a abrir: modo varios → toda la lista; modo uno → la selección única. */
@@ -31,6 +33,8 @@ export default function SelectorCliente({ valor, onChange, onModoNuevo, error, s
 
   async function crear() {
     if (!nuevo.nombre.trim()) { setError('Escribe el nombre.'); return; }
+    const dup = duplicadoDe(clientes, { Nombre: nuevo.nombre, Apodo: nuevo.apodo });
+    if (dup) { setError(dup); return; }
     const c = await guardarCliente({ Nombre: nuevo.nombre, Apodo: nuevo.apodo });
     setClientes((l) => [...l, c].sort((a, b) => a.Nombre.localeCompare(b.Nombre)));
     if (varios) onChange({ ...valor, lista: [...(valor.lista ?? []), { k: c.Id, cliente: c, nombre: '' }] });
@@ -87,7 +91,7 @@ export default function SelectorCliente({ valor, onChange, onModoNuevo, error, s
           <label>Van a abrir · {lis.length} {lis.length === 1 ? 'cuenta' : 'cuentas'}</label>
           <div className="pn-chips">
             {lis.length === 0 && <span className="pn-vacio">Marca clientes o escribe un nombre.</span>}
-            {lis.map((x) => <span key={x.k} className="pn-chip">{x.cliente ? (x.nombre?.trim() || x.cliente.Apodo || x.cliente.Nombre) : x.nombre}
+            {lis.map((x) => <span key={x.k} className="pn-chip">{x.cliente ? (x.nombre?.trim() || etiquetaCliente(x.cliente)) : x.nombre}
               <i onClick={() => onChange({ ...valor, lista: lis.filter((y) => y.k !== x.k) })}>✕</i></span>)}
           </div>
         </div>

@@ -2,6 +2,7 @@
 import { formatearNumero } from '../cuenta/cuentasPago.js';
 import { partesFactura, resumenTurno, arqueo } from '../cuenta/caja.js';
 import { PRODUCTO_GARITA_ID } from '../cuenta/garita.js';
+import { esLineaSaldo } from '../cuenta/traspaso.js';
 
 export const fmt = (n) => '$' + Math.round(n ?? 0).toLocaleString('es-CO');
 const cuentasDe = (f) => new Set([f.CuentaId, ...(f.CuentasIncluidas ?? [])]);
@@ -13,7 +14,7 @@ export function informeDia({ facturas = [], pedidos = [], productos = [] }) {
   const nombre = new Map(productos.map((p) => [p.Id, p.Nombre]));
   const por = new Map();
   for (const p of entregados(pedidos)) {
-    if (!cuentas.has(p.CuentaId) || p.CategoriaConsumo === 'TIEMPO') continue;
+    if (!cuentas.has(p.CuentaId) || p.CategoriaConsumo === 'TIEMPO' || esLineaSaldo(p)) continue;   // el saldo traspasado ya se vendió en su factura de origen
     const n = nombre.get(p.ProductoId) ?? p.Detalle;
     if (!n) continue;
     const f = por.get(n) ?? { nombre: n, cant: 0, ingresos: 0, costo: 0 };
@@ -67,7 +68,7 @@ export function datosCierre({ facturas, abonos, gastos, maq = [], pers = [], ped
   };
 }
 
-const METODO = { EFECTIVO: 'Efectivo', NEQUI: 'Nequi', DAVIPLATA: 'Daviplata', TARJETA: 'Bancolombia', TRANSFERENCIA: 'Transferencia', FIADO: 'Fiado' };
+const METODO = { EFECTIVO: 'Efectivo', NEQUI: 'Nequi', DAVIPLATA: 'Daviplata', TARJETA: 'Bancolombia', TRANSFERENCIA: 'Transferencia', FIADO: 'Fiado', TRASPASO: 'Pasado a otra cuenta' };
 export const nombreMetodo = (m) => METODO[m] ?? m;
 
 /** Texto para WhatsApp: resumen corto del cierre. */

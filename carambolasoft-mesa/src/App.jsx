@@ -84,6 +84,14 @@ function escribir(db, tabla, registros) {
 export default function App() {
   const [ruta, setRuta] = useState({ pantalla: window.location.hash === '#contador' ? 'contador' : 'tablero' });
   const [listo, setListo] = useState(false);
+
+  // Clic derecho (y pulsación larga en tablet) desactivado mientras se usa el programa: en el local el mouse se maneja con dificultad
+  // y el menú del navegador solo estorba. F12 y el teclado siguen funcionando.
+  useEffect(() => {
+    const sinMenu = (e) => e.preventDefault();
+    window.addEventListener('contextmenu', sinMenu);
+    return () => window.removeEventListener('contextmenu', sinMenu);
+  }, []);
   const [usuarios, setUsuarios] = useState([]);
   const [usuario, setUsuario] = useState(null);   // usuario en turno (se recuerda mientras la pestaña esté abierta)
 
@@ -153,7 +161,6 @@ return (
 const ESTILOS = `
 .al-inact { position: fixed; top: 0; left: 0; right: 0; z-index: 70; padding: 12px; background: #fb7185; color: #2a0a10; font-weight: 800; text-align: center; }
 .al-garita { position: fixed; bottom: 0; left: 0; right: 0; z-index: 60; padding: 12px; border: 0; background: #fbbf24; color: #1a1405; font-weight: 800; letter-spacing: 1px; cursor: pointer; }
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;900&display=swap');
 
 :root {
   --fondo: #0b0f19;
