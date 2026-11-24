@@ -16,12 +16,17 @@ import Informe, { construirInforme } from './Informe.jsx';
 import Carrito from './Carrito.jsx';
 import { Escenario, Barra, Bola, BolaMas, IcoCopa, IcoDeshacer } from './Piezas.jsx';
 import { useMesaViva } from './useMesaViva.js';
+import { estaCorriendo } from '../../cuenta/tiempo.js';
+
+const AVISO_SIN_TIEMPO = 'El tiempo de la mesa no ha arrancado. Pídele a la barra que le dé ▶ Iniciar.';
 
 const COLORES = ['#22d3ee', '#2e9e5b'];     // lado 1 cian · lado 2 verde (los 4 individuales usan además naranja y rojo)
 const DIGITOS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
 export default function Partida({ mesaId, admin, salir, irEntrada, irInicio, irCuenta, modoTV = false }) {
   const viva = useMesaViva(mesaId, { conPrecios: !modoTV });
+  // Las bolas solo cuentan con el cronómetro de la mesa corriendo (lo inicia la barra).
+  const corriendo = viva.cuentas.some(estaCorriendo);
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState(null);             // { texto, accion }
   const [mesa, setMesa] = useState(null);
@@ -74,6 +79,7 @@ export default function Partida({ mesaId, admin, salir, irEntrada, irInicio, irC
 
   // ---------- series ----------
   function sumarSerie(id, k) {
+    if (!corriendo) return avisar(AVISO_SIN_TIEMPO);
     const p = jugRef.current.find((j) => j.Id === id);
     if (!p || !(k >= 1)) return;
     const marcaId = nuevoGuid();
@@ -185,13 +191,13 @@ export default function Partida({ mesaId, admin, salir, irEntrada, irInicio, irC
       );
     }
     return (
-      <div className={plano ? 'ca-teclas plano' : 'ca-teclas'}>
+      <div className={`${plano ? 'ca-teclas plano' : 'ca-teclas'}${corriendo ? '' : ' apagado'}`} title={corriendo ? undefined : AVISO_SIN_TIEMPO}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (plano
           ? <button key={n} type="button" className="ca-tecla" aria-label={`${etiquetaBase}: anotar ${n}`} onClick={() => sumarSerie(destinoId, n)}>{n}</button>
           : <Bola key={n} n={n} etiqueta={`${etiquetaBase}: anotar ${n} carambola${n > 1 ? 's' : ''}`} onClick={() => sumarSerie(destinoId, n)} />))}
         {plano
-          ? <button type="button" className="ca-tecla mas" aria-label={`${etiquetaBase}: más de nueve, armar 10, 20, 30`} onClick={() => setComp({ clave, dig: '' })}>+ <small>10+</small></button>
-          : <BolaMas etiqueta={`${etiquetaBase}: más de nueve, armar 10, 20, 30`} onClick={() => setComp({ clave, dig: '' })} />}
+          ? <button type="button" className="ca-tecla mas" aria-label={`${etiquetaBase}: más de nueve, armar 10, 20, 30`} onClick={() => (corriendo ? setComp({ clave, dig: '' }) : avisar(AVISO_SIN_TIEMPO))}>+ <small>10+</small></button>
+          : <BolaMas etiqueta={`${etiquetaBase}: más de nueve, armar 10, 20, 30`} onClick={() => (corriendo ? setComp({ clave, dig: '' }) : avisar(AVISO_SIN_TIEMPO))} />}
       </div>
     );
   };
@@ -273,6 +279,7 @@ export default function Partida({ mesaId, admin, salir, irEntrada, irInicio, irC
         carrito={modoTV ? null : { count: viva.consumo.length, onClick: () => setCarrito(true) }}
         onFinalizar={ocupado ? null : finalizar}
       />
+      {!corriendo && !modoTV && viva.cuentas.length > 0 && <div className="ca-sin-tiempo" role="status">{AVISO_SIN_TIEMPO}</div>}
       {contenido}
       <Carrito abierto={carrito} onCerrar={() => setCarrito(false)} mesa={viva} modoTV={modoTV} />
       {aviso && <div className="ca-aviso">{aviso}</div>}

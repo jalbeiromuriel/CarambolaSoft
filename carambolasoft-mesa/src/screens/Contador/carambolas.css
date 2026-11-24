@@ -189,3 +189,7 @@
 
 /* Pierde y Paga: cliente que está en la garita o en otra mesa de billar */
 .ca-fila-sel .ca-ocupado{color:#facc15;font-weight:700}
+
+/* Sin cronómetro de la mesa: las bolas se ven apagadas y no cuentan */
+.ca-teclas.apagado{opacity:.3;filter:grayscale(1)}
+.ca-sin-tiempo{margin:12px 24px 0;padding:14px 18px;border-radius:12px;background:#2a2410;border:1px solid #facc15;color:#fde68a;font-size:18px;font-weight:700;text-align:center}
