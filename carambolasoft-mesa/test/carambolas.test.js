@@ -49,3 +49,15 @@ test('total aproximado: sube a $100 y pesos() da puntos de miles', () => {
   assert.equal(pesos(800), '$800');
   assert.equal(pesos(1234567), '$1.234.567');
 });
+
+test('ocupadoEn: no se puede estar en garita y billar, ni en dos billares', async () => {
+  const { ocupadoEn } = await import('../src/marcador/carambolas.js');
+  const cuentas = [{ TipoCuenta: 'GARITA', Estado: 'ABIERTA', ClienteId: 'liliana' }, { TipoCuenta: 'LICORES', Estado: 'ABIERTA', ClienteId: 'carlos' }];
+  const alineaciones = { m2: [{ clienteId: 'pablo' }], m3: [{ clienteId: 'elkin' }] };
+  const ctx = { cuentasAbiertas: cuentas, alineaciones, mesaActualId: 'm2', nombreMesa: (id) => (id === 'm3' ? 'Mesa 3' : 'Mesa 2') };
+  assert.equal(ocupadoEn('liliana', ctx).donde, 'GARITA');
+  assert.equal(ocupadoEn('elkin', ctx).texto, 'EN MESA 3');
+  assert.equal(ocupadoEn('pablo', ctx), null);   // ya está en esta misma mesa
+  assert.equal(ocupadoEn('carlos', ctx), null);  // una mesa de licores sí se permite
+  assert.equal(ocupadoEn(null, ctx), null);
+});

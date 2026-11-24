@@ -186,3 +186,6 @@
 
 /* quien va ganando: la tarjeta completa se pone en oro */
 .ca-panel.gana { border-color: rgba(238, 182, 63, 0.65); border-top-color: #eeb63f; background: linear-gradient(180deg, rgba(238, 182, 63, 0.10), #0e1424 55%); box-shadow: 0 0 36px rgba(238, 182, 63, 0.18); }
+
+/* Pierde y Paga: cliente que está en la garita o en otra mesa de billar */
+.ca-fila-sel .ca-ocupado{color:#facc15;font-weight:700}

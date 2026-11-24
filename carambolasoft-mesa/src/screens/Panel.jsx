@@ -20,6 +20,7 @@ import { PremioModal } from './Maquinas.jsx';
 import { cargarMaquinas } from '../cuenta/maquinasDb.js';
 import { saldoFondo } from '../cuenta/maquinas.js';
 import { useSesion } from '../components/Sesion.jsx';
+import { olvidarAlineacion } from '../marcador/datos.js';
 import { esAdmin } from '../cuenta/auth.js';
 import './Panel.css';
 
@@ -117,6 +118,7 @@ export default function Panel({ irACuenta, irAContador }) {
         }));
       }
       if (esBillar) {
+        await olvidarAlineacion(modal.mesaId);   // mesa recién arrendada: arranca sin jugadores
         const mesa = mesas.find((m) => m.Id === modal.mesaId);
         await put('MESAS_BILLAR', { ...mesa, Estado: 'OCUPADA' });
       }

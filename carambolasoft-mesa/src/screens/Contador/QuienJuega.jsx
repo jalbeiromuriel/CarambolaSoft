@@ -2,9 +2,9 @@
 // Solo 1 contra 1 o 2 contra 2: no se pregunta "individual o parejas", se deduce de cuántos hay por lado.
 // Al empezar ya no se agregan jugadores. EMPEZAR PARTIDA crea el chico (iniciarChico) y pasa a la partida.
 import { useEffect, useState } from 'react';
-import { nuevoGuid } from '../../db/repository.js';
-import { mesasConCuenta, listarClientes, guardarCliente, iniciarChico } from '../../marcador/datos.js';
-import { evaluarInicio, MAX_POR_LADO } from '../../marcador/carambolas.js';
+import { nuevoGuid, porIndice } from '../../db/repository.js';
+import { mesasConCuenta, listarClientes, guardarCliente, iniciarChico, leerAlineaciones, guardarAlineacion } from '../../marcador/datos.js';
+import { evaluarInicio, MAX_POR_LADO, ocupadoEn } from '../../marcador/carambolas.js';
 import { Escenario, Barra, IcoX, IcoMas, IcoPlay } from './Piezas.jsx';
 import Carrito from './Carrito.jsx';
 import { useMesaViva } from './useMesaViva.js';
@@ -26,11 +26,40 @@ export default function QuienJuega({ mesaId, salir, onIniciada, modoTV = false }
   const [carrito, setCarrito] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState('');
+  const [ocupacion, setOcupacion] = useState({ cuentasAbiertas: [], alineaciones: {}, nombres: {} });
+  const [cargado, setCargado] = useState(false);
 
   useEffect(() => {
-    mesasConCuenta().then((f) => setFila(f.find((x) => x.mesa.Id === mesaId) ?? null));
-    listarClientes().then((c) => setClientes(c.filter((x) => x.Activo !== false)));
+    (async () => {
+      const [filas, cls, alineaciones, abiertas] = await Promise.all([
+        mesasConCuenta(), listarClientes(), leerAlineaciones(), porIndice('CUENTAS', 'porEstado', 'ABIERTA'),
+      ]);
+      const activos = cls.filter((x) => x.Activo !== false);
+      setFila(filas.find((x) => x.mesa.Id === mesaId) ?? null);
+      setClientes(activos);
+      // Solo cuentan las alineaciones de mesas que siguen abiertas (una mesa cerrada no ocupa a nadie).
+      const vivas = Object.fromEntries(Object.entries(alineaciones).filter(([id]) => filas.some((f) => f.mesa.Id === id && f.cuenta)));
+      const nombres = Object.fromEntries(filas.map((f) => [f.mesa.Id, `Mesa ${f.mesa.Numero}`]));
+      setOcupacion({ cuentasAbiertas: abiertas, alineaciones: vivas, nombres });
+      // Pierde y Paga: los jugadores del chico anterior siguen cargados.
+      const porId = new Map(activos.map((c) => [c.Id, c]));
+      setJugadores((vivas[mesaId] ?? []).flatMap((a) => {
+        const cliente = a.clienteId ? porId.get(a.clienteId) : null;
+        if (a.clienteId && !cliente) return [];
+        const def = cliente ? { cliente } : { invitado: a.invitado };
+        return [{ id: nuevoGuid(), nombre: cliente ? cliente.Nombre : a.invitado, apodo: cliente?.Apodo ?? null, esInvitado: !cliente, lado: a.lado, def }];
+      }));
+      setCargado(true);
+    })();
   }, [mesaId]);
+
+  // Cada cambio queda guardado: si se sale al Panel o se recarga, los jugadores siguen ahí.
+  useEffect(() => {
+    if (!cargado) return;
+    guardarAlineacion(mesaId, jugadores.map((j) => ({ clienteId: j.def.cliente?.Id ?? null, invitado: j.def.cliente ? null : j.def.invitado, lado: j.lado })));
+  }, [jugadores, cargado, mesaId]);
+
+  const dondeEsta = (c) => ocupadoEn(c.Id, { ...ocupacion, mesaActualId: mesaId, nombreMesa: (id) => ocupacion.nombres[id] ?? 'otra mesa' });
 
   const avisar = (t) => { setAviso(t); setTimeout(() => setAviso(''), 3500); };
   const delLado = (n) => jugadores.filter((j) => j.lado === n);
@@ -38,6 +67,13 @@ export default function QuienJuega({ mesaId, salir, onIniciada, modoTV = false }
 
   function agregar(def) {
     const lado = modal.lado;
+    const o = def.cliente ? dondeEsta(def.cliente) : null;
+    if (o) {
+      const quien = def.cliente.Apodo || def.cliente.Nombre;
+      return avisar(o.donde === 'GARITA'
+        ? `${quien} está en la garita. Retíralo de la garita primero.`
+        : `${quien} ya está jugando en ${o.texto.replace('EN ', '').toLowerCase().replace(/^./, (x) => x.toUpperCase())}. Quítalo de allá primero.`);
+    }
     if (delLado(lado).length >= MAX_POR_LADO) return avisar(`Parchados ${lado} ya tiene ${MAX_POR_LADO} jugadores.`);
     const nombre = def.cliente ? def.cliente.Nombre : def.invitado.trim();
     setJugadores((l) => [...l, { id: nuevoGuid(), nombre, apodo: def.cliente?.Apodo ?? null, esInvitado: !def.cliente, lado, def }]);
@@ -124,7 +160,7 @@ export default function QuienJuega({ mesaId, salir, onIniciada, modoTV = false }
               {clientes.length > 0 && lista.length === 0 && <p className="ca-nota">Sin coincidencias. Crea el jugador nuevo abajo.</p>}
               {lista.map((c) => (
                 <button key={c.Id} type="button" className="ca-fila-sel" onClick={() => agregar({ cliente: c })}>
-                  <b>{c.Nombre}{c.Apodo ? ` (${c.Apodo})` : ''}</b><span>● CLIENTE</span>
+                  <b>{c.Nombre}{c.Apodo ? ` (${c.Apodo})` : ''}</b>{dondeEsta(c) ? <span className="ca-ocupado">{dondeEsta(c).texto}</span> : <span>● CLIENTE</span>}
                 </button>
               ))}
             </div>
