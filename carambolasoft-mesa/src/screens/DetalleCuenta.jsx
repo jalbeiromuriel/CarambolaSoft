@@ -425,7 +425,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             {grupo.map((c) => {
               const n = entregadosDe(c).filter((p) => !esLineaSaldo(p)).reduce((t, p) => t + p.Cantidad, 0);
               return (
-                <button key={c.Id} className={`ms-tab ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => setActivaId(c.Id)}>
+                <button key={c.Id} title={c.NombreLibre} className={`ms-tab ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => setActivaId(c.Id)}>
                   <b>👤 <NombreCuenta texto={c.NombreLibre} /></b><small>{n} prod.{esBillar && tiempoDeC(c) > 0 ? ` · ⏱ ${fmt(tiempoDeC(c))}` : ''}</small><em>{fmt(totalDe(c))}</em>
                 </button>
               );

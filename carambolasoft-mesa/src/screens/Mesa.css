@@ -215,3 +215,7 @@
 .ps-fila em{flex:none;margin-left:10px}
 .mb-tit{min-width:0;flex:0 1 auto}
 .mb-tit h2{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Nombres muy largos (nombre libre en garita o mesa): máximo 2 líneas dentro de la pestaña; el nombre completo sale al pasar el mouse */
+.ms-tab b,.ms-linea .ms-tab b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ms-tabs .ms-tab:not(.nueva){width:160px;max-width:160px;flex:0 0 auto}
+.ms-linea .ms-tabs{flex-wrap:wrap;overflow-x:visible}
