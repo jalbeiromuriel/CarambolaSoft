@@ -29,6 +29,7 @@ import IndicadorSync from './components/IndicadorSync.jsx';
 import { cerrarSesionApi } from './db/apiSesion.js';
 import { iniciarSync, detenerSync } from './db/sync.js';
 import AvisoPrecios from './components/CambiosPrecio.jsx';
+import { repararNumeros } from './cuenta/mesas.js';
 // ------------------------------------------------------------
 // Semillas locales (Ids fijos = idempotentes ante StrictMode).
 // Directo al store, SIN cola: son referencia local, no cambios
@@ -43,6 +44,11 @@ async function sembrar() {
       Id: '00000000-0000-0000-0000-000000000001',
       Numero: 1, Tipo: 'CARAMBOLA', Estado: 'DISPONIBLE',
     }]);
+  }
+
+  // Números repetidos (dos «Mesa 1» y faltaba la 8): la repetida y libre toma el número que falta.
+  for (const mesa of repararNumeros(await getAll('MESAS_BILLAR'), '00000000-0000-0000-0000-000000000001')) {
+    await escribir(db, 'MESAS_BILLAR', [mesa]);
   }
 
   const prods = await getAll('PRODUCTOS');
