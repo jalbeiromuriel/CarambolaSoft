@@ -143,3 +143,4 @@
 .pn-c h4 .apodo.bloque{display:block;margin-top:4px;font-size:var(--fs-body);text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .apodo{font-style:normal;color:var(--oro);font-weight:600}
 .pn-tip span{overflow-wrap:anywhere}
+.pn-ir{display:block;margin-top:8px;min-height:44px;padding:0 14px;border:1px solid var(--oro);background:transparent;color:var(--oro);border-radius:9px;font-weight:700;cursor:pointer}

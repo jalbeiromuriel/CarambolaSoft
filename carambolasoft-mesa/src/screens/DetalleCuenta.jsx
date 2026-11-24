@@ -18,6 +18,7 @@ import { repartirSubtotales } from '../cuenta/dividir.js';
 import DividirCobro from '../components/DividirCobro.jsx';
 import PasarSaldo from '../components/PasarSaldo.jsx';
 import NombreCuenta, { partesNombre } from '../components/NombreCuenta.jsx';
+import { revisarAperturas, cuentaQueChoca } from '../cuenta/nombres.js';
 import { planTraspaso, lineaSaldo, esLineaSaldo, saldoTraspasado } from '../cuenta/traspaso.js';
 import { useSesion } from '../components/Sesion.jsx';
 import BotonComprobante from '../components/BotonComprobante.jsx';
@@ -227,6 +228,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   async function crearCuenta() {
     const personas = personasDe(nueva.sel, true);
     if (personas.length === 0) { setNueva({ ...nueva, error: 'Marca un cliente o escribe un nombre.' }); return; }
+    const rev = revisarAperturas(todasCuentas.filter((c) => c.Estado === 'ABIERTA'), personas, cuenta.TipoCuenta);
+    if (rev.error) { setNueva({ ...nueva, error: rev.error }); return; }
     const creadas = [];
     for (const [i, x] of personas.entries()) {
       if (esGarita) { creadas.push(await agregarPersona(cuenta.GaritaRelojId, x)); continue; }
@@ -255,6 +258,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   async function vincularCliente() {
     const c = vincular.sel.cliente;
     if (!c) { setVincular({ ...vincular, error: 'Elige un cliente o crea uno nuevo.' }); return; }
+    const otra = cuentaQueChoca(todasCuentas.filter((x) => x.Estado === 'ABIERTA'), c.Id, cuenta.TipoCuenta, cuenta.Id);
+    if (otra) { setVincular({ ...vincular, error: `Ese cliente ya tiene otra cuenta abierta (${otra.NombreLibre}). Cóbrale o pásale el saldo primero.` }); return; }
     await put('CUENTAS', { ...cuenta, ClienteId: c.Id });
     await sumarVisita(c);
     setVincular(null); decir(`Cuenta vinculada a ${c.Nombre} ✓`); await cargar();
@@ -336,6 +341,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     let destino = nueva ? null : todasCuentas.find((c) => c.Id === destinoId && c.Estado === 'ABIERTA');
     if (!nueva && !destino) return 'Esa cuenta ya no está abierta. Elige otra.';
     if (nueva) {
+      const rev = revisarAperturas(todasCuentas.filter((c) => c.Estado === 'ABIERTA' && c.Id !== cuenta.Id), [nueva], cuenta.TipoCuenta);
+      if (rev.error) return rev.error;
       destino = await put('CUENTAS', {
         TipoCuenta: cuenta.TipoCuenta, MesaId: cuenta.MesaId ?? null, GrupoMesaId: cuenta.MesaId ? null : grupoDe(cuenta), GaritaRelojId: cuenta.GaritaRelojId ?? null,
         ClienteId: nueva.cliente?.Id ?? null, NombreLibre: nueva.etiqueta,

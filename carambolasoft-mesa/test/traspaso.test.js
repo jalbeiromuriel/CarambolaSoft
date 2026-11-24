@@ -70,3 +70,22 @@ test('nombres: no deja crear clientes repetidos ni que se vean iguales', () => {
   assert.match(duplicadoDe(hay, { Nombre: 'Pedro Gil', Apodo: '' }), /apodo distinto/);   // los dos serían «Pedro G.»
   assert.equal(duplicadoDe(hay, { Nombre: 'Luis Ángel', Apodo: 'El Mono' }), '');
 });
+
+import { cuentaQueChoca, revisarAperturas } from '../src/cuenta/nombres.js';
+
+test('una cuenta abierta por cliente: licores y garita juntas, billar aparte', () => {
+  const abiertas = [
+    { Id: 'a', ClienteId: 'luis', TipoCuenta: 'LICORES', Estado: 'ABIERTA', NombreLibre: 'Luis «Chiqui»' },
+    { Id: 'b', ClienteId: 'pedro', TipoCuenta: 'BILLAR', Estado: 'ABIERTA', NombreLibre: 'Pedro G.' },
+  ];
+  assert.equal(cuentaQueChoca(abiertas, 'luis', 'GARITA')?.Id, 'a');      // garita choca con licores
+  assert.equal(cuentaQueChoca(abiertas, 'luis', 'LICORES')?.Id, 'a');
+  assert.equal(cuentaQueChoca(abiertas, 'luis', 'BILLAR'), null);         // puede jugar billar y tener licores
+  assert.equal(cuentaQueChoca(abiertas, 'pedro', 'BILLAR')?.Id, 'b');     // no dos billares
+  assert.equal(cuentaQueChoca(abiertas, 'pedro', 'LICORES'), null);       // el del chico puede invitar en licores
+  assert.equal(cuentaQueChoca(abiertas, 'luis', 'VENTA_RAPIDA'), null);
+  assert.equal(cuentaQueChoca(abiertas, null, 'LICORES'), null);          // nombre libre: no se revisa
+  assert.match(revisarAperturas(abiertas, [{ cliente: { Id: 'luis' }, etiqueta: 'Luis «Chiqui»' }], 'GARITA').error, /ya tiene cuenta abierta en una mesa de licores/);
+  assert.match(revisarAperturas([], [{ cliente: { Id: 'x' }, etiqueta: 'X' }, { cliente: { Id: 'x' }, etiqueta: 'X' }], 'LICORES').error, /dos veces/);
+  assert.equal(revisarAperturas(abiertas, [{ cliente: null, etiqueta: 'La Mona' }], 'LICORES').error, '');
+});

@@ -27,3 +27,34 @@ export function duplicadoDe(clientes = [], { Nombre, Apodo }) {
   if (mismaEtiqueta) return `Ya hay un cliente que se ve como «${etiquetaCliente(mismaEtiqueta)}» (${mismaEtiqueta.Nombre}). Ponle un apodo distinto para no confundirlos.`;
   return '';
 }
+
+// ── Una cuenta abierta por cliente (Albeiro, 2026-11-24)
+// Licores y garita cuentan juntas: máximo UNA abierta entre las dos.
+// Billar va aparte (máximo una): el que juega puede tener la cuenta del chico y además una de licores para invitar.
+// Venta rápida no cuenta (se paga en el momento). Los nombres libres no se pueden revisar.
+const ambito = (tipo) => (tipo === 'BILLAR' ? 'BILLAR' : tipo === 'VENTA_RAPIDA' ? null : 'LICOR');
+const lugarDe = (c) => (c.TipoCuenta === 'BILLAR' ? 'el billar' : c.TipoCuenta === 'GARITA' ? 'la garita' : 'una mesa de licores');
+
+/** La cuenta abierta que ya tiene este cliente en el mismo ámbito (o null). */
+export function cuentaQueChoca(abiertas = [], clienteId, tipo, excluirId = null) {
+  const a = ambito(tipo);
+  if (!clienteId || !a) return null;
+  return abiertas.find((c) => c.Estado !== 'LIQUIDADA' && c.Estado !== 'CANCELADA' && c.Id !== excluirId && c.ClienteId === clienteId && ambito(c.TipoCuenta) === a) ?? null;
+}
+
+/**
+ * Antes de abrir cuentas para varias personas: { error, cuenta } del primer choque, o { error: '' }.
+ * También avisa si el mismo cliente viene dos veces en la misma lista.
+ */
+export function revisarAperturas(abiertas = [], personas = [], tipo) {
+  const vistos = new Set();
+  for (const p of personas) {
+    const id = p.cliente?.Id;
+    if (!id) continue;
+    if (vistos.has(id)) return { error: `${p.etiqueta} está dos veces en la lista.`, cuenta: null };
+    vistos.add(id);
+    const c = cuentaQueChoca(abiertas, id, tipo);
+    if (c) return { error: `${p.etiqueta} ya tiene cuenta abierta en ${lugarDe(c)} (${c.NombreLibre}). Cóbrale o pásale el saldo antes de abrirle otra.`, cuenta: c };
+  }
+  return { error: '', cuenta: null };
+}

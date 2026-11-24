@@ -91,7 +91,7 @@ export default function SelectorCliente({ valor, onChange, onModoNuevo, error, s
           <label>Van a abrir · {lis.length} {lis.length === 1 ? 'cuenta' : 'cuentas'}</label>
           <div className="pn-chips">
             {lis.length === 0 && <span className="pn-vacio">Marca clientes o escribe un nombre.</span>}
-            {lis.map((x) => <span key={x.k} className="pn-chip">{x.cliente ? (x.nombre?.trim() || x.cliente.Apodo || x.cliente.Nombre) : x.nombre}
+            {lis.map((x) => <span key={x.k} className="pn-chip">{x.cliente ? (x.nombre?.trim() || etiquetaCliente(x.cliente)) : x.nombre}
               <i onClick={() => onChange({ ...valor, lista: lis.filter((y) => y.k !== x.k) })}>✕</i></span>)}
           </div>
         </div>
