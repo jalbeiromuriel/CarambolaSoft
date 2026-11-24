@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "test": "node --test test/logica.test.js test/cuenta.test.js test/carambolas.test.js",
+    "test": "node --test test/logica.test.js test/cuenta.test.js test/carambolas.test.js test/traspaso.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
