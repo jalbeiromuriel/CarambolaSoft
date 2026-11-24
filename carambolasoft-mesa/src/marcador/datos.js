@@ -60,6 +60,18 @@ export async function asegurarJugador(cliente) {
   });
 }
 
+// ---------- Alineación de la mesa (Pierde y Paga, 2026-11-24) ----------
+// Los jugadores se agregan UNA vez y siguen cargados en los chicos siguientes de esa mesa.
+// Guardado local por mesa: { [mesaId]: [{ clienteId, invitado, lado }] }. Se borra al abrir la mesa de nuevo.
+const ALINEACIONES = 'marcador.alineaciones';
+export async function leerAlineaciones() { return (await leerMeta(ALINEACIONES)) ?? {}; }
+export async function guardarAlineacion(mesaId, lista) {
+  const todas = await leerAlineaciones();
+  if (lista && lista.length) todas[mesaId] = lista; else delete todas[mesaId];
+  await escribirMeta(ALINEACIONES, todas);
+}
+export const olvidarAlineacion = (mesaId) => guardarAlineacion(mesaId, null);
+
 // ---------- Reto del Parche ----------
 export async function cargarReto() {
   const [jugadores, clientes] = await Promise.all([getAll('JUGADORES'), getAll('CLIENTES')]);

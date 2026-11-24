@@ -75,3 +75,24 @@ export function pesos(v) {
 
 /** Nombre grande de un jugador: el apodo si lo tiene. */
 export const etiquetaJugador = (j) => (j.apodo || j.nombre || '—');
+
+/**
+ * ¿Dónde está ocupado este cliente? (Pierde y Paga, 2026-11-24)
+ * Nadie puede estar en el billar y en la garita a la vez, ni en dos mesas de billar.
+ * @param clienteId   cliente que se quiere agregar
+ * @param cuentasAbiertas  cuentas ABIERTA (para ver la garita)
+ * @param alineaciones  { [mesaId]: [{ clienteId }] } jugadores cargados en cada mesa
+ * @param mesaActualId  la mesa donde se está armando (no cuenta como choque)
+ * @param nombreMesa  (mesaId) => 'Mesa 3'
+ * @returns {{ donde: 'GARITA'|'BILLAR', texto: string } | null}
+ */
+export function ocupadoEn(clienteId, { cuentasAbiertas = [], alineaciones = {}, mesaActualId = null, nombreMesa = () => 'otra mesa' } = {}) {
+  if (!clienteId) return null;
+  const garita = cuentasAbiertas.find((c) => c.TipoCuenta === 'GARITA' && c.Estado === 'ABIERTA' && c.ClienteId === clienteId);
+  if (garita) return { donde: 'GARITA', texto: 'EN GARITA' };
+  for (const [mesaId, lista] of Object.entries(alineaciones)) {
+    if (mesaId === mesaActualId) continue;
+    if ((lista ?? []).some((j) => j.clienteId === clienteId)) return { donde: 'BILLAR', texto: `EN ${nombreMesa(mesaId).toUpperCase()}` };
+  }
+  return null;
+}
