@@ -165,7 +165,8 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     if (controla && disponible(prod, productos.find((x) => x.Id === prod.Fraccion?.OrigenId)) <= 0) { decir(`Sin stock: ${prod.Nombre}`); return; }
     const existente = entregados.find((p) => p.ProductoId === prod.Id);
     if (existente) {
-      await put('PEDIDOS_CUENTAS', { ...existente, Cantidad: existente.Cantidad + 1 });
+      // Al AGREGAR, la hora pasa a la de ahora (el renglón sube). Al quitar con «−» la hora no cambia.
+      await put('PEDIDOS_CUENTAS', { ...existente, Cantidad: existente.Cantidad + 1, FechaHora: new Date().toISOString() });
     } else {
       await put('PEDIDOS_CUENTAS', {
         CuentaId: cuenta.Id, ProductoId: prod.Id, Cantidad: 1,

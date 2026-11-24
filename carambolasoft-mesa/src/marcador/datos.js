@@ -214,13 +214,15 @@ export async function leerConsumo(cuentaId, { conPrecios = false } = {}) {
   const grupos = new Map();
   for (const p of pedidos) {
     if (p.EstadoPedido === 'CANCELADO') continue;
-    const g = grupos.get(p.ProductoId) ?? { productoId: p.ProductoId, nombre: nombre.get(p.ProductoId) ?? 'Producto', cantidad: 0, valor: 0 };
+    const g = grupos.get(p.ProductoId) ?? { productoId: p.ProductoId, nombre: nombre.get(p.ProductoId) ?? 'Producto', cantidad: 0, valor: 0, hora: null };
     g.cantidad += p.Cantidad;
+    const h = p.FechaHora ?? p.UltimaModificacion ?? null;   // hora de la última vez que se agregó
+    if (h && (!g.hora || h > g.hora)) g.hora = h;
     // Producto compartido: cada parte vale ValorParte (la suma ya es el total del grupo).
     if (conPrecios) g.valor += p.GrupoCompartidoId ? (p.ValorParte ?? 0) : p.PrecioUnitarioHist * p.Cantidad;
     grupos.set(p.ProductoId, g);
   }
-  return [...grupos.values()].map((g) => (conPrecios ? g : { productoId: g.productoId, nombre: g.nombre, cantidad: g.cantidad }));
+  return [...grupos.values()].map((g) => (conPrecios ? g : { productoId: g.productoId, nombre: g.nombre, cantidad: g.cantidad, hora: g.hora }));
 }
 
 /** Cuentas abiertas de una mesa de billar (el consumo y el tiempo del informe son de la mesa completa). */
@@ -234,9 +236,11 @@ export async function leerConsumoMesa(mesaId, opciones) {
   const g = new Map();
   for (const c of cuentas) for (const x of await leerConsumo(c.Id, opciones)) {
     const a = g.get(x.productoId) ?? { ...x, cantidad: 0, ...(opciones?.conPrecios ? { valor: 0 } : {}) };
-    a.cantidad += x.cantidad; if (opciones?.conPrecios) a.valor += x.valor; g.set(x.productoId, a);
+    a.cantidad += x.cantidad; if (opciones?.conPrecios) a.valor += x.valor;
+    if (x.hora && (!a.hora || x.hora > a.hora)) a.hora = x.hora;
+    g.set(x.productoId, a);
   }
-  return [...g.values()];
+  return [...g.values()].sort((a, b) => String(b.hora ?? '').localeCompare(String(a.hora ?? '')));   // lo último agregado arriba
 }
 
 /** Tiempo de la mesa: el del taxímetro (con el reparto y el redondeo a $100), no la hora de apertura. */

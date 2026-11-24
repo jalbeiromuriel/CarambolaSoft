@@ -163,6 +163,7 @@
 .ca-car-fila { height: 72px; display: flex; align-items: center; border-bottom: 1px solid #1c2740; font-size: 24px; }
 .ca-car-fila.vacio { color: #93a0b8; }
 .ca-car-nom { flex: 1; }
+.ca-car-hpedido { width: 118px; flex: none; color: #93a0b8; font-size: 18px; font-variant-numeric: tabular-nums; }
 .ca-car-cant { width: 60px; color: #93a0b8; }
 .ca-car-precio { font-weight: 800; color: #4ade80; }
 .ca-car-fila.tiempo { color: #22d3ee; }
