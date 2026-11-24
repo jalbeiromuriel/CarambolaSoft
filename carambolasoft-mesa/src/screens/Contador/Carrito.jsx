@@ -6,6 +6,9 @@ import { hms } from '../../marcador/logica.js';
 import { AUTOOCULTAR_MS, pesos } from '../../marcador/carambolas.js';
 import { IcoX, IcoOjo, IcoOjoTachado, IcoReloj } from './Piezas.jsx';
 
+// Hora de la última vez que se agregó ese producto (hora de la tablet): «8:55 p. m.».
+const horaCorta = (iso) => (iso ? new Date(iso).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) : '—');
+
 export default function Carrito({ abierto, onCerrar, mesa, modoTV = false }) {
   const [verTotal, setVerTotal] = useState(false);
 
@@ -33,7 +36,7 @@ export default function Carrito({ abierto, onCerrar, mesa, modoTV = false }) {
           {mesa.consumo.length === 0 && <div className="ca-car-fila vacio"><span>Aún sin pedidos</span></div>}
           {mesa.consumo.map((c) => (
             <div key={c.productoId} className="ca-car-fila">
-              <span className="ca-car-nom">{c.nombre}</span><span className="ca-car-cant">×{c.cantidad}</span><span className="ca-car-precio">{pesos(c.valor ?? 0)}</span>
+              <span className="ca-car-hpedido">{horaCorta(c.hora)}</span><span className="ca-car-nom">{c.nombre}</span><span className="ca-car-cant">×{c.cantidad}</span><span className="ca-car-precio">{pesos(c.valor ?? 0)}</span>
             </div>
           ))}
           <div className="ca-car-fila tiempo"><span className="ca-car-nom">Tiempo de mesa</span><span className="ca-car-hora">{hms(mesa.segundos)}</span></div>
