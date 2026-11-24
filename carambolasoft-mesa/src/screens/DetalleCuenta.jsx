@@ -56,6 +56,16 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const { usuario } = useSesion();
   const [carro, setCarro] = useState({ abierto: false, fijo: false }); // carrito: la cuenta del cliente; se oculta solo a los 6 s
   const carroT = useRef(null);
+  // Barra del taxímetro y fila de cuentas/buscador fijas al hacer scroll: la fila se pega justo debajo de la barra.
+  const barraRef = useRef(null);
+  const [altoBarra, setAltoBarra] = useState(0);
+  useEffect(() => {
+    const el = barraRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => setAltoBarra(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
   const [verMesa, setVerMesa] = useState(false); // carrito: false = la cuenta activa · true = toda la mesa (total parcial)
   const [finChico, setFinChico] = useState(null); // { modo, destinoId } — cómo se cobra el chico que termina
   const [dividir, setDividir] = useState(false); // dividir la cuenta entre varios pagadores
@@ -403,12 +413,12 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   }
 
   return (
-    <div className="pn ms">
+    <div className="pn ms" style={{ '--alto-barra': `${altoBarra}px` }}>
       <Encabezado activo="panel" irPanel={volver} />
       {recibo && <HojaReciboCuenta d={recibo.d} nombre={cuenta.NombreLibre} apodo={cliente?.Apodo !== cuenta.NombreLibre && !partesNombre(cuenta.NombreLibre).apodo ? cliente?.Apodo : null} sitio={esGarita ? 'Garita' : esBillar ? 'Billar' : 'Licores'} cuentas={recibo.cuentas}
         telefono={esAdmin(usuario?.Rol) ? cliente?.Telefono : null} texto={textoReciboCuenta(recibo.d, cuenta.NombreLibre, recibo.cuentas)} cerrar={() => setRecibo(null)} />}
 
-      <div className={`ms-mesa ms-uno ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
+      <div ref={barraRef} className={`ms-mesa ms-uno ${esBillar && taxi ? 'bi' : ''} ${taxi && estaCorriendo(taxi) ? 'run' : ''}`}>
         <button className="ms-volver" onClick={volver}>← Volver</button>
         <div className="mb-tit"><h2>{titulo}</h2><span>{grupo.length} {grupo.length === 1 ? 'cuenta' : 'cuentas'}</span></div>
         <div className="mb-vs" />
