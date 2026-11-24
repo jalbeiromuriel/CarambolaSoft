@@ -23,7 +23,7 @@ import { useSesion } from '../components/Sesion.jsx';
 import { esAdmin } from '../cuenta/auth.js';
 import './Panel.css';
 
-const TARIFA_BILLAR = 6000; // (valor base; el vigente sale de ajustes.tarifaBillar)  // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
+const TARIFA_BILLAR = 8000; // (valor base; el vigente sale de ajustes.tarifaBillar)  // $/hora: precio del producto "Tiempo Mesa Billar" del POS (editable al abrir)
 const fmt = (n) => '$' + Math.round(n).toLocaleString('es-CO');
 const hora = (iso) => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 

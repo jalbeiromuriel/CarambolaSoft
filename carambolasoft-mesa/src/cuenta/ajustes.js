@@ -1,6 +1,6 @@
 // src/cuenta/ajustes.js — Valores configurables del negocio (pantalla Configuración, solo Admin). Lógica pura, sin IndexedDB.
 // `ajustes` es un objeto vivo: tiempo.js, garita.js y el Panel lo leen al momento de usarlo; ajustesDb.js lo llena al arrancar.
-export const AJUSTES_BASE = { tarifaBillar: 6000, redondeo: 100, avisoGaritaMin: 5, horasAtencion: 10, precioGarita: 1000 };
+export const AJUSTES_BASE = { tarifaBillar: 8000, redondeo: 100, avisoGaritaMin: 5, horasAtencion: 10, precioGarita: 1000 };
 export const ajustes = { ...AJUSTES_BASE };
 
 /** Devuelve un texto de error o null. Todos los valores son enteros dentro de rangos razonables. */
