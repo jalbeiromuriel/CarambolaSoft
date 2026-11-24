@@ -8,6 +8,7 @@ import { evaluarInicio, MAX_POR_LADO } from '../../marcador/carambolas.js';
 import { Escenario, Barra, IcoX, IcoMas, IcoPlay } from './Piezas.jsx';
 import Carrito from './Carrito.jsx';
 import { useMesaViva } from './useMesaViva.js';
+import { duplicadoDe } from '../../cuenta/nombres.js';
 
 const LADOS = [{ n: 1, color: '#22d3ee' }, { n: 2, color: '#2e9e5b' }];
 const nombreDe = (j) => (j.apodo || j.nombre).toUpperCase();
@@ -46,8 +47,8 @@ export default function QuienJuega({ mesaId, salir, onIniciada, modoTV = false }
   async function crearYAgregar() {
     const nombre = nuevoNombre.trim();
     if (!nombre) return avisar('Escribe el nombre del jugador nuevo.');
-    const repetido = clientes.find((c) => c.Nombre.trim().toLowerCase() === nombre.toLowerCase());
-    if (repetido) return avisar('Ya existe un cliente con ese nombre: búscalo arriba.');
+    const repetido = duplicadoDe(clientes, { Nombre: nombre, Apodo: nuevoApodo });
+    if (repetido) return avisar(repetido);
     try {
       const cliente = await guardarCliente({ Nombre: nombre, Apodo: nuevoApodo });
       setClientes((l) => [...l, cliente]);

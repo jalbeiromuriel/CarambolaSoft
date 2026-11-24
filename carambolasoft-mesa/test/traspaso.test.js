@@ -53,3 +53,20 @@ test('caja: Juan paga 20.000 y pasa 18.500 a Pedro; Pedro paga todo → venta co
   const dia = informeDia({ facturas, pedidos, productos: [] });
   assert.equal(dia.filas.some((f) => f.nombre.startsWith('Saldo de')), false);
 });
+
+import { etiquetaCliente, duplicadoDe } from '../src/cuenta/nombres.js';
+
+test('nombres: primer nombre + apodo; sin apodo, primer nombre + inicial', () => {
+  assert.equal(etiquetaCliente({ Nombre: 'Jorge Albeiro Muriel', Apodo: 'El Profe' }), 'Jorge «El Profe»');
+  assert.equal(etiquetaCliente({ Nombre: 'Luis Arango', Apodo: '' }), 'Luis A.');
+  assert.equal(etiquetaCliente({ Nombre: 'Luis', Apodo: 'luis' }), 'Luis');
+  assert.equal(etiquetaCliente({ Nombre: '', Apodo: 'Chiqui' }), 'Chiqui');
+});
+
+test('nombres: no deja crear clientes repetidos ni que se vean iguales', () => {
+  const hay = [{ Id: '1', Nombre: 'Luis Arango', Apodo: 'Chiqui' }, { Id: '2', Nombre: 'Pedro Gómez', Apodo: null }];
+  assert.match(duplicadoDe(hay, { Nombre: 'luis arango', Apodo: 'chiqui' }), /Ya existe/);
+  assert.match(duplicadoDe(hay, { Nombre: 'Luis Ángel', Apodo: 'Chiqui' }), /apodo distinto/);
+  assert.match(duplicadoDe(hay, { Nombre: 'Pedro Gil', Apodo: '' }), /apodo distinto/);   // los dos serían «Pedro G.»
+  assert.equal(duplicadoDe(hay, { Nombre: 'Luis Ángel', Apodo: 'El Mono' }), '');
+});

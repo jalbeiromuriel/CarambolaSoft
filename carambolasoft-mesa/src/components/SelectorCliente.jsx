@@ -4,15 +4,10 @@ import { useState, useEffect } from 'react';
 import { put } from '../db/repository.js';
 import { listarClientes, guardarCliente } from '../marcador/datos.js';
 import { norm } from '../cuenta/catalogo.js';
+import { etiquetaCliente, duplicadoDe } from '../cuenta/nombres.js';
+export { etiquetaCliente };
 
-/** Etiqueta de la cuenta: nombre libre, si no apodo o nombre del cliente. */
-/** Nombre de la cuenta de un cliente: primero el nombre y luego el apodo («Luis Arango «Chiqui»»). */
-export const etiquetaCliente = (c) => {
-  if (!c) return '';
-  const n = (c.Nombre ?? '').trim(); const a = (c.Apodo ?? '').trim();
-  if (!n) return a;
-  return a && a.toLowerCase() !== n.toLowerCase() ? `${n} «${a}»` : n;
-};
+/** Etiqueta de la cuenta: nombre libre, si no primer nombre + apodo del cliente (cuenta/nombres.js). */
 export const etiquetaDe = ({ cliente, nombre }) => nombre.trim() || etiquetaCliente(cliente);
 
 /** ⭐ suma una visita al cliente elegido. */
@@ -38,6 +33,8 @@ export default function SelectorCliente({ valor, onChange, onModoNuevo, error, s
 
   async function crear() {
     if (!nuevo.nombre.trim()) { setError('Escribe el nombre.'); return; }
+    const dup = duplicadoDe(clientes, { Nombre: nuevo.nombre, Apodo: nuevo.apodo });
+    if (dup) { setError(dup); return; }
     const c = await guardarCliente({ Nombre: nuevo.nombre, Apodo: nuevo.apodo });
     setClientes((l) => [...l, c].sort((a, b) => a.Nombre.localeCompare(b.Nombre)));
     if (varios) onChange({ ...valor, lista: [...(valor.lista ?? []), { k: c.Id, cliente: c, nombre: '' }] });

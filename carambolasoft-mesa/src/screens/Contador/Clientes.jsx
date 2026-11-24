@@ -2,6 +2,7 @@
 // El teléfono es SOLO de administrador: sin PIN no se muestra ni se edita (y no se toca al guardar).
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { listarClientes, guardarCliente } from '../../marcador/datos.js';
+import { duplicadoDe } from '../../cuenta/nombres.js';
 
 export default function Clientes({ admin, irInicio, irMarcador }) {
   const [clientes, setClientes] = useState([]);
@@ -31,6 +32,8 @@ export default function Clientes({ admin, irInicio, irMarcador }) {
     const Nombre = form.Nombre.trim();
     if (!Nombre) return setError('El nombre es obligatorio.');
     const previo = form.Id ? clientes.find((c) => c.Id === form.Id) : null;
+    const repetido = duplicadoDe(clientes.filter((c) => c.Id !== form.Id), { Nombre, Apodo: form.Apodo });
+    if (repetido) return setError(repetido);
     try {
       await guardarCliente({
         Id: form.Id, Nombre, Apodo: form.Apodo,
