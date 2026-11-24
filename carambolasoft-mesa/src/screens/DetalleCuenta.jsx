@@ -52,6 +52,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const { usuario } = useSesion();
   const [carro, setCarro] = useState({ abierto: false, fijo: false }); // carrito: la cuenta del cliente; se oculta solo a los 6 s
   const carroT = useRef(null);
+  const [verMesa, setVerMesa] = useState(false); // carrito: false = la cuenta activa · true = toda la mesa (total parcial)
   const [finChico, setFinChico] = useState(null); // { modo, destinoId } — cómo se cobra el chico que termina
   const [dividir, setDividir] = useState(false); // dividir la cuenta entre varios pagadores
   const [pidePin, setPidePin] = useState(null); // { luego } — un Admin autoriza (fiar siendo Empleado)
@@ -114,6 +115,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const total = subTiempo + consumoDe(cuenta);
   const tiempoMesa = tiempos.reduce((t, x) => t + x, 0);
   const totalMesa = grupo.reduce((t, c) => t + totalDe(c), 0);
+  const soloTotal = tiempoMesa === totalMesa;   // sin consumo: el tiempo y el total son lo mismo, se muestra uno solo
   // Lo que se está cobrando: la cuenta activa, o toda la mesa cuando paga una sola persona
   const cuentasCobro = cobro?.mesa ? grupo.filter((c) => totalDe(c) > 0) : [cuenta];
   const pagador = (cobro?.mesa && grupo.find((c) => c.Id === cobro.pagadorId)) || cuenta;
@@ -124,6 +126,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const esBillar = cuenta.TipoCuenta === 'BILLAR';
   const taxi = esBillar ? grupo.find((c) => c.TarifaPorHora > 0) ?? null : null;   // el reloj es de la mesa: lo lleva la cuenta que lo inició, pero se ve y se maneja desde cualquiera
   const resumen = resumenPorCategoria(entregados, productos, categorias);
+  const resumenMesa = resumenPorCategoria(grupo.flatMap(entregadosDe), productos, categorias);   // todos los productos de la mesa, sumados
 
   // ── Catálogo
   const cantidadEn = (id) => entregados.filter((p) => p.ProductoId === id).reduce((t, p) => t + p.Cantidad, 0);
@@ -351,9 +354,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
           <div className="mb-cc"><div className="mb-cr">{hms(msChicoActual(taxi, ahora))}</div>
             <span className={`mb-chip ${estaCorriendo(taxi) ? 'on' : ''}`}><i />{estaCorriendo(taxi) ? 'EN JUEGO' : 'DETENIDO'}</span></div>
           <div className="mb-vs" />
-          <div className="mb-n"><small>TIEMPO MESA</small><b className="v">{fmt(tiempoMesa)}</b></div>
+          {!soloTotal && <div className="mb-n"><small>TIEMPO MESA</small><b className="v">{fmt(tiempoMesa)}</b></div>}
         </>)}
-        <div className="mb-n"><small>TOTAL MESA{grupo.length > 1 ? ` · ${grupo.length} CUENTAS` : ''}</small><b className={esBillar && taxi ? '' : 'v'}>{fmt(totalMesa)}</b></div>
+        <div className="mb-n"><small>TOTAL MESA{grupo.length > 1 ? ` · ${grupo.length} CUENTAS` : ''}</small><b className={esBillar && taxi && !soloTotal ? '' : 'v'}>{fmt(totalMesa)}</b></div>
         <div className="mb-sp" />
         <button className="mb-b" onClick={abrirRecibo}>🧾 Recibo</button>
         <button className="mb-b oro" onClick={cerrarMesa}>{esGarita ? 'Terminar garita' : 'Cerrar mesa'}</button>
@@ -437,6 +440,36 @@ export default function DetalleCuenta({ cuentaId, volver }) {
 
         <aside className={`ms-carrito ${carro.abierto ? 'open' : ''}`} onPointerDown={() => carro.abierto && !carro.fijo && mostrarCarro()} onClick={(e) => e.stopPropagation()}>
           <div className="ms-ch"><b>🛒 Cuenta</b><span><button className={carro.fijo ? 'on' : ''} title="Dejar abierto" onClick={fijarCarro}>📌</button><button title="Ocultar" onClick={() => { clearTimeout(carroT.current); setCarro({ abierto: false, fijo: false }); }}>✕</button></span></div>
+          {grupo.length > 1 && (
+            <div className="ms-tabs">
+              <button className={!verMesa ? 'on' : ''} onClick={() => setVerMesa(false)}>Esta cuenta</button>
+              <button className={verMesa ? 'on' : ''} onClick={() => setVerMesa(true)}>Toda la mesa</button>
+            </div>
+          )}
+          {verMesa && grupo.length > 1 ? (
+            <>
+              <div className="ms-nom">{titulo}</div>
+              <div className="ms-ap">{grupo.length} cuentas · total parcial hasta ahora</div>
+              <div className="ms-res">
+                <div className="ms-lab chico">Resumen por categoría · toda la mesa</div>
+                {esBillar && tiempoMesa > 0 && <div><span style={{ color: colorTiempo }}>🎱 Tiempo de mesa</span><b style={{ color: colorTiempo }}>{fmt(tiempoMesa)}</b></div>}
+                {resumenMesa.map((r) => <div key={r.clave}><span>{r.emoji} {r.nombre}</span><b>{fmt(r.total)}</b></div>)}
+                <div className="t"><b>TOTAL PARCIAL</b><span>{fmt(totalMesa)}</span></div>
+              </div>
+              <div className="ms-lab gris">Por cuenta</div>
+              {grupo.map((c) => (
+                <button key={c.Id} className={`ms-cta ${c.Id === cuenta.Id ? 'on' : ''}`} onClick={() => { setActivaId(c.Id); setVerMesa(false); }}>
+                  <b>{c.ClienteId ? '⭐ ' : ''}{c.NombreLibre}</b><span>{fmt(totalDe(c))}</span>
+                </button>
+              ))}
+              <div className="ms-acc">
+                <button className="ms-cobrar" disabled={totalMesa <= 0}
+                  onClick={() => setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0, mesa: true, pagadorId: cuenta.Id })}>
+                  💳 Cobrar toda la mesa {fmt(totalMesa)}
+                </button>
+              </div>
+            </>
+          ) : (<>
           <div className="ms-nom">{cuenta.NombreLibre}</div>
           <div className="ms-ap">
             {cliente?.Apodo && cliente.Apodo !== cuenta.NombreLibre && <>“{cliente.Apodo}” · </>}
@@ -476,6 +509,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
               💳 Cobrar {fmt(total)}
             </button>
           </div>
+          </>)}
         </aside>
       </div>
 

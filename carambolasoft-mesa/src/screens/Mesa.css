@@ -169,3 +169,8 @@
 .ms-bil.ga .ms-acum strong{line-height:1.1}
 
 .ms-ret{margin-top:10px;border:1px solid #fb718566;background:#fb71851a;color:var(--rojo);border-radius:10px;padding:0 14px;min-height:var(--btn-h);font-size:var(--fs-sec);font-weight:700;cursor:pointer}
+.ms-tabs{display:flex;gap:6px;margin-bottom:10px}
+.ms-tabs button{flex:1;padding:9px 6px;border:1px solid var(--line);border-radius:9px;background:#0e1422;color:var(--mut);font-size:13px;cursor:pointer}
+.ms-tabs button.on{border-color:var(--oro);background:#e8c06a14;color:var(--oro);font-weight:700}
+.ms-cta{width:100%;display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#0e1422;color:var(--tx);font-size:14px;cursor:pointer;text-align:left}
+.ms-cta.on{border-color:var(--oro)}.ms-cta span{color:var(--ver);font-weight:800}
