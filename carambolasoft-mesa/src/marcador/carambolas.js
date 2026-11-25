@@ -1,3 +1,4 @@
+import { etiquetaCliente } from '../cuenta/nombres.js';
 // ============================================================
 //  CarambolaSoft — Mero Parche
 //  marcador/carambolas.js — reglas PURAS de las pantallas de Carambolas (sin React ni IndexedDB).
@@ -73,8 +74,11 @@ export function pesos(v) {
   return `$${String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 }
 
-/** Nombre grande de un jugador: el apodo si lo tiene. */
-export const etiquetaJugador = (j) => (j.apodo || j.nombre || '—');
+/**
+ * Nombre de un jugador en el Contador: igual que en las cuentas, PRIMERO el nombre y luego el apodo
+ * («Albeiro «El papá»»; sin apodo, «Luis A.»). Un invitado sale tal como lo escribieron.
+ */
+export const etiquetaJugador = (j) => (j.esInvitado ? (j.nombre || '—') : (etiquetaCliente({ Nombre: j.nombre, Apodo: j.apodo }) || '—'));
 
 /**
  * ¿Dónde está ocupado este cliente? (Pierde y Paga, 2026-11-24)

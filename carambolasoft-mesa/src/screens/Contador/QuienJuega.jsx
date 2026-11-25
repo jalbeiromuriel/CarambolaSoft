@@ -4,14 +4,14 @@
 import { useEffect, useState } from 'react';
 import { nuevoGuid, porIndice } from '../../db/repository.js';
 import { mesasConCuenta, listarClientes, guardarCliente, iniciarChico, leerAlineaciones, guardarAlineacion } from '../../marcador/datos.js';
-import { evaluarInicio, MAX_POR_LADO, ocupadoEn } from '../../marcador/carambolas.js';
+import { evaluarInicio, MAX_POR_LADO, ocupadoEn, etiquetaJugador } from '../../marcador/carambolas.js';
 import { Escenario, Barra, IcoX, IcoMas, IcoPlay } from './Piezas.jsx';
 import Carrito from './Carrito.jsx';
 import { useMesaViva } from './useMesaViva.js';
 import { duplicadoDe } from '../../cuenta/nombres.js';
 
 const LADOS = [{ n: 1, color: '#22d3ee' }, { n: 2, color: '#2e9e5b' }];
-const nombreDe = (j) => (j.apodo || j.nombre).toUpperCase();
+const nombreDe = (j) => etiquetaJugador(j).toUpperCase();   // primero el nombre y luego el apodo, como en las cuentas
 
 export default function QuienJuega({ mesaId, salir, onIniciada, modoTV = false }) {
   const mesa = useMesaViva(mesaId, { conPrecios: !modoTV });

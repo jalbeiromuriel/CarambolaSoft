@@ -194,3 +194,26 @@
 /* Sin cronómetro de la mesa: las bolas se ven apagadas y no cuentan */
 .ca-teclas.apagado{opacity:.3;filter:grayscale(1)}
 .ca-sin-tiempo{margin:12px 24px 0;padding:14px 18px;border-radius:12px;background:#2a2410;border:1px solid #facc15;color:#fde68a;font-size:18px;font-weight:700;text-align:center}
+
+/* ── Raya bajo el nombre: un taco de billar (2026-11-24) ─────────────────────────────
+   Punta de tiza a la izquierda, el cuerpo en el color del jugador que se desvanece hacia la derecha
+   y un brillo suave. Si el jugador va ganando, el taco se vuelve oro y le pasa un destello. */
+.ca-panel-nom { position: relative; min-width: 0; padding-bottom: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ca-panel-nom::after {
+  content: ""; position: absolute; left: 0; bottom: 2px; height: 6px; width: min(100%, 420px); border-radius: 3px;
+  background:
+    linear-gradient(90deg, #bfe9ff 0 14px, #0b0f19 14px 17px, transparent 17px),
+    linear-gradient(90deg, transparent 0 17px, var(--c) 17px, color-mix(in srgb, var(--c) 55%, transparent) 60%, transparent 100%);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--c) 45%, transparent);
+}
+.ca-panel.gana .ca-panel-nom::after {
+  background:
+    linear-gradient(100deg, transparent 0 40%, rgba(255, 250, 225, .9) 50%, transparent 60% 100%) no-repeat,
+    linear-gradient(90deg, #fff4c2 0 14px, #0b0f19 14px 17px, transparent 17px),
+    linear-gradient(90deg, transparent 0 17px, #f1cf7a 17px, #d8a93d 55%, transparent 100%);
+  background-size: 40% 100%, 100% 100%, 100% 100%;
+  box-shadow: 0 0 20px rgba(241, 207, 122, .55);
+  animation: ca-taco-brillo 2.8s ease-in-out infinite;
+}
+@keyframes ca-taco-brillo { 0% { background-position: -60% 0, 0 0, 0 0; } 60%, 100% { background-position: 160% 0, 0 0, 0 0; } }
+@media (prefers-reduced-motion: reduce) { .ca-panel.gana .ca-panel-nom::after { animation: none; } }
