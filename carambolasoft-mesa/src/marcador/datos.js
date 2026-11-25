@@ -11,6 +11,7 @@
 //  (ver TR_PARTICIPANTES_ActualizarRivalidades en el delta del Marcador).
 // ============================================================
 import { perdedoresDe } from '../cuenta/pierdePaga.js';
+import { etiquetaCliente } from '../cuenta/nombres.js';
 import { put, get, getAll, porIndice, nuevoGuid, leerMeta, escribirMeta, borrarLocal } from '../db/repository.js';
 import { ganadores, recordDeMarcas, retoDelParche } from './logica.js';
 import { tiemposMesa, msJugados } from '../cuenta/tiempo.js';
@@ -90,7 +91,7 @@ export async function cargarReto() {
   return retoDelParche(
     jugadores.map((j) => {
       const c = cli.get(j.ClienteId);
-      return { Id: j.Id, Nombre: c?.Apodo || c?.Nombre || j.Username, RecordCarambolas: j.RecordCarambolas };
+      return { Id: j.Id, Nombre: (c && etiquetaCliente(c)) || j.Username, RecordCarambolas: j.RecordCarambolas };
     }),
   );
 }

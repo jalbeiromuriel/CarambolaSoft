@@ -61,3 +61,10 @@ test('ocupadoEn: no se puede estar en garita y billar, ni en dos billares', asyn
   assert.equal(ocupadoEn('carlos', ctx), null);  // una mesa de licores sí se permite
   assert.equal(ocupadoEn(null, ctx), null);
 });
+
+test('etiquetaJugador: primero el nombre y luego el apodo; invitado tal cual', async () => {
+  const { etiquetaJugador } = await import('../src/marcador/carambolas.js');
+  assert.equal(etiquetaJugador({ nombre: 'Albeiro Muriel', apodo: 'El papá' }), 'Albeiro «El papá»');
+  assert.equal(etiquetaJugador({ nombre: 'Luis Arango', apodo: null }), 'Luis A.');
+  assert.equal(etiquetaJugador({ nombre: 'Carlos gorra roja', esInvitado: true }), 'Carlos gorra roja');
+});
