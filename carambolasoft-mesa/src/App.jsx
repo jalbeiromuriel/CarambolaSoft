@@ -30,6 +30,7 @@ import { cerrarSesionApi } from './db/apiSesion.js';
 import { iniciarSync, detenerSync } from './db/sync.js';
 import AvisoPrecios from './components/CambiosPrecio.jsx';
 import { repararNumeros } from './cuenta/mesas.js';
+import { pedirPersistencia } from './db/respaldo.js';
 // ------------------------------------------------------------
 // Semillas locales (Ids fijos = idempotentes ante StrictMode).
 // Directo al store, SIN cola: son referencia local, no cambios
@@ -111,6 +112,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       await sembrar();
+      pedirPersistencia();   // que Chrome no borre los datos del negocio por falta de espacio
       try { await cargarAjustes(); } catch { /* usa los valores base */ }
       await recargarUsuarios();
       try {

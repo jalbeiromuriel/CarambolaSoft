@@ -1,9 +1,10 @@
-// src/screens/Configuracion.jsx — Valores del negocio (solo Admin): tarifa de billar, redondeo, garita y horario de atención.
+// src/screens/Configuracion.jsx — Valores del negocio (solo Admin): tarifa de billar, redondeo, garita, horario de atención y respaldo de datos.
 import { useState, useEffect } from 'react';
 import Encabezado from '../components/Encabezado.jsx';
 import { useSesion } from '../components/Sesion.jsx';
 import { cargarAjustes, guardarAjustes } from '../cuenta/ajustesDb.js';
 import { AJUSTES_BASE } from '../cuenta/ajustes.js';
+import Respaldo from '../components/Respaldo.jsx';
 import './Panel.css';
 import './Configuracion.css';
 
@@ -60,6 +61,7 @@ export default function Configuracion() {
             {ok && <span className="cf-hecho">✓ Guardado</span>}
             {ultimo && <div className="cf-ult">Último cambio: {ultimo.por} · {cuando(ultimo.fecha)}</div>}
           </section>
+          <Respaldo />
         </div>
       </div>
     </>
