@@ -35,16 +35,19 @@ import { repararNumeros } from './cuenta/mesas.js';
 // Directo al store, SIN cola: son referencia local, no cambios
 // pendientes de subir. El sync real las reemplazará por las de SQL.
 // ------------------------------------------------------------
+const MESAS_DEL_PARCHE = [
+  { Id: '00000000-0000-0000-0000-000000000001', Numero: 1, Tipo: 'CARAMBOLA', Estado: 'DISPONIBLE' },
+  { Id: '00000000-0000-0000-0000-000000000002', Numero: 2, Tipo: 'CARAMBOLA', Estado: 'DISPONIBLE' },
+];
+
 async function sembrar() {
   const db = await openDb();
 
+  // Mero Parche tiene 2 mesas de billar (Albeiro, 2026-11-24). En un PC nuevo se crean la 1 y la 2;
+  // si falta alguno de esos números se crea. No borra mesas que ya existan.
   const mesas = await getAll('MESAS_BILLAR');
-  if (mesas.length === 0) {
-    await escribir(db, 'MESAS_BILLAR', [{
-      Id: '00000000-0000-0000-0000-000000000001',
-      Numero: 1, Tipo: 'CARAMBOLA', Estado: 'DISPONIBLE',
-    }]);
-  }
+  const faltan = MESAS_DEL_PARCHE.filter((m) => !mesas.some((x) => x.Numero === m.Numero || x.Id === m.Id));
+  if (faltan.length) await escribir(db, 'MESAS_BILLAR', faltan);
 
   // Números repetidos (dos «Mesa 1» y faltaba la 8): la repetida y libre toma el número que falta.
   for (const mesa of repararNumeros(await getAll('MESAS_BILLAR'), '00000000-0000-0000-0000-000000000001')) {
