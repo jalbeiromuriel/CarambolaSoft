@@ -16,6 +16,9 @@ import { agregarPersona, cobrarAviso, cerrarReloj } from '../cuenta/garitaDb.js'
 import { datosFactura, datosFacturas, leerCuentasPago } from '../cuenta/fiadosDb.js';
 import { repartirSubtotales } from '../cuenta/dividir.js';
 import DividirCobro from '../components/DividirCobro.jsx';
+import PierdePaga from '../components/PierdePaga.jsx';
+import { jugadoresDeMesa, preseleccion } from '../cuenta/pierdePaga.js';
+import { leerAlineaciones, leerPerdedores, guardarPerdedores, listarClientes } from '../marcador/datos.js';
 import PasarSaldo from '../components/PasarSaldo.jsx';
 import NombreCuenta, { partesNombre } from '../components/NombreCuenta.jsx';
 import { revisarAperturas, cuentaQueChoca } from '../cuenta/nombres.js';
@@ -69,6 +72,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   const [verMesa, setVerMesa] = useState(false); // carrito: false = la cuenta activa · true = toda la mesa (total parcial)
   const [finChico, setFinChico] = useState(null); // { modo, destinoId } — cómo se cobra el chico que termina
   const [dividir, setDividir] = useState(false); // dividir la cuenta entre varios pagadores
+  const [pierde, setPierde] = useState(null);    // Pierde y Paga: { mesa, jugadores, marcados } — terminar chico en billar
   const [pasar, setPasar] = useState(false);     // "Pasar saldo a…": el resto de la cuenta pasa a la cuenta de un amigo
   const [pidePin, setPidePin] = useState(null); // { luego } — un Admin autoriza (fiar siendo Empleado)
   const [aviso, setAviso] = useState('');
@@ -223,10 +227,37 @@ export default function DetalleCuenta({ cuentaId, volver }) {
   // ── Taxímetro por chico
   async function cambiarChico() {
     if (!taxi) return;
+    // Billar · Pierde y Paga (2026-11-24): al terminar el chico la barra marca quién perdió y se le cobra todo el chico.
+    if (esBillar && estaCorriendo(taxi) && cuenta.MesaId) {
+      const [alineaciones, clientes, perdedores, mesa] = await Promise.all([leerAlineaciones(), listarClientes(), leerPerdedores(cuenta.MesaId), get('MESAS_BILLAR', cuenta.MesaId)]);
+      const jugadores = jugadoresDeMesa(alineaciones[cuenta.MesaId] ?? [], clientes);
+      setPierde({ mesa: mesa ? `Mesa ${mesa.Numero}` : 'Mesa', jugadores, marcados: preseleccion(jugadores, perdedores) });
+      return;
+    }
     if (estaCorriendo(taxi) && grupo.length > 1) { setFinChico({ modo: 'dividir', destinoId: cuenta.Id }); return; }   // con varias cuentas pregunta cómo se cobra, como el POS
     await put('CUENTAS', estaCorriendo(taxi) ? terminarChico(taxi) : iniciarChico(taxi));
     await cargar();
   }
+  // Pierde y Paga: detiene el reloj, pone la cuenta del tiempo a nombre del perdedor y abre el cobro de TODA la mesa.
+  // En pareja abre «Dividir» con los dos, mitad y mitad. Al cobrar, la mesa sigue abierta con una cuenta nueva en cero.
+  async function cobrarPierdePaga(plan, seleccion) {
+    const antes = { Id: taxi.Id, NombreLibre: taxi.NombreLibre, ClienteId: taxi.ClienteId ?? null };
+    await put('CUENTAS', { ...terminarChico(taxi), ...(plan ? { NombreLibre: plan.nombre, ClienteId: plan.pareja ? null : plan.clienteId } : {}) });
+    await cargar();
+    const mesa = pierde.mesa;
+    setPierde(null);
+    setActivaId(taxi.Id);
+    setCobro({ metodo: 'EFECTIVO', mixto: false, metodo1: 'EFECTIVO', metodo2: 'NEQUI', monto1: 0, pago: 0, mesa: true, pagadorId: taxi.Id,
+      pierdePaga: { antes, mesa, tarifa: taxi.TarifaPorHora, pareja: plan?.pareja ? seleccion.map((j) => ({ nombre: j.corto, clienteId: j.clienteId })) : null } });
+    if (plan?.pareja) setDividir(true);
+  }
+  // Cancelar el cobro de Pierde y Paga: la cuenta vuelve a su nombre (el reloj queda detenido; ▶ Iniciar lo reanuda).
+  async function cancelarCobro() {
+    const pp = cobro?.pierdePaga;
+    setCobro(null); setDividir(false);
+    if (pp) { const c = await get('CUENTAS', pp.antes.Id); if (c) await put('CUENTAS', { ...c, NombreLibre: pp.antes.NombreLibre, ClienteId: pp.antes.ClienteId }); await cargar(); }
+  }
+
   async function confirmarFinChico() {
     for (const c of repartirChico(grupo, taxi, finChico, Date.now())) await put('CUENTAS', c);
     const luego = finChico.luego;
@@ -311,6 +342,18 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     for (const c of cuentasCobro) await put('CUENTAS', { ...terminarChico(c), Estado: 'LIQUIDADA', HoraCierre: ahoraIso, ...(c.Id !== pagador.Id ? { PagadaPorCuentaId: pagador.Id } : {}) });
     if (cobro.mesa) for (const c of grupo.filter((x) => !cuentasCobro.some((y) => y.Id === x.Id))) await put('CUENTAS', { ...c, Estado: 'CANCELADA', HoraCierre: ahoraIso });
     const quedan = cobro.mesa ? [] : grupo.filter((c) => c.Id !== cuenta.Id);
+    if (cobro.pierdePaga && cuenta.MesaId) {
+      // Pierde y Paga: la mesa NO se libera. Queda una cuenta nueva en cero para el siguiente chico (los jugadores siguen cargados).
+      const pp = cobro.pierdePaga;
+      const nueva = await put('CUENTAS', {
+        TipoCuenta: 'BILLAR', MesaId: cuenta.MesaId, ClienteId: null, NombreLibre: pp.mesa, HoraApertura: new Date().toISOString(),
+        GrupoMesaId: null, HoraCierre: null, TarifaPorHora: pp.tarifa, MsAcumulados: 0, InicioChico: null, Estado: 'ABIERTA',
+      });
+      await guardarPerdedores(cuenta.MesaId, null);
+      setCobro(null); setDividir(false);
+      setActivaId(nueva.Id); decir('Cobrado ✓ · listo el siguiente chico: dale ▶ Iniciar'); await cargar();
+      return;
+    }
     if (quedan.length === 0 && cuenta.MesaId) {
       const mesa = await get('MESAS_BILLAR', cuenta.MesaId);
       if (mesa) await put('MESAS_BILLAR', { ...mesa, Estado: 'DISPONIBLE' });
@@ -631,7 +674,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
       )}
 
       {cobro && (
-        <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && setCobro(null)}>
+        <div className="pn-velo" onClick={(e) => e.target === e.currentTarget && cancelarCobro()}>
           <div className="pn-modal cb">
             <h3>{cobro.mesa ? `Cobrar toda la mesa · ${dueno}` : `Cobrar · ${cuenta.NombreLibre}`}</h3>
             {cobro.mesa && (
@@ -723,7 +766,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
             </label>
 
             <div className="pn-acc">
-              <button className="no" onClick={() => setCobro(null)}>CANCELAR</button>
+              <button className="no" onClick={cancelarCobro}>CANCELAR</button>
               <button className="si" onClick={confirmarCobro}>✓ CONFIRMAR COBRO</button>
             </div>
           </div>
@@ -754,8 +797,13 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         );
       })()}
 
+      {pierde && (
+        <PierdePaga mesa={pierde.mesa} jugadores={pierde.jugadores} marcados={pierde.marcados} total={totalMesa}
+          cerrar={() => setPierde(null)} cobrar={cobrarPierdePaga} aNombreDeMesa={() => cobrarPierdePaga(null, [])} />
+      )}
+
       {cobro && dividir && (
-        <DividirCobro total={totalC} jugadores={grupo.map((c) => ({ nombre: c.NombreLibre, clienteId: c.ClienteId ?? null }))} puedeFiar={puedeFiar} pedirPin={(luego) => setPidePin({ luego })}
+        <DividirCobro total={totalC} jugadores={cobro.pierdePaga?.pareja ?? grupo.map((c) => ({ nombre: c.NombreLibre, clienteId: c.ClienteId ?? null }))} puedeFiar={puedeFiar} pedirPin={(luego) => setPidePin({ luego })}
           cerrar={() => setDividir(false)} confirmar={confirmarDivision} />
       )}
 

@@ -224,3 +224,14 @@
 .ms-mesa{position:sticky;top:0;z-index:30;background-color:#0b0f19}
 .ms-mesa.bi{background:linear-gradient(90deg,#4ade8018,#4ade8008),#0b0f19}
 .ms-linea{position:sticky;top:calc(var(--alto-barra,0px) + 4px);z-index:20;background:#0b0f19;padding:8px 0;margin-top:-8px;box-shadow:0 8px 12px -8px #000}
+
+/* Pierde y Paga — Terminar chico (maqueta 4) */
+.pp .pp-sub{margin:-4px 0 14px;color:var(--mut);font-size:var(--fs-sec)}
+.pp-lista{display:flex;flex-direction:column;gap:8px}
+.pp-j{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:#0e1422;color:var(--tx);font-size:var(--fs-body);font-weight:700;text-align:left;cursor:pointer}
+.pp-j i{width:24px;height:24px;flex:none;border:2px solid #3a4558;border-radius:6px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:15px}
+.pp-j.on{border:2px solid #4ade80;background:#10241a}.pp-j.on i{background:#4ade80;border-color:#4ade80;color:#0b0f19}
+.pp-total{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#0e1422;color:#cbd2dc}
+.pp-total b{font-size:var(--fs-fig);color:#4ade80;font-variant-numeric:tabular-nums}
+.pp-nota{margin-top:10px;padding:8px 12px;border-radius:10px;background:#fbbf2418;border:1px solid #fbbf2455;color:#fbbf24;font-size:var(--fs-sec)}
+.pp-nota.bien{background:#35d07f14;border-color:#35d07f55;color:#35d07f}

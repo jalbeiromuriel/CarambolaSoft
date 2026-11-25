@@ -10,6 +10,7 @@
 //  [API] El servidor debe recibir a todos los ganadores de una partida en UN SOLO UPDATE
 //  (ver TR_PARTICIPANTES_ActualizarRivalidades en el delta del Marcador).
 // ============================================================
+import { perdedoresDe } from '../cuenta/pierdePaga.js';
 import { put, get, getAll, porIndice, nuevoGuid, leerMeta, escribirMeta, borrarLocal } from '../db/repository.js';
 import { ganadores, recordDeMarcas, retoDelParche } from './logica.js';
 import { tiemposMesa, msJugados } from '../cuenta/tiempo.js';
@@ -71,6 +72,16 @@ export async function guardarAlineacion(mesaId, lista) {
   await escribirMeta(ALINEACIONES, todas);
 }
 export const olvidarAlineacion = (mesaId) => guardarAlineacion(mesaId, null);
+
+// Perdedores que dejó el Contador al finalizar (la barra los ve marcados al terminar el chico).
+const PERDEDORES = 'marcador.perdedores';
+export async function leerPerdedores(mesaId) { return ((await leerMeta(PERDEDORES)) ?? {})[mesaId] ?? []; }
+export async function guardarPerdedores(mesaId, lista) {
+  if (!mesaId) return;
+  const todos = (await leerMeta(PERDEDORES)) ?? {};
+  if (lista && lista.length) todos[mesaId] = lista; else delete todos[mesaId];
+  await escribirMeta(PERDEDORES, todos);
+}
 
 // ---------- Reto del Parche ----------
 export async function cargarReto() {
@@ -185,6 +196,8 @@ export async function finalizarChico(sesion, participantes, modo, construirInfor
   const g = ganadores(modo, participantes.map((p) => ({ Id: p.Id, Equipo: p.Equipo, puntaje: p.puntaje })));
   const d = await construirInforme(g);
   await guardarInforme(sesion.Id, d);
+  // Pierde y Paga: la barra cierra el chico; le dejamos marcados a los que perdieron.
+  await guardarPerdedores(sesion.MesaId, perdedoresDe(g.ids, participantes.map((p) => ({ Id: p.Id, clienteId: p.jugador?.ClienteId ?? null, nombre: p.jugador ? (p.apodo || p.nombre) : p.nombre }))));
   const marcas = (await Promise.all(participantes.map((p) => porIndice('PARTICIPANTE_MARCAS_TIEMPO', 'porParticipante', p.Id)))).flat();
   await borrarLocal('PARTICIPANTE_MARCAS_TIEMPO', marcas.map((m) => m.Id));
   await borrarLocal('PARTICIPANTES', participantes.map((p) => p.Id));

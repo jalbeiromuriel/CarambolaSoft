@@ -82,7 +82,7 @@ export default function Informe({ d, onPdf, onInicio, onCobrar, textoInicio = '�
           {d.analisis?.jugadas > 0 && <button style={bt('var(--amarillo)')} onClick={() => setReplay(true)}>🎬 REPLAY</button>}
           <button style={bt('var(--magenta)')} onClick={async () => { const r = await compartirTarjeta(d); setMsg(r === 'descargada' ? 'Tarjeta descargada ✔' : ''); }}>📲 COMPARTIR</button>
           <button style={bt('var(--cian)')} onClick={onPdf}>⬇ PDF</button>
-          {onCobrar && <button style={bt('var(--verde)')} onClick={onCobrar}>💵 COBRAR LA CUENTA</button>}
+          {onCobrar && <button style={bt('var(--verde)')} onClick={onCobrar}>💵 IR A LA CUENTA</button>}
           <button style={bt('var(--verde)')} onClick={onInicio}>{textoInicio}</button>
       </>} />
       <div className="ct-repwrap ct-paper">
