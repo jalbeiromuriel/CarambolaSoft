@@ -14,6 +14,7 @@ import { perdedoresDe } from '../cuenta/pierdePaga.js';
 import { etiquetaCliente } from '../cuenta/nombres.js';
 import { put, get, getAll, porIndice, nuevoGuid, leerMeta, escribirMeta, borrarLocal } from '../db/repository.js';
 import { ganadores, recordDeMarcas, retoDelParche } from './logica.js';
+import { statsLado } from './carambolas.js';
 import { tiemposMesa, msJugados } from '../cuenta/tiempo.js';
 
 const ahora = () => new Date().toISOString();
@@ -73,6 +74,21 @@ export async function guardarAlineacion(mesaId, lista) {
   await escribirMeta(ALINEACIONES, todas);
 }
 export const olvidarAlineacion = (mesaId) => guardarAlineacion(mesaId, null);
+
+// Perdedores del chico que está en juego en el Contador (si la barra termina el chico sin «Finalizar»).
+// Empate o nadie ha anotado = [] (la barra marca a mano).
+export async function perdedoresEnJuego(mesaId) {
+  const sesion = (await porIndice('SESIONES_MESAS', 'porMesa', mesaId)).filter((x) => !x.HoraFin).sort((a, b) => (a.HoraInicio < b.HoraInicio ? 1 : -1))[0];
+  if (!sesion) return [];
+  const lista = await Promise.all((await porIndice('PARTICIPANTES', 'porSesion', sesion.Id)).map(enriquecer));
+  const modo = lista.some((p) => p.Equipo) ? 'par' : 'ind';
+  const g = ganadores(modo, lista.map((p) => ({ Id: p.Id, Equipo: p.Equipo, puntaje: statsLado({ miembros: [p] }).puntaje })));
+  return perdedoresDe(g.ids, lista.map((p) => ({ Id: p.Id, clienteId: p.jugador?.ClienteId ?? null, nombre: p.jugador ? (p.apodo || p.nombre) : p.nombre })));
+}
+/** Al cobrar el chico desde la barra: la partida abierta del Contador en esa mesa queda cerrada (el siguiente chico arranca de cero). */
+export async function cerrarPartidasMesa(mesaId) {
+  for (const x of (await porIndice('SESIONES_MESAS', 'porMesa', mesaId)).filter((y) => !y.HoraFin)) await put('SESIONES_MESAS', { ...x, HoraFin: ahora() });
+}
 
 // Perdedores que dejó el Contador al finalizar (la barra los ve marcados al terminar el chico).
 const PERDEDORES = 'marcador.perdedores';

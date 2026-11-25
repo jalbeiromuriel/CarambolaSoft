@@ -18,7 +18,7 @@ import { repartirSubtotales } from '../cuenta/dividir.js';
 import DividirCobro from '../components/DividirCobro.jsx';
 import PierdePaga from '../components/PierdePaga.jsx';
 import { jugadoresDeMesa, preseleccion } from '../cuenta/pierdePaga.js';
-import { leerAlineaciones, leerPerdedores, guardarPerdedores, listarClientes } from '../marcador/datos.js';
+import { leerAlineaciones, leerPerdedores, guardarPerdedores, listarClientes, perdedoresEnJuego, cerrarPartidasMesa } from '../marcador/datos.js';
 import PasarSaldo from '../components/PasarSaldo.jsx';
 import NombreCuenta, { partesNombre } from '../components/NombreCuenta.jsx';
 import { revisarAperturas, cuentaQueChoca } from '../cuenta/nombres.js';
@@ -229,7 +229,9 @@ export default function DetalleCuenta({ cuentaId, volver }) {
     if (!taxi) return;
     // Billar · Pierde y Paga (2026-11-24): al terminar el chico la barra marca quién perdió y se le cobra todo el chico.
     if (esBillar && estaCorriendo(taxi) && cuenta.MesaId) {
-      const [alineaciones, clientes, perdedores, mesa] = await Promise.all([leerAlineaciones(), listarClientes(), leerPerdedores(cuenta.MesaId), get('MESAS_BILLAR', cuenta.MesaId)]);
+      const [alineaciones, clientes, finalizados, enJuego, mesa] = await Promise.all([leerAlineaciones(), listarClientes(), leerPerdedores(cuenta.MesaId), perdedoresEnJuego(cuenta.MesaId), get('MESAS_BILLAR', cuenta.MesaId)]);
+      // Quién paga: lo que dejó el Contador al «Finalizar»; si no lo finalizaron, el marcador que va en juego.
+      const perdedores = finalizados.length ? finalizados : enJuego;
       const jugadores = jugadoresDeMesa(alineaciones[cuenta.MesaId] ?? [], clientes);
       setPierde({ mesa: mesa ? `Mesa ${mesa.Numero}` : 'Mesa', jugadores, marcados: preseleccion(jugadores, perdedores) });
       return;
@@ -350,6 +352,7 @@ export default function DetalleCuenta({ cuentaId, volver }) {
         GrupoMesaId: null, HoraCierre: null, TarifaPorHora: pp.tarifa, MsAcumulados: 0, InicioChico: null, Estado: 'ABIERTA',
       });
       await guardarPerdedores(cuenta.MesaId, null);
+      await cerrarPartidasMesa(cuenta.MesaId);   // el marcador del chico cobrado no pasa al siguiente
       setCobro(null); setDividir(false);
       setActivaId(nueva.Id); decir('Cobrado ✓ · listo el siguiente chico: dale ▶ Iniciar'); await cargar();
       return;
